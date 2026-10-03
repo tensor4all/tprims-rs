@@ -1,0 +1,5 @@
+case,variant,threads,median_ns,samples
+large_b512_m128_n128_k128_f64,plan_plan,1,10101,5
+large_b512_m128_n128_k128_f64,plan_exec,1,82221227,5
+large_b512_m128_n128_k128_f64,packed_plan,1,7800,5
+large_b512_m128_n128_k128_f64,packed_exec,1,79786621,5

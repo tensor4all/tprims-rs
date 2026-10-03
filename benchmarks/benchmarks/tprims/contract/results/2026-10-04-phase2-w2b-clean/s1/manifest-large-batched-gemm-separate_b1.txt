@@ -1,0 +1,1 @@
+bin=/tmp/claude-2000/-home-shinaoka-tensor4all/662178ee-cfce-467b-b6ba-c7a683ca4e5b/scratchpad/contract-w2c cpus=0,1,2,3,4,5,6,7 mode=separate_b1 corpus=large-batched-gemm sha=475f1f8be4c503b0 commit=36bad52 2026-10-03T21:17:23Z
