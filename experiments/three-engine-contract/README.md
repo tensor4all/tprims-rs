@@ -33,6 +33,9 @@ run the same steps on the same data.
 | `tf_exec` | prepared `ConcreteEinsumPlan::execute_into`, one backend session around the loop |
 | `tf_call` | ordinary `einsum` per step, one backend session around the loop |
 | `tf_call_spc` | ordinary `einsum`, a new backend session per step |
+| `tf_call_subs` | ordinary `einsum_subscripts` with integer labels built outside timing (no string parsing) |
+| `tf_prep_exec` | `ConcreteEinsumPlan::prepare_subscripts` + allocating `execute` per step (planning + allocation) |
+| `tf_plan_exec` | prebuilt plan, allocating `execute` per step (allocation only) |
 | `tf_eager` | `EagerRuntime` session einsum on constants, one eager session per program |
 | `tf_eager_scoped` | `tf_eager` inside one `CpuBackend::with_execution_scope` |
 | `tf_traced` | one traced einsum per step; trace, compile and `prepare_compiled` untimed; `run_prepared` timed inside one execution scope |

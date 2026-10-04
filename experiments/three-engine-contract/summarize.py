@@ -10,7 +10,7 @@ for f in sorted(glob.glob("results/session*.csv")):
         t[(r[0], r[4])].append(float(r[5]))
         if r[0] not in order:
             order.append(r[0])
-arms = ["tc_exec","tc_call","tp_exec","tp_packed_exec","tp_call","tf_exec","tf_call","tf_call_spc","tf_eager","tf_eager_scoped","tf_traced","tf_traced_nary"]
+arms = ["tc_exec","tc_call","tp_exec","tp_packed_exec","tp_call","tf_exec","tf_call","tf_call_spc","tf_call_subs","tf_prep_exec","tf_plan_exec","tf_eager","tf_eager_scoped","tf_traced","tf_traced_nary"]
 print("| case | tc_exec µs | " + " | ".join(a for a in arms[1:]) + " |")
 print("|" + "---|" * len(arms) + "---|")
 for c in order:

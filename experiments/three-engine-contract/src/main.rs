@@ -583,6 +583,12 @@ enum TfMode {
     Exec,
     Call,
     CallSessionPerStep,
+    /// Ordinary `einsum_subscripts` (integer labels built outside timing): no string parsing.
+    CallSubscripts,
+    /// `ConcreteEinsumPlan::prepare_subscripts` + `execute` per step: planning + allocation.
+    PrepareExecute,
+    /// Prebuilt plan, `execute` (allocating) per step: allocation only.
+    PlanExecute,
 }
 
 /// tenferro concrete einsum. The timed closure receives the session from the
@@ -603,6 +609,14 @@ where
     let ins = tf_inputs(p, inputs);
     let n_in = p.inputs.len();
     let eqs: Vec<String> = p.steps.iter().map(|s| s.eq()).collect();
+    let subs: Vec<tenferro_einsum::EinsumSubscripts> = p
+        .steps
+        .iter()
+        .map(|s| {
+            let u = |v: &[char]| v.iter().map(|&c| c as u32).collect::<Vec<u32>>();
+            tenferro_einsum::EinsumSubscripts::new(&[&u(&s.a), &u(&s.b)], &u(&s.d))
+        })
+        .collect();
     // Prepared plans and preallocated outputs for Exec.
     let mut outs: Vec<Tensor> = p.shapes[n_in..]
         .iter()
@@ -682,6 +696,40 @@ where
                 })
                 .expect("session");
             (times, last)
+        }
+        TfMode::CallSubscripts | TfMode::PrepareExecute | TfMode::PlanExecute => {
+            let once = |session: &mut dyn tenferro_tensor::BackendSession| -> Tensor {
+                let mut slots: Vec<Tensor> = Vec::with_capacity(p.steps.len());
+                for (k, s) in p.steps.iter().enumerate() {
+                    let r = {
+                        let get = |i: usize| -> &Tensor {
+                            if i < n_in {
+                                &ins[i]
+                            } else {
+                                &slots[i - n_in]
+                            }
+                        };
+                        let pair = [get(s.lhs), get(s.rhs)];
+                        match mode {
+                            TfMode::CallSubscripts => pair.einsum_subscripts(&subs[k], session),
+                            TfMode::PrepareExecute => ConcreteEinsumPlan::prepare_subscripts(pair, &subs[k])
+                                .and_then(|pl| pl.execute(pair, session)),
+                            _ => plans[k].execute(pair, session),
+                        }
+                        .expect("tf step")
+                    };
+                    slots.push(r);
+                }
+                slots.pop().unwrap()
+            };
+            backend
+                .with_backend_session(|session| {
+                    let t = time_it(target, samples, || {
+                        black_box(once(session));
+                    });
+                    (t, once(session).as_slice::<T>().expect("slice").to_vec())
+                })
+                .expect("session")
         }
         TfMode::CallSessionPerStep => {
             let run = |backend: &mut tenferro_cpu::CpuBackend| -> Tensor {
@@ -827,7 +875,7 @@ fn median(mut v: Vec<f64>) -> f64 {
     }
 }
 
-const ARMS: [&str; 12] = [
+const ARMS: [&str; 15] = [
     "tc_exec",
     "tc_call",
     "tp_exec",
@@ -836,6 +884,9 @@ const ARMS: [&str; 12] = [
     "tf_exec",
     "tf_call",
     "tf_call_spc",
+    "tf_call_subs",
+    "tf_prep_exec",
+    "tf_plan_exec",
     "tf_eager",
     "tf_eager_scoped",
     "tf_traced",
@@ -879,6 +930,9 @@ where
             "tf_exec" => tf_run(p, TfMode::Exec, &inputs, target, samples),
             "tf_call" => tf_run(p, TfMode::Call, &inputs, target, samples),
             "tf_call_spc" => tf_run(p, TfMode::CallSessionPerStep, &inputs, target, samples),
+            "tf_call_subs" => tf_run(p, TfMode::CallSubscripts, &inputs, target, samples),
+            "tf_prep_exec" => tf_run(p, TfMode::PrepareExecute, &inputs, target, samples),
+            "tf_plan_exec" => tf_run(p, TfMode::PlanExecute, &inputs, target, samples),
             "tf_eager" => tf_eager(p, &inputs, target, samples),
             "tf_eager_scoped" => tf_eager_scoped(p, &inputs, target, samples),
             "tf_traced" => tf_traced(p, TraceMode::Steps, &inputs, target, samples),
