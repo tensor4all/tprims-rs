@@ -1,0 +1,65 @@
+# three-engine-contract
+
+tprims vs tensorprimitives-rs (`tensorcontract`) vs tenferro on the per-shape
+corpus of tensor4all/tprims-rs#61, at one thread. The corpus is our own
+reconstruction of the cases in Lukas Devos's tensorcontract-rs vs tenferro-rs
+figure (that data is unpublished); definitions are in `corpus()` in
+`src/main.rs`.
+
+A standalone crate: tenferro-rs pins strided-rs v0.4.4 and tprims v0.4.5, so
+the two must not be unified with the root workspace.
+
+## Cases
+
+Column-major throughout. Each case is a program of pairwise steps; all engines
+run the same steps on the same data.
+
+- `ikb,knb->inb` f64, i=k=n in {2,4,8,16}, batch in {16,64,256}.
+- `ijk,jkl->il` f64, 8x16x8x8.
+- `ij,jk->ik` c64 n=32 and f64 n=64.
+- `ij,jk,kl->il` f64 n=64, order `((ij,jk),kl)`.
+- MPS chain, c64, L=32, physical dim 2, uniform chi in {4,...,64}: bilinear
+  `<phi|psi>` (no conjugation) from a random chi x chi left environment, two
+  steps per site (`ab,asc->bsc`, `bsc,bsd->cd`), 64 pairwise contractions.
+
+## Arms
+
+| arm | timed boundary |
+| --- | --- |
+| `tc_exec` | prebuilt `tensorcontract::Plan::run`, preallocated outputs |
+| `tc_call` | `tensorcontract::contract` (plans) + fresh outputs |
+| `tp_exec` / `tp_packed_exec` | prebuilt `tprims_contract::Plan::execute_into`, `Exec::serial()`; planner default / packed forced |
+| `tp_call` | `Problem` + `Plan::new` + fresh outputs per step |
+| `tf_exec` | prepared `ConcreteEinsumPlan::execute_into`, one backend session around the loop |
+| `tf_call` | ordinary `einsum` per step, one backend session around the loop |
+| `tf_call_spc` | ordinary `einsum`, a new backend session per step |
+| `tf_eager` | `EagerRuntime` session einsum on constants, one eager session per program |
+| `tf_eager_scoped` | `tf_eager` inside one `CpuBackend::with_execution_scope` |
+| `tf_traced` | one traced einsum per step; trace, compile and `prepare_compiled` untimed; `run_prepared` timed inside one execution scope |
+| `tf_traced_nary` | the whole program as one N-ary traced einsum with `EinsumOptimize::Path` equal to the step order (integer labels) |
+
+tenferro uses `CpuBackend::with_threads(1)` built once per arm, never in the
+timed region. Every arm is checked against a naive label-loop reference
+(relative max error < 1e-10) before timing. Timing: a calibrated repeat count
+of about 20 ms per sample, one warm-up sample, 11 samples, per-call median.
+
+## Run
+
+```bash
+cargo build --release
+for s in 1 2 3; do ./target/release/three-engine-contract > results/session$s.csv; done
+python3 summarize.py
+```
+
+Options: `--case <substring>`, `--arms a,b`, `--sample-ms`, `--samples`,
+`--seed`, `--list`. macOS has no `taskset`; threads are pinned to one by API
+(`Plan::threads()==1` asserted for tensorcontract, `Exec::serial()` for tprims,
+`num_threads()==1` asserted for tenferro), not by CPU affinity.
+
+## Recorded run
+
+`results/` holds three sessions on Apple M5 Max, macOS 26.5.1,
+rustc 1.96.0, release profile opt 3 + thin LTO + codegen-units 1, default
+target CPU. tenferro rev 8402ad24, tensorprimitives-rs rev 8cda75e, tprims at
+this branch, strided-rs c12d96fa (tprims) and v0.4.4 (tenferro). Summary:
+`results/summary.md`.
