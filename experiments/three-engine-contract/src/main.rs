@@ -931,6 +931,23 @@ fn main() {
     let target = Duration::from_millis(get("--sample-ms").map(|s| s.parse().unwrap()).unwrap_or(20));
     let samples: usize = get("--samples").map(|s| s.parse().unwrap()).unwrap_or(11);
     let seed: u64 = get("--seed").map(|s| s.parse().unwrap()).unwrap_or(61);
+    if args.iter().any(|a| a == "--report") {
+        // Which strategy the tprims planner picks for each distinct step.
+        for p in corpus() {
+            let mut seen = std::collections::BTreeMap::new();
+            for k in 0..p.steps.len() {
+                let r = match p.dtype {
+                    "f64" => tp_report::<f64>(&p, k),
+                    _ => tp_report::<Complex64>(&p, k),
+                };
+                seen.entry(p.steps[k].eq()).or_insert(r);
+            }
+            for (eq, r) in seen {
+                println!("{} {} {}", p.name, eq, r);
+            }
+        }
+        return;
+    }
     if args.iter().any(|a| a == "--list") {
         for p in corpus() {
             println!("{} {} steps={} macs={}", p.name, p.dtype, p.steps.len(), p.macs);
@@ -1101,4 +1118,19 @@ where
     backend
         .with_execution_scope(|| tf_eager_with(p, inputs, target, samples, b2))
         .expect("scope")
+}
+
+fn tp_report<T: Elem>(p: &Program, k: usize) -> String
+where
+    <T as tensorcontract::Element>::Real: tensorcontract::KernelSet,
+{
+    let plan = tprims_contract::Plan::<T>::new(&tp_problem::<T>(p, k), &tprims_contract::PlanConfig::default())
+        .expect("tp plan");
+    let r = plan.report();
+    format!(
+        "algorithm={} beta_zero={:?} family={:?}",
+        r.algorithm.name(),
+        r.beta_zero.map(|a| a.name()),
+        r.packed.as_ref().map(|x| x.family_id)
+    )
 }

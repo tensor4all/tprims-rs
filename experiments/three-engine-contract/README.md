@@ -52,7 +52,7 @@ python3 summarize.py
 ```
 
 Options: `--case <substring>`, `--arms a,b`, `--sample-ms`, `--samples`,
-`--seed`, `--list`. macOS has no `taskset`; threads are pinned to one by API
+`--seed`, `--list`, `--report` (the tprims planner strategy per step). macOS has no `taskset`; threads are pinned to one by API
 (`Plan::threads()==1` asserted for tensorcontract, `Exec::serial()` for tprims,
 `num_threads()==1` asserted for tenferro), not by CPU affinity.
 
