@@ -87,6 +87,17 @@ version = "0.1.0"
 source = "git+https://github.com/tensor4all/computegraph-rs.git?rev=691def2d82fd4367b397d61209449f68e82050b7#691def2d82fd4367b397d61209449f68e82050b7"
 
 [[package]]
+name = "cpueinsum"
+version = "0.1.0"
+dependencies = [
+ "num-complex",
+ "strided-view 0.4.5",
+ "thiserror 1.0.69",
+ "tprims-contract",
+ "tprims-exec",
+]
+
+[[package]]
 name = "crossbeam"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1423,6 +1434,7 @@ dependencies = [
 name = "three-engine-contract"
 version = "0.0.0"
 dependencies = [
+ "cpueinsum",
  "num-complex",
  "rand 0.8.8",
  "rand_chacha 0.3.1",

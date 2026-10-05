@@ -40,6 +40,7 @@ use rand_chacha::ChaCha8Rng;
 trait Elem:
     tensorcontract::Element
     + tprims_contract::api::Scalar
+    + cpueinsum::Scalar
     + tenferro_tensor::TensorScalar
     + Copy
     + Default
@@ -561,6 +562,76 @@ where
     })
 }
 
+/// The program as a cpueinsum spec: global labels and the SSA step order.
+fn ce_spec(p: &Program) -> cpueinsum::EinsumSpec {
+    let (inputs, output) = global_labels(p);
+    let i64s = |v: &[u32]| -> Vec<i64> { v.iter().map(|&x| x as i64).collect() };
+    let inputs: Vec<Vec<i64>> = inputs.iter().map(|v| i64s(v)).collect();
+    let refs: Vec<&[i64]> = inputs.iter().map(|v| v.as_slice()).collect();
+    let path: Vec<[usize; 2]> = p.steps.iter().map(|s| [s.lhs, s.rhs]).collect();
+    cpueinsum::EinsumSpec::new(&refs, &i64s(&output), &path).expect("ce spec")
+}
+
+/// cpueinsum with a prebuilt `EinsumPlan` and a kept `Scratch`; the input and
+/// output views are built per call (once per program, not per step).
+fn ce_exec<'a, T: Elem>(p: &'a Program, inputs: &'a [Vec<T>]) -> Runner<'a, T>
+where
+    <T as tensorcontract::Element>::Real: tensorcontract::KernelSet,
+{
+    use cpueinsum::{EinsumPlan, Layout, Scratch};
+    let n_in = p.inputs.len();
+    let spec = ce_spec(p);
+    let strides: Vec<Vec<isize>> = p.shapes.iter().map(|d| col_major_strides(d)).collect();
+    let out_shape = p.shapes.last().unwrap();
+    let plan = {
+        let layouts: Vec<Layout<'_>> = (0..n_in)
+            .map(|i| Layout::new(&p.shapes[i], &strides[i]).expect("layout"))
+            .collect();
+        let out = Layout::new(out_shape, strides.last().unwrap()).expect("layout");
+        EinsumPlan::<T>::new(&spec, &layouts, out).expect("ce plan")
+    };
+    let mut scratch = Scratch::with_len(plan.scratch_len());
+    let mut out = vec![T::default(); numel(out_shape)];
+    let exec = tprims_exec::Exec::serial();
+    Box::new(move |want| {
+        let views: Vec<_> = (0..n_in).map(|i| tp_view(&inputs[i], &p.shapes[i], &strides[i])).collect();
+        let mut dv = strided_view::StridedViewMut::new(&mut out, out_shape, strides.last().unwrap(), 0)
+            .expect("view");
+        plan.execute_into(&exec, &views, &mut dv, &mut scratch).expect("ce exec");
+        black_box(&out);
+        want.then(|| out.clone())
+    })
+}
+
+/// cpueinsum planning per call: `einsum_into` (plan + fresh scratch) into a
+/// fresh output; the spec is built per call too.
+fn ce_call<'a, T: Elem>(p: &'a Program, inputs: &'a [Vec<T>]) -> Runner<'a, T>
+where
+    <T as tensorcontract::Element>::Real: tensorcontract::KernelSet,
+{
+    let n_in = p.inputs.len();
+    let (gin, gout) = global_labels(p);
+    let gin: Vec<Vec<i64>> = gin.iter().map(|v| v.iter().map(|&x| x as i64).collect()).collect();
+    let gout: Vec<i64> = gout.iter().map(|&x| x as i64).collect();
+    let path: Vec<[usize; 2]> = p.steps.iter().map(|s| [s.lhs, s.rhs]).collect();
+    let strides: Vec<Vec<isize>> = p.shapes.iter().map(|d| col_major_strides(d)).collect();
+    let exec = tprims_exec::Exec::serial();
+    Box::new(move |want| {
+        let refs: Vec<&[i64]> = gin.iter().map(|v| v.as_slice()).collect();
+        let spec = cpueinsum::EinsumSpec::new(&refs, &gout, &path).expect("ce spec");
+        let views: Vec<_> = (0..n_in).map(|i| tp_view(&inputs[i], &p.shapes[i], &strides[i])).collect();
+        let out_shape = p.shapes.last().unwrap();
+        let mut out = vec![T::default(); numel(out_shape)];
+        {
+            let mut dv =
+                strided_view::StridedViewMut::new(&mut out, out_shape, strides.last().unwrap(), 0).expect("view");
+            cpueinsum::einsum_into(&exec, &spec, &views, &mut dv).expect("ce call");
+        }
+        black_box(&out);
+        want.then_some(out)
+    })
+}
+
 fn tf_backend() -> tenferro_cpu::CpuBackend {
     let b = tenferro_cpu::CpuBackend::with_threads(1).expect("backend");
     assert_eq!(b.num_threads(), 1, "tenferro threads != 1");
@@ -875,12 +946,14 @@ fn median(mut v: Vec<f64>) -> f64 {
     }
 }
 
-const ARMS: [&str; 15] = [
+const ARMS: [&str; 17] = [
     "tc_exec",
     "tc_call",
     "tp_exec",
     "tp_packed_exec",
     "tp_call",
+    "ce_exec",
+    "ce_call",
     "tf_exec",
     "tf_call",
     "tf_call_spc",
@@ -927,6 +1000,8 @@ where
             "tp_exec" => time_runner(tp_exec(p, &inputs, false), target, samples),
             "tp_packed_exec" => time_runner(tp_exec(p, &inputs, true), target, samples),
             "tp_call" => time_runner(tp_call(p, &inputs), target, samples),
+            "ce_exec" => time_runner(ce_exec(p, &inputs), target, samples),
+            "ce_call" => time_runner(ce_call(p, &inputs), target, samples),
             "tf_exec" => tf_run(p, TfMode::Exec, &inputs, target, samples),
             "tf_call" => tf_run(p, TfMode::Call, &inputs, target, samples),
             "tf_call_spc" => tf_run(p, TfMode::CallSessionPerStep, &inputs, target, samples),
@@ -1032,6 +1107,27 @@ fn dims_i64(d: &[usize]) -> Vec<i64> {
 /// (shared indices unified across steps) and the JAX-style positional path that
 /// reproduces the pairwise step order exactly.
 fn nary_of(p: &Program) -> (tenferro_einsum::EinsumSubscripts, Vec<(usize, usize)>) {
+    let (inputs, output) = global_labels(p);
+    let refs: Vec<&[u32]> = inputs.iter().map(|v| v.as_slice()).collect();
+    let subs = tenferro_einsum::EinsumSubscripts::new(&refs, &output);
+
+    let mut list: Vec<usize> = (0..p.inputs.len()).collect();
+    let mut path = Vec::new();
+    for (k, st) in p.steps.iter().enumerate() {
+        let i = list.iter().position(|&s| s == st.lhs).unwrap();
+        let j = list.iter().position(|&s| s == st.rhs).unwrap();
+        path.push((i, j));
+        let (hi, lo) = (i.max(j), i.min(j));
+        list.remove(hi);
+        list.remove(lo);
+        list.push(p.inputs.len() + k);
+    }
+    (subs, path)
+}
+
+/// Globally unique integer labels for the inputs and the final output, shared
+/// indices unified across steps.
+fn global_labels(p: &Program) -> (Vec<Vec<u32>>, Vec<u32>) {
     // Union-find over axis ids; inputs get fresh ids, step outputs inherit.
     let mut parent: Vec<usize> = Vec::new();
     fn find(parent: &mut Vec<usize>, x: usize) -> usize {
@@ -1076,21 +1172,7 @@ fn nary_of(p: &Program) -> (tenferro_einsum::EinsumSubscripts, Vec<(usize, usize
     let mut resolve = |v: &[usize]| -> Vec<u32> { v.iter().map(|&x| find(&mut parent, x) as u32).collect() };
     let inputs: Vec<Vec<u32>> = (0..p.inputs.len()).map(|i| resolve(&ids[i])).collect();
     let output = resolve(ids.last().unwrap());
-    let refs: Vec<&[u32]> = inputs.iter().map(|v| v.as_slice()).collect();
-    let subs = tenferro_einsum::EinsumSubscripts::new(&refs, &output);
-
-    let mut list: Vec<usize> = (0..p.inputs.len()).collect();
-    let mut path = Vec::new();
-    for (k, st) in p.steps.iter().enumerate() {
-        let i = list.iter().position(|&s| s == st.lhs).unwrap();
-        let j = list.iter().position(|&s| s == st.rhs).unwrap();
-        path.push((i, j));
-        let (hi, lo) = (i.max(j), i.min(j));
-        list.remove(hi);
-        list.remove(lo);
-        list.push(p.inputs.len() + k);
-    }
-    (subs, path)
+    (inputs, output)
 }
 
 #[derive(Clone, Copy, PartialEq)]

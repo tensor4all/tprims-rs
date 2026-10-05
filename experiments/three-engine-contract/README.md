@@ -30,6 +30,8 @@ run the same steps on the same data.
 | `tc_call` | `tensorcontract::contract` (plans) + fresh outputs |
 | `tp_exec` / `tp_packed_exec` | prebuilt `tprims_contract::Plan::execute_into`, `Exec::serial()`; planner default / packed forced |
 | `tp_call` | `Problem` + `Plan::new` + fresh outputs per step |
+| `ce_exec` | cpueinsum: prebuilt `EinsumPlan::execute_into`, kept `Scratch`, views built once per program call |
+| `ce_call` | cpueinsum: `EinsumSpec::new` + `einsum_into` + fresh output per program call |
 | `tf_exec` | prepared `ConcreteEinsumPlan::execute_into`, one backend session around the loop |
 | `tf_call` | ordinary `einsum` per step, one backend session around the loop |
 | `tf_call_spc` | ordinary `einsum`, a new backend session per step |
@@ -66,3 +68,6 @@ rustc 1.96.0, release profile opt 3 + thin LTO + codegen-units 1, default
 target CPU. tenferro rev 8402ad24, tensorprimitives-rs rev 8cda75e, tprims at
 this branch, strided-rs c12d96fa (tprims) and v0.4.4 (tenferro). Summary:
 `results/summary.md`.
+
+The cpueinsum arms need a checkout of tensor4all/cpueinsum-rs next to this
+repository (`../../../cpueinsum-rs`); their results are in `results/cpueinsum/`.
