@@ -29,6 +29,30 @@ impl Algorithm {
     }
 }
 
+/// Why the planner chose a plan's [`Algorithm`]: the rule of
+/// [`Plan`](super::Plan) that applied.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum Reason {
+    /// Rule 1: the configuration or a selector requires the packed driver.
+    Forced,
+    /// Rule 2: an all-batch problem.
+    AllBatch,
+    /// Rule 3: a copy-free fusion to one strided batched GEMM within the
+    /// dtype's [`FaerLimit`](super::FaerLimit).
+    Fused,
+    /// A copy-free fusion whose GEMM volume exceeds the dtype's
+    /// [`FaerLimit`](super::FaerLimit), so the packed driver runs.
+    AboveFaerLimit {
+        /// The fused `m * n * k` per batch item.
+        volume: u64,
+        /// The bound it exceeds.
+        limit: u64,
+    },
+    /// Rule 4: no copy-free fusion exists.
+    NotFusable,
+}
+
 /// What the packed strategy resolved to: the family, its geometry and the grid.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
@@ -82,6 +106,8 @@ pub struct PackedReport {
 pub struct PlanReport {
     /// Which implementation runs.
     pub algorithm: Algorithm,
+    /// Which selection rule chose it.
+    pub reason: Reason,
     /// The route executions with `beta == 0` take when it differs from
     /// [`algorithm`](Self::algorithm): a separately described C whose output
     /// pass makes faer lose at `beta != 0` plans on the packed driver and

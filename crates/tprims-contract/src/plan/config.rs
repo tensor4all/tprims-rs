@@ -16,7 +16,73 @@ use tprims_kernel::{
 };
 
 use super::orientation::{Orient, RowBlock};
-use crate::api::{ConfigError, Error, Result};
+use crate::api::{ConfigError, DType, Error, Result};
+
+/// Per-dtype upper bound on the GEMM volume `m * n * k` (per batch item) of a
+/// fused problem that the planner sends to faer (rule 3 of
+/// [`Plan`](super::Plan)). Above it the packed driver runs instead. `None`
+/// means no bound.
+///
+/// The default bounds only `c64`, at `2^17`: on the #61 corpus (Apple M5 Max,
+/// 1 thread) faer wins the MPS steps up to chi = 16 (`2 chi^3 = 8192`), ties
+/// at chi = 32 (`65536`) and loses by 1.17x at chi = 64 (`524288`). The value
+/// is provisional until the crossover sweep of
+/// [#63](https://github.com/tensor4all/tprims-rs/issues/63) fixes the
+/// predicate and the per-dtype values; the other dtypes are unbounded until
+/// measured.
+///
+/// # Examples
+///
+/// ```
+/// use tprims_contract::api::DType;
+/// use tprims_contract::FaerLimit;
+///
+/// let l = FaerLimit::default();
+/// assert_eq!(l.get(DType::C64), Some(1 << 17));
+/// assert_eq!(l.get(DType::F64), None);
+/// assert_eq!(FaerLimit::NONE.get(DType::C64), None);
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FaerLimit {
+    /// Bound for `f32`.
+    pub f32: Option<u64>,
+    /// Bound for `f64`.
+    pub f64: Option<u64>,
+    /// Bound for `c32`.
+    pub c32: Option<u64>,
+    /// Bound for `c64`.
+    pub c64: Option<u64>,
+}
+
+impl FaerLimit {
+    /// No bound for any dtype: every fusable problem goes to faer (the rule
+    /// before #63).
+    pub const NONE: Self = Self {
+        f32: None,
+        f64: None,
+        c32: None,
+        c64: None,
+    };
+
+    /// The bound for `dtype`.
+    pub fn get(&self, dtype: DType) -> Option<u64> {
+        match dtype {
+            DType::F32 => self.f32,
+            DType::F64 => self.f64,
+            DType::C32 => self.c32,
+            DType::C64 => self.c64,
+        }
+    }
+}
+
+impl Default for FaerLimit {
+    fn default() -> Self {
+        Self {
+            c64: Some(1 << 17),
+            ..Self::NONE
+        }
+    }
+}
 
 /// How the packed driver cuts the output into worker cells. Every partition is
 /// bitwise identical to the serial run for a fixed blocking.
@@ -126,6 +192,9 @@ pub struct PlanConfig {
     pub cache_model: CacheModel,
     /// Write-back mode.
     pub writeback: Writeback,
+    /// Largest fused GEMM the planner sends to faer, per dtype. Does not
+    /// force the packed driver by itself.
+    pub faer_limit: FaerLimit,
 }
 
 impl PlanConfig {

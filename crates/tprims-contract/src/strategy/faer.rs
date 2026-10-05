@@ -179,6 +179,13 @@ pub(crate) fn plan(p: &Problem) -> Option<Planned> {
 }
 
 impl FaerPlan {
+    /// The GEMM volume `m * n * k` of one batch item, saturating.
+    pub(crate) fn volume(&self) -> u64 {
+        [self.m.extent, self.n.extent, self.k.extent]
+            .iter()
+            .fold(1u64, |v, &e| v.saturating_mul(e as u64))
+    }
+
     fn flops<T: Scalar>(&self, items: usize) -> f64 {
         2.0 * self.m.extent as f64
             * self.n.extent as f64
