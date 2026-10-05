@@ -141,6 +141,16 @@ impl<T: Scalar> Plan<T> {
     /// [`ShapeError::Overflow`](crate::api::ShapeError) for a role whose scatter
     /// vector cannot be addressed.
     pub fn new(problem: &Problem, config: &PlanConfig) -> Result<Self> {
+        Self::build(problem.clone(), config, None)
+    }
+
+    /// [`Plan::new`] taking the problem by value: the plan keeps it instead of
+    /// a copy, which saves the copy's allocations on a per-call path.
+    ///
+    /// # Errors
+    ///
+    /// As [`Plan::new`].
+    pub fn from_problem(problem: Problem, config: &PlanConfig) -> Result<Self> {
         Self::build(problem, config, None)
     }
 
@@ -174,14 +184,15 @@ impl<T: Scalar> Plan<T> {
             }
             .into());
         }
-        Self::build(problem, config, Some((catalog, selector)))
+        Self::build(problem.clone(), config, Some((catalog, selector)))
     }
 
     fn build(
-        problem: &Problem,
+        owned: Problem,
         config: &PlanConfig,
         selection: Option<(&KernelCatalog<T>, &mut Chooser<'_, T>)>,
     ) -> Result<Self> {
+        let problem = &owned;
         if problem.dtype() != T::STORAGE {
             return Err(ConfigError::DtypeMismatch {
                 plan: T::STORAGE.name(),
@@ -240,7 +251,7 @@ impl<T: Scalar> Plan<T> {
                 packed: packed_report,
             },
             diagnostics: Diagnostics::new("tprims-contract", algorithm.name()),
-            problem: problem.clone(),
+            problem: owned,
             strategy,
             faer_b0,
             workspace: ArenaProvider::new(),

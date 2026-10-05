@@ -123,14 +123,31 @@ fn injective(modes: &[Mode]) -> bool {
     if modes.iter().any(|m| m.extent == 0) {
         return true;
     }
-    let mut axes: Vec<(i128, i128)> = modes
+    let axes = modes
         .iter()
         .filter(|m| m.extent > 1)
-        .map(|m| (m.extent as i128, (m.stride as i128).abs()))
-        .collect();
+        .map(|m| (m.extent as i128, (m.stride as i128).abs()));
+    // A stack buffer for the usual ranks: planning allocates nothing here.
+    const INLINE: usize = 16;
+    if modes.len() <= INLINE {
+        let mut buf = [(0i128, 0i128); INLINE];
+        let mut n = 0;
+        for a in axes {
+            buf[n] = a;
+            n += 1;
+        }
+        chained(&mut buf[..n])
+    } else {
+        chained(&mut axes.collect::<Vec<_>>())
+    }
+}
+
+/// Whether `(extent, |stride|)` axes, sorted by stride, each start at or past
+/// the reach of the ones below them.
+fn chained(axes: &mut [(i128, i128)]) -> bool {
     axes.sort_by_key(|a| a.1);
     let mut reach = 1i128;
-    for (e, s) in axes {
+    for &(e, s) in &*axes {
         if s < reach {
             return false;
         }
@@ -219,17 +236,21 @@ pub(crate) fn lower(
     let ra = reduce(OperandId::A, a.layout(), labels.a())?;
     let rb = reduce(OperandId::B, b.layout(), labels.b())?;
     let rd = reduce(OperandId::D, d.layout(), labels.d())?;
+    let rc_own;
     let (rc, c_layout) = match (c, labels.c()) {
-        (CSpec::Separate(spec), Some(lc)) => (reduce(OperandId::C, spec.layout(), lc)?, None),
+        (CSpec::Separate(spec), Some(lc)) => {
+            rc_own = reduce(OperandId::C, spec.layout(), lc)?;
+            (&rc_own[..], None)
+        }
         // No separate C: mirror D so the C strides are well formed; they are
         // never read at beta zero and equal D's otherwise.
-        _ => (rd.clone(), Some(d.layout())),
+        _ => (&rd[..], Some(d.layout())),
     };
 
-    let mut table: Vec<Label> = Vec::new();
+    let mut table: Vec<Label> = Vec::with_capacity(ra.len() + rb.len() + rd.len());
     merge(&mut table, &ra, OperandId::A)?;
     merge(&mut table, &rb, OperandId::B)?;
-    merge(&mut table, &rc, OperandId::C)?;
+    merge(&mut table, rc, OperandId::C)?;
     merge(&mut table, &rd, OperandId::D)?;
 
     // C and D must describe the same label set.
