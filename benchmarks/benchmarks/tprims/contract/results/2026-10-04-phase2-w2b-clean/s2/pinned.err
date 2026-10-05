@@ -1,2 +1,726 @@
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 2)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 3)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
 pinned.sh: cpus 0 busy before run (attempt 1); waiting
-Terminated
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_043_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 2)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 3); discarding it
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_044_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 2)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 3)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 3); discarding it
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_046_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 3)
+pinned.sh: cpus 0 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0 busy after run (attempt 2); discarding it
+pinned.sh: cpus 0 idle before and after (attempt 3)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 3); discarding it
+pinned.sh: no valid run on cpus 0,1,2,3
+drive.sh: gemm_batched_047_f64 4T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_047_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 2)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 2); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 3); discarding it
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_048_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 3)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 3)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3
+drive.sh: large_b512_m128_n128_k128_f64 4T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3
+drive.sh: large_b64_m256_n1024_k64_f64 4T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 3)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 3)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 2)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0 busy before run (attempt 2); waiting
+pinned.sh: cpus 0 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0
+drive.sh: gemm_batched_004_f64 1T no valid run (attempt 1)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 busy before run (attempt 2); waiting
+pinned.sh: cpus 0 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0
+drive.sh: gemm_batched_004_f64 1T no valid run (attempt 2)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_004_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 2); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_004_f64 8T no valid run (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 3); discarding it
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_004_f64 8T no valid run (attempt 3)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 3)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 3)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 3)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_006_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 2)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 2)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3
+drive.sh: gemm_batched_009_c64 4T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 3)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 2)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_010_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 3)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 3)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_011_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_012_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 3)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_014_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_016_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 2); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_016_f64 8T no valid run (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_016_f64 8T no valid run (attempt 3)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_016_f64 8T no valid run (attempt 4)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 2); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 3)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 2); discarding it
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 3)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0 busy before run (attempt 2); waiting
+pinned.sh: cpus 0 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0
+drive.sh: gemm_batched_019_f64 1T no valid run (attempt 1)
+pinned.sh: cpus 0 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 3)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 2); discarding it
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3
+drive.sh: gemm_batched_020_f64 4T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 2)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 2)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3
+drive.sh: gemm_batched_022_f64 4T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0 busy before run (attempt 2); waiting
+pinned.sh: cpus 0 idle before and after (attempt 3)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 3)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 2)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 2)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3
+drive.sh: gemm_batched_026_f64 4T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 2); discarding it
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3
+drive.sh: gemm_batched_026_f64 4T no valid run (attempt 2)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 2)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 3)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3
+drive.sh: gemm_batched_029_f64 4T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_029_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 3); discarding it
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_031_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3
+drive.sh: gemm_batched_032_f64 4T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 2); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_032_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_032_f64 8T no valid run (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 busy before run (attempt 2); waiting
+pinned.sh: cpus 0 idle before and after (attempt 3)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_034_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 3)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 2)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 3)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 3)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0 busy after run (attempt 2); discarding it
+pinned.sh: cpus 0 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0
+drive.sh: gemm_batched_038_f64 1T no valid run (attempt 1)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 busy before run (attempt 2); waiting
+pinned.sh: cpus 0 idle before and after (attempt 3)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 3)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 busy after run (attempt 2); discarding it
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3
+drive.sh: gemm_batched_039_f64 4T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 2); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 3); discarding it
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_039_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_039_f64 8T no valid run (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 2); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 3); discarding it
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_039_f64 8T no valid run (attempt 3)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 2)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy before run (attempt 2); waiting
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 3); discarding it
+pinned.sh: no valid run on cpus 0,1,2,3,4,5,6,7
+drive.sh: gemm_batched_040_f64 8T no valid run (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 2)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 busy before run (attempt 1); waiting
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 busy after run (attempt 1); discarding it
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 busy before run (attempt 1); waiting
+pinned.sh: cpus 0 idle before and after (attempt 2)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)
+pinned.sh: cpus 0 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3 idle before and after (attempt 1)
+pinned.sh: cpus 0,1,2,3,4,5,6,7 idle before and after (attempt 1)

@@ -1,0 +1,373 @@
+# threads: requested=1 pool=1 budget=1
+case,variant,threads,median_ns,samples
+gemm_batched_000_f64,plan_plan,1,680,5
+# selected gemm_batched_000_f64 plan: faer
+gemm_batched_000_f64,plan_exec,1,415870371,5
+gemm_batched_000_f64,packed_plan,1,42441,5
+# selected gemm_batched_000_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_000_f64,packed_exec,1,434189370,5
+CHECK gemm_batched_000_f64 threads=1 plan_vs_packed_rel=1.0423821477745656e-15 ok
+gemm_batched_001_f64,plan_plan,1,850,5
+# selected gemm_batched_001_f64 plan: faer
+gemm_batched_001_f64,plan_exec,1,229113504,5
+gemm_batched_001_f64,packed_plan,1,93771237,5
+# selected gemm_batched_001_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_001_f64,packed_exec,1,146115616,5
+CHECK gemm_batched_001_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_002_f64,plan_plan,1,820,5
+# selected gemm_batched_002_f64 plan: faer
+gemm_batched_002_f64,plan_exec,1,178664508,5
+gemm_batched_002_f64,packed_plan,1,392703,5
+# selected gemm_batched_002_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_002_f64,packed_exec,1,185835666,5
+CHECK gemm_batched_002_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_003_f64,plan_plan,1,720,5
+# selected gemm_batched_003_f64 plan: faer
+gemm_batched_003_f64,plan_exec,1,95268697,5
+gemm_batched_003_f64,packed_plan,1,1125798,5
+# selected gemm_batched_003_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_003_f64,packed_exec,1,113208442,5
+CHECK gemm_batched_003_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_004_f64,plan_plan,1,680,5
+# selected gemm_batched_004_f64 plan: faer
+gemm_batched_004_f64,plan_exec,1,534026798,5
+gemm_batched_004_f64,packed_plan,1,50801,5
+# selected gemm_batched_004_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_004_f64,packed_exec,1,532417334,5
+CHECK gemm_batched_004_f64 threads=1 plan_vs_packed_rel=1.015820943198281e-15 ok
+gemm_batched_005_f64,plan_plan,1,710,5
+# selected gemm_batched_005_f64 plan: faer
+gemm_batched_005_f64,plan_exec,1,558650606,5
+gemm_batched_005_f64,packed_plan,1,63232,5
+# selected gemm_batched_005_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_005_f64,packed_exec,1,549424920,5
+CHECK gemm_batched_005_f64 threads=1 plan_vs_packed_rel=1.0754934548417356e-15 ok
+gemm_batched_006_f64,plan_plan,1,760,5
+# selected gemm_batched_006_f64 plan: faer
+gemm_batched_006_f64,plan_exec,1,460247626,5
+gemm_batched_006_f64,packed_plan,1,58622,5
+# selected gemm_batched_006_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_006_f64,packed_exec,1,474428257,5
+CHECK gemm_batched_006_f64 threads=1 plan_vs_packed_rel=1.4234191197196764e-15 ok
+gemm_batched_007_f64,plan_plan,1,720,5
+# selected gemm_batched_007_f64 plan: faer
+gemm_batched_007_f64,plan_exec,1,91048016,5
+gemm_batched_007_f64,packed_plan,1,74683,5
+# selected gemm_batched_007_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_007_f64,packed_exec,1,96122844,5
+CHECK gemm_batched_007_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_008_f64,plan_plan,1,830,5
+# selected gemm_batched_008_f64 plan: faer
+gemm_batched_008_f64,plan_exec,1,83687711,5
+gemm_batched_008_f64,packed_plan,1,158605,5
+# selected gemm_batched_008_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_008_f64,packed_exec,1,195469206,5
+CHECK gemm_batched_008_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_009_c64,plan_plan,1,690,5
+# selected gemm_batched_009_c64 plan: faer
+gemm_batched_009_c64,plan_exec,1,40331740,5
+gemm_batched_009_c64,packed_plan,1,15030,5
+# selected gemm_batched_009_c64 packed: packed avx2.c64.planar.4x5
+gemm_batched_009_c64,packed_exec,1,46536596,5
+CHECK gemm_batched_009_c64 threads=1 plan_vs_packed_rel=1.979985814243413e-15 ok
+gemm_batched_010_f64,plan_plan,1,700,5
+# selected gemm_batched_010_f64 plan: faer
+gemm_batched_010_f64,plan_exec,1,61718321,5
+gemm_batched_010_f64,packed_plan,1,88913,5
+# selected gemm_batched_010_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_010_f64,packed_exec,1,63716828,5
+CHECK gemm_batched_010_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_011_f64,plan_plan,1,680,5
+# selected gemm_batched_011_f64 plan: faer
+gemm_batched_011_f64,plan_exec,1,56248649,5
+gemm_batched_011_f64,packed_plan,1,221767,5
+# selected gemm_batched_011_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_011_f64,packed_exec,1,67240255,5
+CHECK gemm_batched_011_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_012_f64,plan_plan,1,700,5
+# selected gemm_batched_012_f64 plan: faer
+gemm_batched_012_f64,plan_exec,1,26820682,5
+gemm_batched_012_f64,packed_plan,1,18601,5
+# selected gemm_batched_012_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_012_f64,packed_exec,1,36924327,5
+CHECK gemm_batched_012_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_013_f64,plan_plan,1,710,5
+# selected gemm_batched_013_f64 plan: faer
+gemm_batched_013_f64,plan_exec,1,40570318,5
+gemm_batched_013_f64,packed_plan,1,390553,5
+# selected gemm_batched_013_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_013_f64,packed_exec,1,48731869,5
+CHECK gemm_batched_013_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_014_f64,plan_plan,1,700,5
+# selected gemm_batched_014_f64 plan: faer
+gemm_batched_014_f64,plan_exec,1,42040627,5
+gemm_batched_014_f64,packed_plan,1,19181,5
+# selected gemm_batched_014_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_014_f64,packed_exec,1,44917252,5
+CHECK gemm_batched_014_f64 threads=1 plan_vs_packed_rel=1.5596162860358158e-15 ok
+gemm_batched_015_f64,plan_plan,1,690,5
+# selected gemm_batched_015_f64 plan: faer
+gemm_batched_015_f64,plan_exec,1,107713050,5
+gemm_batched_015_f64,packed_plan,1,42572,5
+# selected gemm_batched_015_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_015_f64,packed_exec,1,117916559,5
+CHECK gemm_batched_015_f64 threads=1 plan_vs_packed_rel=1.251008380213425e-15 ok
+gemm_batched_016_f64,plan_plan,1,660,5
+# selected gemm_batched_016_f64 plan: faer
+gemm_batched_016_f64,plan_exec,1,24905808,5
+gemm_batched_016_f64,packed_plan,1,311760,5
+# selected gemm_batched_016_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_016_f64,packed_exec,1,27215765,5
+CHECK gemm_batched_016_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_017_f64,plan_plan,1,690,5
+# selected gemm_batched_017_f64 plan: faer
+gemm_batched_017_f64,plan_exec,1,62895000,5
+gemm_batched_017_f64,packed_plan,1,19021,5
+# selected gemm_batched_017_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_017_f64,packed_exec,1,46933780,5
+CHECK gemm_batched_017_f64 threads=1 plan_vs_packed_rel=1.4993746366383459e-15 ok
+gemm_batched_018_f64,plan_plan,1,690,5
+# selected gemm_batched_018_f64 plan: faer
+gemm_batched_018_f64,plan_exec,1,72117177,5
+gemm_batched_018_f64,packed_plan,1,1436868,5
+# selected gemm_batched_018_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_018_f64,packed_exec,1,86036829,5
+CHECK gemm_batched_018_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_019_f64,plan_plan,1,780,5
+# selected gemm_batched_019_f64 plan: faer
+gemm_batched_019_f64,plan_exec,1,6961421,5
+gemm_batched_019_f64,packed_plan,1,1338645,5
+# selected gemm_batched_019_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_019_f64,packed_exec,1,11014186,5
+CHECK gemm_batched_019_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_020_f64,plan_plan,1,840,5
+# selected gemm_batched_020_f64 plan: faer
+gemm_batched_020_f64,plan_exec,1,9151604,5
+gemm_batched_020_f64,packed_plan,1,46462,5
+# selected gemm_batched_020_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_020_f64,packed_exec,1,10468948,5
+CHECK gemm_batched_020_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_021_f64,plan_plan,1,680,5
+# selected gemm_batched_021_f64 plan: faer
+gemm_batched_021_f64,plan_exec,1,10130827,5
+gemm_batched_021_f64,packed_plan,1,22120,5
+# selected gemm_batched_021_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_021_f64,packed_exec,1,10877421,5
+CHECK gemm_batched_021_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_022_f64,plan_plan,1,850,5
+# selected gemm_batched_022_f64 plan: faer
+gemm_batched_022_f64,plan_exec,1,6523167,5
+gemm_batched_022_f64,packed_plan,1,2652488,5
+# selected gemm_batched_022_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_022_f64,packed_exec,1,15182634,5
+CHECK gemm_batched_022_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_023_f64,plan_plan,1,700,5
+# selected gemm_batched_023_f64 plan: faer
+gemm_batched_023_f64,plan_exec,1,24085690,5
+gemm_batched_023_f64,packed_plan,1,147275,5
+# selected gemm_batched_023_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_023_f64,packed_exec,1,49886228,5
+CHECK gemm_batched_023_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_024_f64,plan_plan,1,800,5
+# selected gemm_batched_024_f64 plan: faer
+gemm_batched_024_f64,plan_exec,1,45658918,5
+gemm_batched_024_f64,packed_plan,1,35711,5
+# selected gemm_batched_024_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_024_f64,packed_exec,1,43771065,5
+CHECK gemm_batched_024_f64 threads=1 plan_vs_packed_rel=1.6196131938935355e-15 ok
+gemm_batched_025_f64,plan_plan,1,690,5
+# selected gemm_batched_025_f64 plan: faer
+gemm_batched_025_f64,plan_exec,1,22724895,5
+gemm_batched_025_f64,packed_plan,1,67613,5
+# selected gemm_batched_025_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_025_f64,packed_exec,1,26213461,5
+CHECK gemm_batched_025_f64 threads=1 plan_vs_packed_rel=1.4427340225482465e-15 ok
+gemm_batched_026_f64,plan_plan,1,760,5
+# selected gemm_batched_026_f64 plan: faer
+gemm_batched_026_f64,plan_exec,1,4379256,5
+gemm_batched_026_f64,packed_plan,1,3538928,5
+# selected gemm_batched_026_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_026_f64,packed_exec,1,8192852,5
+CHECK gemm_batched_026_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_027_f64,plan_plan,1,770,5
+# selected gemm_batched_027_f64 plan: faer
+gemm_batched_027_f64,plan_exec,1,40192246,5
+gemm_batched_027_f64,packed_plan,1,36252,5
+# selected gemm_batched_027_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_027_f64,packed_exec,1,43585959,5
+CHECK gemm_batched_027_f64 threads=1 plan_vs_packed_rel=1.3138023896184066e-15 ok
+gemm_batched_028_f64,plan_plan,1,710,5
+# selected gemm_batched_028_f64 plan: faer
+gemm_batched_028_f64,plan_exec,1,20024426,5
+gemm_batched_028_f64,packed_plan,1,37101,5
+# selected gemm_batched_028_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_028_f64,packed_exec,1,21205404,5
+CHECK gemm_batched_028_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_029_f64,plan_plan,1,670,5
+# selected gemm_batched_029_f64 plan: faer
+gemm_batched_029_f64,plan_exec,1,2328737,5
+gemm_batched_029_f64,packed_plan,1,1024524,5
+# selected gemm_batched_029_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_029_f64,packed_exec,1,3769695,5
+CHECK gemm_batched_029_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_030_f64,plan_plan,1,730,5
+# selected gemm_batched_030_f64 plan: faer
+gemm_batched_030_f64,plan_exec,1,14613655,5
+gemm_batched_030_f64,packed_plan,1,18281,5
+# selected gemm_batched_030_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_030_f64,packed_exec,1,16227719,5
+CHECK gemm_batched_030_f64 threads=1 plan_vs_packed_rel=1.209932458599764e-15 ok
+gemm_batched_031_f64,plan_plan,1,750,5
+# selected gemm_batched_031_f64 plan: faer
+gemm_batched_031_f64,plan_exec,1,21661880,5
+gemm_batched_031_f64,packed_plan,1,18871,5
+# selected gemm_batched_031_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_031_f64,packed_exec,1,25467196,5
+CHECK gemm_batched_031_f64 threads=1 plan_vs_packed_rel=1.1276344523253621e-15 ok
+gemm_batched_032_f64,plan_plan,1,700,5
+# selected gemm_batched_032_f64 plan: faer
+gemm_batched_032_f64,plan_exec,1,2842554,5
+gemm_batched_032_f64,packed_plan,1,5070,5
+# selected gemm_batched_032_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_032_f64,packed_exec,1,3187626,5
+CHECK gemm_batched_032_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_033_f64,plan_plan,1,850,5
+# selected gemm_batched_033_f64 plan: faer
+gemm_batched_033_f64,plan_exec,1,210,5
+gemm_batched_033_f64,packed_plan,1,2720,5
+# selected gemm_batched_033_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_033_f64,packed_exec,1,540,5
+CHECK gemm_batched_033_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_034_f64,plan_plan,1,800,5
+# selected gemm_batched_034_f64 plan: faer
+gemm_batched_034_f64,plan_exec,1,120,5
+gemm_batched_034_f64,packed_plan,1,2610,5
+# selected gemm_batched_034_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_034_f64,packed_exec,1,500,5
+CHECK gemm_batched_034_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_035_f64,plan_plan,1,790,5
+# selected gemm_batched_035_f64 plan: faer
+gemm_batched_035_f64,plan_exec,1,120,5
+gemm_batched_035_f64,packed_plan,1,2730,5
+# selected gemm_batched_035_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_035_f64,packed_exec,1,530,5
+CHECK gemm_batched_035_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_036_f64,plan_plan,1,800,5
+# selected gemm_batched_036_f64 plan: faer
+gemm_batched_036_f64,plan_exec,1,223928,5
+gemm_batched_036_f64,packed_plan,1,11791,5
+# selected gemm_batched_036_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_036_f64,packed_exec,1,445045,5
+CHECK gemm_batched_036_f64 threads=1 plan_vs_packed_rel=2.522399079907235e-16 ok
+gemm_batched_037_f64,plan_plan,1,660,5
+# selected gemm_batched_037_f64 plan: faer
+gemm_batched_037_f64,plan_exec,1,223467,5
+gemm_batched_037_f64,packed_plan,1,13760,5
+# selected gemm_batched_037_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_037_f64,packed_exec,1,299200,5
+CHECK gemm_batched_037_f64 threads=1 plan_vs_packed_rel=2.220446049250313e-16 ok
+gemm_batched_038_f64,plan_plan,1,690,5
+# selected gemm_batched_038_f64 plan: faer
+gemm_batched_038_f64,plan_exec,1,170,5
+gemm_batched_038_f64,packed_plan,1,2180,5
+# selected gemm_batched_038_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_038_f64,packed_exec,1,440,5
+CHECK gemm_batched_038_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_039_f64,plan_plan,1,680,5
+# selected gemm_batched_039_f64 plan: faer
+gemm_batched_039_f64,plan_exec,1,2310,5
+gemm_batched_039_f64,packed_plan,1,4540,5
+# selected gemm_batched_039_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_039_f64,packed_exec,1,3901,5
+CHECK gemm_batched_039_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_040_f64,plan_plan,1,680,5
+# selected gemm_batched_040_f64 plan: faer
+gemm_batched_040_f64,plan_exec,1,110,5
+gemm_batched_040_f64,packed_plan,1,2250,5
+# selected gemm_batched_040_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_040_f64,packed_exec,1,460,5
+CHECK gemm_batched_040_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_041_f64,plan_plan,1,690,5
+# selected gemm_batched_041_f64 plan: faer
+gemm_batched_041_f64,plan_exec,1,105083,5
+gemm_batched_041_f64,packed_plan,1,16770,5
+# selected gemm_batched_041_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_041_f64,packed_exec,1,172586,5
+CHECK gemm_batched_041_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_042_f64,plan_plan,1,840,5
+# selected gemm_batched_042_f64 plan: faer
+gemm_batched_042_f64,plan_exec,1,186166,5
+gemm_batched_042_f64,packed_plan,1,17071,5
+# selected gemm_batched_042_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_042_f64,packed_exec,1,365282,5
+CHECK gemm_batched_042_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_043_f64,plan_plan,1,700,5
+# selected gemm_batched_043_f64 plan: faer
+gemm_batched_043_f64,plan_exec,1,223297,5
+gemm_batched_043_f64,packed_plan,1,20061,5
+# selected gemm_batched_043_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_043_f64,packed_exec,1,373782,5
+CHECK gemm_batched_043_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_044_f64,plan_plan,1,850,5
+# selected gemm_batched_044_f64 plan: faer
+gemm_batched_044_f64,plan_exec,1,125904,5
+gemm_batched_044_f64,packed_plan,1,20061,5
+# selected gemm_batched_044_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_044_f64,packed_exec,1,210437,5
+CHECK gemm_batched_044_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_045_f64,plan_plan,1,820,5
+# selected gemm_batched_045_f64 plan: faer
+gemm_batched_045_f64,plan_exec,1,680,5
+gemm_batched_045_f64,packed_plan,1,3390,5
+# selected gemm_batched_045_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_045_f64,packed_exec,1,1590,5
+CHECK gemm_batched_045_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_046_f64,plan_plan,1,820,5
+# selected gemm_batched_046_f64 plan: faer
+gemm_batched_046_f64,plan_exec,1,220,5
+gemm_batched_046_f64,packed_plan,1,2720,5
+# selected gemm_batched_046_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_046_f64,packed_exec,1,550,5
+CHECK gemm_batched_046_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_047_f64,plan_plan,1,830,5
+# selected gemm_batched_047_f64 plan: faer
+gemm_batched_047_f64,plan_exec,1,1019744,5
+gemm_batched_047_f64,packed_plan,1,12550,5
+# selected gemm_batched_047_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_047_f64,packed_exec,1,1587283,5
+CHECK gemm_batched_047_f64 threads=1 plan_vs_packed_rel=2.7401953406912707e-16 ok
+gemm_batched_048_f64,plan_plan,1,860,5
+# selected gemm_batched_048_f64 plan: faer
+gemm_batched_048_f64,plan_exec,1,420,5
+gemm_batched_048_f64,packed_plan,1,2920,5
+# selected gemm_batched_048_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_048_f64,packed_exec,1,1160,5
+CHECK gemm_batched_048_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_049_f64,plan_plan,1,850,5
+# selected gemm_batched_049_f64 plan: faer
+gemm_batched_049_f64,plan_exec,1,240,5
+gemm_batched_049_f64,packed_plan,1,2850,5
+# selected gemm_batched_049_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_049_f64,packed_exec,1,830,5
+CHECK gemm_batched_049_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_050_f64,plan_plan,1,840,5
+# selected gemm_batched_050_f64 plan: faer
+gemm_batched_050_f64,plan_exec,1,2760,5
+gemm_batched_050_f64,packed_plan,1,5430,5
+# selected gemm_batched_050_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_050_f64,packed_exec,1,4631,5
+CHECK gemm_batched_050_f64 threads=1 plan_vs_packed_rel=0e0 ok
+gemm_batched_051_f64,plan_plan,1,840,5
+# selected gemm_batched_051_f64 plan: faer
+gemm_batched_051_f64,plan_exec,1,20361,5
+gemm_batched_051_f64,packed_plan,1,6150,5
+# selected gemm_batched_051_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_051_f64,packed_exec,1,52331,5
+CHECK gemm_batched_051_f64 threads=1 plan_vs_packed_rel=1.0406987540957565e-15 ok
+gemm_batched_052_f64,plan_plan,1,820,5
+# selected gemm_batched_052_f64 plan: faer
+gemm_batched_052_f64,plan_exec,1,210,5
+gemm_batched_052_f64,packed_plan,1,2610,5
+# selected gemm_batched_052_f64 packed: packed avx2.f64.real.8x6
+gemm_batched_052_f64,packed_exec,1,520,5
+CHECK gemm_batched_052_f64 threads=1 plan_vs_packed_rel=0e0 ok
