@@ -190,9 +190,10 @@ never during a call.
   forces the **packed** driver (all-batch problems included); otherwise an
   all-batch problem runs the **elementwise** pass; otherwise a problem that
   fuses copy-free to one strided batched GEMM with full `op_C` / `op_D` /
-  separate-C semantics runs on **faer** (a separately described C at every beta only when its output
-  pass is cheap: at most 2^16 outputs, K >= 512 with a column-major A, or a
-  matrix-vector shape; otherwise packed for `beta != 0` and faer for `beta == 0`); everything else runs **packed**.
+  separate-C semantics runs on **faer** (a separately described C only when
+  its output pass is cheap: at most 2^16 outputs, K >= 512 with a column-major
+  A, or a matrix-vector shape; otherwise the packed driver serves it at every
+  beta); everything else runs **packed**.
   Nothing copies a whole operand.
 * **Kernel family** (packed only) — `PlanConfig::kernel`: a registered family
   by id, or the default menu (the built-in families of the preferred ISA and

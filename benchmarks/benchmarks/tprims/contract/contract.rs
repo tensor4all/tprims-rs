@@ -329,12 +329,10 @@ fn run<T: Scalar>(
         println!("{name},{tag}_plan,{threads},{ns:.0},{runs}");
         let plan = mk();
         let report = plan.report();
-        match &report.packed {
-            Some(p) => println!("# selected {name} {tag}: packed {}", p.family_id),
-            None => println!("# selected {name} {tag}: {}", report.algorithm.name()),
-        }
-        if let Some(b0) = report.beta_zero {
-            println!("# selected {name} {tag} beta0: {}", b0.name());
+        if let Some(p) = &report.packed {
+            println!("# selected {name} {tag}: packed {}", p.family_id);
+        } else {
+            println!("# selected {name} {tag}: {}", report.algorithm.name());
         }
         let mut c = if mode == CMode::Overwrite {
             vec![<T as Element>::zero(); lc]

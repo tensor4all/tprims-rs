@@ -43,7 +43,6 @@ fn c64_above_the_bound_runs_packed() {
             limit: 1 << 17
         }
     );
-    assert_eq!(r.beta_zero, None);
 }
 
 #[test]

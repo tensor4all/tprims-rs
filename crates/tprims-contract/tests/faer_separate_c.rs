@@ -1,5 +1,6 @@
-//! A separately described C on a GEMM-fusable problem runs on faer (Phase 2
-//! W2): `D = op_D(alpha * op_A(A) * op_B(B) + beta * op_C(C))` against the
+//! A separately described C on a GEMM-fusable problem runs on faer when its
+//! output pass pays (Phase 2 W2/W2b) and on the packed driver otherwise:
+//! `D = op_D(alpha * op_A(A) * op_B(B) + beta * op_C(C))` against the
 //! independent label oracle, for a C that is D itself (in place, same mapping
 //! and origin), a C of D's layout in its own buffer, and a C of another
 //! layout, over every conjugation combination and the scalar corner cases
@@ -88,7 +89,7 @@ fn check<T: Scalar + Element>(
     alpha: T,
     beta: T,
     nan_c: bool,
-) -> (Algorithm, Option<Algorithm>) {
+) -> Algorithm {
     let [ca, cb, cc, cd] = flags;
     let (sa, sb, sd) = (
         col_major(&shape.a),
@@ -128,7 +129,7 @@ fn check<T: Scalar + Element>(
         ..PlanConfig::default()
     };
     let plan = Plan::<T>::new(&problem, &config).unwrap();
-    let routes = (plan.report().algorithm, plan.report().beta_zero);
+    let routes = plan.report().algorithm;
 
     let c_data: &[T] = match source {
         Source::InPlace => &start,
@@ -221,10 +222,10 @@ fn sweep<T: Scalar + Element>() {
             for bits in 0..16u32 {
                 let flags = [bits & 1 != 0, bits & 2 != 0, bits & 4 != 0, bits & 8 != 0];
                 for (alpha, beta) in scalars::<T>() {
-                    let routes = check(&shape, source, flags, alpha, beta, false);
+                    let route = check(&shape, source, flags, alpha, beta, false);
                     assert_eq!(
-                        routes,
-                        (Algorithm::Faer, None),
+                        route,
+                        Algorithm::Faer,
                         "{} {source:?}: GEMM-fusable, so faer",
                         shape.name
                     );
@@ -252,8 +253,8 @@ fn beta_zero_does_not_read_a_separate_c() {
         for source in [Source::SameLayout, Source::OtherLayout] {
             for bits in [0u32, 15] {
                 let flags = [bits & 1 != 0, bits & 2 != 0, bits & 4 != 0, bits & 8 != 0];
-                let routes = check::<C64>(&shape, source, flags, C64::new(0.7, -0.3), zero, true);
-                assert_eq!(routes.0, Algorithm::Faer, "{}", shape.name);
+                let route = check::<C64>(&shape, source, flags, C64::new(0.7, -0.3), zero, true);
+                assert_eq!(route, Algorithm::Faer, "{}", shape.name);
             }
         }
     }
@@ -299,32 +300,30 @@ fn matmul_problem(m: usize, n: usize, k: usize, separate: bool) -> Problem {
     .unwrap()
 }
 
-/// A separate C costs an output pass at `beta != 0`: a large output with a
-/// small K, or a transposed A, plans on the packed driver (measured, Phase 2
-/// W2/W2b) and reports faer as its `beta == 0` route; a cache-resident output,
-/// a large K with a column-major A and a matrix-vector shape go to faer for
-/// every beta. The same GEMM without a separate C is faer.
+/// A separate C costs an output pass: a large output with a small K, or a
+/// transposed A, plans on the packed driver for every beta (measured, Phase 2
+/// W2/W2b and the clean W2b confirmation); a cache-resident output, a large K
+/// with a column-major A and a matrix-vector shape go to faer. The same GEMM
+/// without a separate C is faer.
 #[test]
-fn a_separate_c_on_a_large_output_with_small_k_is_packed_with_a_faer_beta_zero_route() {
-    let routes = |m, n, k, sep| {
+fn a_separate_c_on_a_large_output_with_small_k_is_packed() {
+    let route = |m, n, k, sep| {
         let plan = Plan::<f64>::new(&matmul_problem(m, n, k, sep), &PlanConfig::default()).unwrap();
-        (plan.report().algorithm, plan.report().beta_zero)
+        plan.report().algorithm
     };
-    let packed = (Algorithm::Packed, Some(Algorithm::Faer));
-    let faer = (Algorithm::Faer, None);
-    assert_eq!(routes(2048, 1024, 8, true), packed);
-    assert_eq!(routes(512, 512, 8, true), packed);
-    assert_eq!(routes(2048, 1024, 8, false), faer);
-    assert_eq!(routes(2048, 1024, 512, true), faer);
-    assert_eq!(routes(128, 128, 8, true), faer);
-    assert_eq!(routes(1, 4_000_000, 8, true), faer);
+    assert_eq!(route(2048, 1024, 8, true), Algorithm::Packed);
+    assert_eq!(route(512, 512, 8, true), Algorithm::Packed);
+    assert_eq!(route(2048, 1024, 8, false), Algorithm::Faer);
+    assert_eq!(route(2048, 1024, 512, true), Algorithm::Faer);
+    assert_eq!(route(128, 128, 8, true), Algorithm::Faer);
+    assert_eq!(route(1, 4_000_000, 8, true), Algorithm::Faer);
 }
 
-/// The two routes of a plan that is packed for `beta != 0`: each matches the
-/// oracle, and `beta == 0` (the faer route) never reads C.
+/// A plan that declines faer for a separate C matches the oracle at every
+/// beta, and `beta == 0` never reads C.
 #[test]
-fn both_routes_of_a_split_plan_match_the_oracle() {
-    // out = 300 * 300 = 90000 > 2^16 and K = 4: packed at beta != 0.
+fn a_declined_separate_c_matches_the_oracle_and_beta_zero_never_reads_c() {
+    // out = 300 * 300 = 90000 > 2^16 and K = 4: the packed driver, every beta.
     let shape = Shape {
         name: "large output, small K",
         a: vec![300, 4],
@@ -339,16 +338,16 @@ fn both_routes_of_a_split_plan_match_the_oracle() {
     for source in [Source::SameLayout, Source::OtherLayout] {
         for bits in [0u32, 15, 6, 9] {
             let flags = [bits & 1 != 0, bits & 2 != 0, bits & 4 != 0, bits & 8 != 0];
-            // beta == 0, C full of NaN: faer, C unread.
+            // beta == 0, C full of NaN: packed, C unread.
             let r = check::<C64>(&shape, source, flags, C64::new(0.7, -0.3), zero, true);
-            assert_eq!(r, (Algorithm::Packed, Some(Algorithm::Faer)));
+            assert_eq!(r, Algorithm::Packed);
             // beta != 0: the packed route.
             for beta in [one, C64::new(-0.4, 0.6)] {
                 check::<C64>(&shape, source, flags, C64::new(0.7, -0.3), beta, false);
             }
         }
     }
-    // The in-place C (C is D) takes the same split.
+    // The in-place C (C is D) is packed too.
     check::<C64>(&shape, Source::InPlace, [false; 4], one, zero, false);
     check::<C64>(
         &shape,

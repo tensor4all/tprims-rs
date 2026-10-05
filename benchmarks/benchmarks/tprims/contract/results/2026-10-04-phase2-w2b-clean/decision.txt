@@ -86,13 +86,31 @@ so the same policy now reads 1.068 / 1.072 / 1.101 on a quiet host. Faer still
 wins the calls-weighted workload at every width, but no longer by much, and
 about ten cases now favour packed.
 
-## Decision needed
+## Decision
 
-1. **b0 / the lazy route.** Keep it (1T +5-6%, 4T/8T −1..−3%, 11-17 faer-routed
-   cases below 0.95) or drop it (b0 follows b1's routing: satisfies "no
-   faer-routed case below 0.95" and "8T must not regress", costs 5-6% at 1T).
-   W2b's own criterion, applied literally, says drop it.
-2. **Engine choice for copy-free GEMMs at 4T/8T** (the larger finding): about
-   ten cases favour packed by up to 2x while faer still wins the weighted
-   workload. This is the spec's "faer stays" decision, so it is a Phase 2 scope
-   question, not a W2b threshold.
+The W2b criterion ("adjust the threshold if a faer-routed case drops below
+0.95 beyond the A/A noise") is applied: **the lazy `beta == 0` faer route is
+removed.** A separate C the rule declines is now packed for every `beta`, so
+b0 follows b1's routing; `PlanReport::beta_zero` and the second dispatch are
+gone.
+
+Measured effect of removing it, from this session's own data (the packed row
+is already the post-fix behaviour):
+
+* tenferro-p1-gemm b0 workload, never/current: 1T 1.047 / 1.062 (slower),
+  4T 0.985 / 0.991, 8T 0.976 / 0.967 (faster) — a wash overall;
+* the cases this fix moves are no longer faer-routed, so the b0 lazy-route
+  losses are gone; the residual b1/b0 cases under 0.95 are the ones already
+  documented above, inside the session's A/A spread (`_047` 8T 0.93 at A/A
+  worst x1.51, `_004` 1T 0.949);
+* it gives up faer's 1T wins (up to 2.4x on `gemm_batched_008`) and, at 8T,
+  `gemm_batched_013` (1.47), `_022` (1.78), `_025` (1.63), `_030` (1.24).
+
+W4 is **not warranted** by this evidence: the remaining measured gap is which
+engine serves a copy-free GEMM at 4T/8T, not the packed driver's barrier,
+tiling or direct-B.
+
+Open, not decided here: the **faer-vs-packed engine choice for copy-free GEMMs
+at 4T/8T** (the cross-check above: about ten cases favour packed by up to 2x,
+while the weighted workload still favours faer, 1.068 / 1.072 / 1.101). That is
+the spec's "faer stays" decision, so it is a Phase 2 scope question.

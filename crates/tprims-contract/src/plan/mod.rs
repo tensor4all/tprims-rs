@@ -117,9 +117,6 @@ enum Strategy<T: Scalar> {
 pub struct Plan<T: Scalar> {
     problem: Problem,
     strategy: Strategy<T>,
-    /// The faer fusion that serves `beta == 0` when `strategy` is packed only
-    /// because a nonzero `beta` would cost faer an output pass.
-    faer_b0: Option<FaerPlan>,
     /// The pass over the output's elements: `alpha == 0` and empty `K`.
     output: ElementPlan,
     report: PlanReport,
@@ -202,7 +199,6 @@ impl<T: Scalar> Plan<T> {
         }
         config.validate()?;
         let packed = config.requires_packed() || selection.is_some();
-        let mut faer_b0 = None;
         let faer = if packed || problem.all_batch() {
             None
         } else {
@@ -216,7 +212,7 @@ impl<T: Scalar> Plan<T> {
             match &faer {
                 None => Reason::NotFusable,
                 Some(f) => {
-                    let volume = f.plan.volume();
+                    let volume = f.volume();
                     match config.faer_limit.get(problem.dtype()) {
                         Some(limit) if volume > limit => Reason::AboveFaerLimit { volume, limit },
                         _ => Reason::Fused,
@@ -229,11 +225,7 @@ impl<T: Scalar> Plan<T> {
                 Strategy::Packed(Box::new(Self::plan_packed(problem, config, selection)?))
             }
             (Reason::AllBatch, _) => Strategy::Elementwise(ElementPlan::product(problem)),
-            (Reason::Fused, Some(f)) if f.any_beta => Strategy::Faer(f.plan),
-            (Reason::Fused, Some(f)) => {
-                faer_b0 = Some(f.plan);
-                Strategy::Packed(Box::new(Self::plan_packed(problem, config, None)?))
-            }
+            (Reason::Fused, Some(f)) => Strategy::Faer(f),
             _ => Strategy::Packed(Box::new(Self::plan_packed(problem, config, None)?)),
         };
         let (algorithm, packed_report) = match &strategy {
@@ -246,14 +238,12 @@ impl<T: Scalar> Plan<T> {
             report: PlanReport {
                 algorithm,
                 reason,
-                beta_zero: faer_b0.as_ref().map(|_| Algorithm::Faer),
                 materialized: [false; 3],
                 packed: packed_report,
             },
             diagnostics: Diagnostics::new("tprims-contract", algorithm.name()),
             problem: owned,
             strategy,
-            faer_b0,
             workspace: ArenaProvider::new(),
             _t: PhantomData,
         })
@@ -664,14 +654,7 @@ impl<T: Scalar> Plan<T> {
             unsafe { self.output.run(exec, expr, Inputs::None, c, d) }?;
             return Ok(());
         }
-        // One branch per call: a plan that is packed only for `beta != 0`
-        // runs faer when no C term is read.
-        let faer = match &self.strategy {
-            Strategy::Faer(f) => Some(f),
-            Strategy::Packed(_) if beta == zero => self.faer_b0.as_ref(),
-            _ => None,
-        };
-        if let Some(f) = faer {
+        if let Strategy::Faer(f) = &self.strategy {
             // The C term goes into D first, in one parallel output-sized
             // pass (not an operand copy; see `strategy::faer`), and faer
             // accumulates the product. D itself (in place, or a separate C
