@@ -122,13 +122,14 @@ TAPP_error tprims_tapp_executor_get_threads(TAPP_executor exec, size_t *pool_siz
 - **Borrowed pools** (the Rust `Exec::Rayon` case) are governed by Rust lifetimes; tprims never stops the host's threads, and a Rust host shares one `Pool` wrapper per `ThreadPool`, because the SPMD gate belongs to the wrapper.
 - **Tests:** a TLS-destructor handshake with a bounded wait proving destroy does not return early; busy, self-worker and failed-creation cases; bounded-time nested and concurrent SPMD on one executor.
 - **Thread budget:** one budget controls batch-level and inner-matrix parallelism so nested parallelism does not oversubscribe.
-- **Scratch:** operations expose scratch-size queries; a context can own reusable per-worker scratch.
+- **Scratch:** `PackedReport::scratch_bytes` reports the serial packed estimate. The execution workspace is owned by the context, not the plan: a pool or a serial caller lends an `ArenaProvider`, which reports its retained and leased bytes and can release the idle half.
 
 **Entry happens inside kernels, only for parallel work.** The calling thread drives every call. A kernel chooses its width from the amount of work; at width one it runs on the calling thread and never touches the pool. Only a parallel kernel enters the pool, and not at all if the calling thread is already one of its workers. With this rule an entry cost of about 10 µs is acceptable ([measurement](../experiments/rayon-entry/README.md), [decision](decision-log.md#execution)), and faer can serve as the initial backend: `Par::Seq` for serial work, `install` followed by `Par::rayon(n)` for parallel work.
 
 ```rust
 pub enum Exec<'a> {
-    Serial,
+    Serial,                                        // no storage owner
+    SerialWithWorkspace(&'a dyn WorkspaceProvider), // caller-owned serial scratch
     Rayon { pool: &'a Pool<'a>, budget: NonZeroUsize }, // pool borrowed from the host
     // Host(&'a dyn BroadcastExecutor): host scheduler with guaranteed width, Phase 2
 }
@@ -145,11 +146,11 @@ Implemented in Phase 1a as `crates/tprims-exec` (`install`, `for_each_partition`
 Two execution shapes follow:
 
 - **Barrier-free partition** (batches, independent output tiles, faer's own parallel loops): `install` plus `k` tasks, so `d ≈ k`. Entry scales with `k` (about 17 µs for one task, 50 µs for four, from idle). Tasks are not guaranteed to run concurrently, so no barrier may be used.
-- **SPMD with barriers** (the TBLIS inner driver): needs `k` workers guaranteed to run at once. On Rayon this is `broadcast`, so `k = d =` pool width, and it is chosen only when the kernel is large enough to amortize the full-pool entry. A narrower SPMD team on a borrowed Rayon pool would need a subset-broadcast primitive that Rayon lacks; that is a separate prototype, not an assumption.
+- **SPMD with barriers** (the TBLIS inner driver): needs `k` workers guaranteed to run at once. On Rayon this is `broadcast`, so the active width is `k <= budget <= pool width` while the dispatch width `d` is the whole pool, and it is chosen only when the kernel is large enough to amortize the full-pool entry. A narrower SPMD team on a borrowed Rayon pool would need a subset-broadcast primitive that Rayon lacks; that is a separate prototype, not an assumption.
 
 **Insufficient width.** If a plan's partition needs more workers than `b`, the planner repartitions to at most `b` (down to serial) before execution. It never spawns extra threads and never enters a barrier with fewer participants than the barrier counts.
 
-**Nesting.** An SPMD kernel called from a worker that is already inside an SPMD region, or inside any job of the same pool, runs its barrier-free variant or serially: a worker blocked at an outer barrier could not take its share of an inner broadcast. Concurrent SPMD kernels on one pool from different host threads are serialized by the context. Both rules are tested before the adapter is used as a general borrowed-pool solution.
+**Nesting.** An SPMD kernel called from a worker that is already inside an SPMD region, or inside any job of the same pool, runs its barrier-free variant; a partition that can only run co-scheduled is refused with a typed error before any write, never silently serialized: a worker blocked at an outer barrier could not take its share of an inner broadcast. Concurrent SPMD kernels on one pool from different host threads are serialized by the context. Both rules are tested before the adapter is used as a general borrowed-pool solution.
 
 ### Cost of parallel execution
 
@@ -210,10 +211,12 @@ positive or exclusive. `list_kernels` returns the registry for diagnostics.
 
 The packed driver is told where its scratch lives: a host that owns threads
 passes a `tprims_exec::Exec` that lends a workspace (per-thread A block and tile,
-a page-aligned shared B panel, scatter vectors and barriers), which one pool or
-plan owns and every operation on it reuses. A host that does not gets per-call
-buffers. Nothing is process-global, and a lease returns to the owner that issued
-it.
+a page-aligned shared B panel, scatter vectors and barriers). A pool owns one for
+every operation on it; a serial caller that wants reuse passes an
+`Exec::serial_with_workspace`; a plan owns none. Implementations not given an
+owner get per-call buffers. Nothing is process-global, the owner reports its
+retained and leased bytes and can `trim` the idle half, and a lease returns to
+the owner that issued it.
 
 ### Opt-in dynamic output assignment (`DynamicTiles`)
 
@@ -237,8 +240,8 @@ static and serial runs.
   `column jobs` times (the documented 2-D ceiling). The rule depends only on
   validated geometry and the active width.
 * **Width.** The team is the host budget capped by the jobs that exist; width
-  one runs on the caller with no claims or barriers. A declined broadcast
-  runs nothing and the caller works serially with the same frozen family.
+  one runs on the caller with no claims or barriers. A team that the caller
+  cannot co-schedule is refused with a typed error before any write.
 * **Direct-B** keeps `b_bytes == 0` but still takes both barriers, an explicit
   tradeoff against the static barrier-free split.
 * **Validation.** Job extents are positive multiples of the family's logical

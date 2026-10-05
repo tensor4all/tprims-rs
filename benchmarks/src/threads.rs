@@ -1,6 +1,6 @@
 //! Enforced thread counts for benchmark binaries.
 
-use tprims_exec::{Exec, Pool};
+use tprims_exec::{ArenaProvider, Exec, Pool};
 
 /// Thread environment variables that must agree with `--threads`.
 pub const THREAD_ENV_VARS: [&str; 3] = [
@@ -49,12 +49,16 @@ pub fn parse_threads(args: &[String]) -> Result<usize, String> {
     }
 }
 
-/// A benchmark's thread configuration: `Exec::Serial` for one thread, a
-/// bounded pool borrowed through `Exec` otherwise.
+/// A benchmark's thread configuration: a serial `Exec` that lends the
+/// caller-owned arena for one thread, a bounded pool borrowed through `Exec`
+/// otherwise.
 pub struct BenchThreads {
     /// Requested thread count.
     pub requested: usize,
     pool: Option<rayon::ThreadPool>,
+    /// The plan owns no scratch any more, so the 1T rows own exactly the
+    /// steady-state storage they measure and no other row can see it.
+    arena: ArenaProvider,
 }
 
 impl BenchThreads {
@@ -84,14 +88,18 @@ impl BenchThreads {
                 .build()
                 .unwrap_or_else(|e| fail(&format!("pool: {e}")))
         });
-        Self { requested, pool }
+        Self {
+            requested,
+            pool,
+            arena: ArenaProvider::new(),
+        }
     }
 
     /// Run `f` with the configured context and, for multi-thread runs, the
     /// borrowed pool (for entry counters).
     pub fn with_exec<R>(&self, f: impl FnOnce(&Exec<'_>, Option<&Pool<'_>>) -> R) -> R {
         match &self.pool {
-            None => f(&Exec::serial(), None),
+            None => f(&Exec::serial_with_workspace(&self.arena), None),
             Some(tp) => {
                 let pool = Pool::borrow(tp);
                 let exec = Exec::rayon(&pool);

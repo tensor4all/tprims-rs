@@ -43,13 +43,22 @@ fn plan_for(cat: &KernelCatalog<f64>, id: &'static str) -> Plan<f64> {
 }
 
 fn run(plan: &Plan<f64>, exec: &Exec<'_>) -> Vec<f64> {
+    let mut c = vec![0.0; M * N];
+    fill(plan, exec, &mut c).unwrap();
+    c
+}
+
+/// One contraction into `c`.
+fn fill(
+    plan: &Plan<f64>,
+    exec: &Exec<'_>,
+    c: &mut [f64],
+) -> Result<(), tprims_contract::api::Error> {
     let (a, b) = (data(M * K, 1), data(K * N, 2));
     let av = StridedView::new(&a, &[M, K], &[1, M as isize], 0).unwrap();
     let bv = StridedView::new(&b, &[K, N], &[1, K as isize], 0).unwrap();
-    let mut c = vec![0.0; M * N];
-    let mut cv = StridedViewMut::new(&mut c, &[M, N], &[1, M as isize], 0).unwrap();
-    plan.execute_into(exec, 1.0, &av, &bv, &mut cv).unwrap();
-    c
+    let mut cv = StridedViewMut::new(c, &[M, N], &[1, M as isize], 0).unwrap();
+    plan.execute_into(exec, 1.0, &av, &bv, &mut cv)
 }
 
 /// `reps` contractions on a plan choosing `id` from a private catalog; returns
@@ -109,7 +118,7 @@ fn catalogs_run_concurrently_on_one_pool_and_on_separate_pools() {
 }
 
 #[test]
-fn executing_from_inside_a_worker_of_the_same_pool_falls_back_serially_on_the_same_family() {
+fn a_call_from_a_worker_is_refused_without_a_write_on_the_same_family() {
     let tp = rayon::ThreadPoolBuilder::new()
         .num_threads(4)
         .build()
@@ -121,11 +130,14 @@ fn executing_from_inside_a_worker_of_the_same_pool_falls_back_serially_on_the_sa
     drop(cat);
     let reference = worker(&Exec::serial(), "custom.f64.2x2", 1).0;
     let outside = run(&plan, &exec);
-    // Inside a worker of the very pool the plan runs on, a broadcast cannot be
-    // co-scheduled; the call runs serially with the frozen family.
-    let inside = tp.install(|| run(&plan, &exec));
     assert_eq!(outside, reference);
-    assert_eq!(inside, reference);
+    // Inside a worker of the very pool the plan runs on, a barrier-bearing team
+    // cannot be co-scheduled: the call reports the refused route with no write
+    // and never switches to another family.
+    let mut c = vec![-7.0; M * N];
+    let err = tp.install(|| fill(&plan, &exec, &mut c)).unwrap_err();
+    assert!(matches!(err, tprims_contract::api::Error::Exec(_)), "{err}");
+    assert!(c.iter().all(|&v| v == -7.0), "a refused route wrote");
     assert_eq!(
         plan.report().packed.as_ref().unwrap().family_id,
         "custom.f64.3x4"

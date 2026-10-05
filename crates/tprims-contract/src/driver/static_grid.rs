@@ -158,7 +158,14 @@ pub(super) unsafe fn run_strip<T>(
                     (q1 - q0) * b_sliver <= b_group,
                     "column group overruns its slice of the packed B panel"
                 );
-                let bp_ptr = bp_ptr.add(bpart.panel * b_group);
+                // A direct-B call reads `B` where it lies and has no panel at
+                // all, so its pointer must stay unoffset: `add` requires a zero
+                // offset on a dangling pointer even when nothing is read.
+                let bp_ptr = if direct_b {
+                    bp_ptr
+                } else {
+                    bp_ptr.add(bpart.panel * b_group)
+                };
                 let ep = Epoch::<T> {
                     ah,
                     bh,

@@ -1,17 +1,17 @@
 //! A steady-state execute must not allocate.
 //!
 //! Its own binary, because the counter is global: another test running in
-//! parallel would show up in the count. The `Exec` is serial, so the whole
-//! contraction runs on the calling thread and the measurement covers the
-//! driver's own reuse path — the leased team set, worker buffers and scatter
-//! vectors — rather than thread plumbing. A threaded host's first touch and
-//! per-thread slot reuse are pinned in `tprims-exec/tests/workspace.rs`.
+//! parallel would show up in the count. The `Exec` is serial and the test owns
+//! the workspace it lends, so the measurement covers the driver's own reuse
+//! path — the leased team set, worker buffers and scatter vectors, and the
+//! caller-owned provider — rather than thread plumbing. A threaded host's first
+//! touch and per-thread slot reuse are pinned in `tprims-exec/tests/workspace.rs`.
 use std::alloc::{GlobalAlloc, Layout as AllocLayout, System};
 use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 
 use strided_view::{StridedView, StridedViewMut};
 use tprims_contract::{Plan, PlanConfig};
-use tprims_exec::Exec;
+use tprims_exec::{ArenaProvider, Exec};
 use tprims_kernel::KernelChoice;
 
 mod common;
@@ -45,6 +45,9 @@ static ALLOC: Counting = Counting;
 /// One case's plan and operands, built before anything is measured.
 struct Prepared {
     plan: Plan<f64>,
+    /// The serial caller's own scratch owner: the plan owns none, so a warm
+    /// steady state is the caller's to keep.
+    arena: ArenaProvider,
     dims: [usize; 3],
     a: Vec<f64>,
     b: Vec<f64>,
@@ -65,6 +68,7 @@ impl Prepared {
         };
         Self {
             plan,
+            arena: ArenaProvider::new(),
             dims: [m, n, k],
             a: data(m * k, 0.0),
             b: data(k * n, 1.0),
@@ -81,9 +85,11 @@ impl Prepared {
         let bv = StridedView::new(&self.b, &[k, n], &[1, k as isize], 0).unwrap();
         let mut dv = StridedViewMut::new(&mut self.d, &[m, n], &[1, m as isize], 0).unwrap();
         let before = COUNT.load(Relaxed);
-        // The plan lends its own workspace to a serial `Exec`, which has none.
+        // The plan owns no scratch; a serial caller that wants a steady state
+        // with no allocation lends its own provider.
+        let exec = Exec::serial_with_workspace(&self.arena);
         self.plan
-            .execute_into(&Exec::serial(), 1.5, &av, &bv, &mut dv)
+            .execute_into(&exec, 1.5, &av, &bv, &mut dv)
             .unwrap();
         COUNT.load(Relaxed) - before
     }

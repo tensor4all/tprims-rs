@@ -9,7 +9,7 @@ use num_complex::Complex;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use tprims_contract::{Plan, PlanConfig};
-use tprims_exec::Exec;
+use tprims_exec::{ArenaProvider, Exec};
 use tprims_kernel::Element;
 
 use super::{gflops, pin_single_threaded, problem_of, rel_error, timed, BenchElem};
@@ -150,6 +150,10 @@ where
     // executes in, which is not necessarily `A`-rows / `B`-columns; a strategy
     // that does not use the packed driver reports no regularity (0, 0).
     let mut regularity = (0.0f64, 0.0f64);
+    // The plan owns no scratch, so the 1T rows own the storage they measure and
+    // keep it warm across repetitions.
+    let workspace = ArenaProvider::new();
+    let serial = Exec::serial_with_workspace(&workspace);
     for (name, config) in [("plan", knobs.config()), ("packed", knobs.packed_config())] {
         if !opts.engine(name) {
             continue;
@@ -170,7 +174,7 @@ where
             // `beta = 0` reads no previous value.
             unsafe {
                 p.execute_raw(
-                    &Exec::serial(),
+                    &serial,
                     <T as Element>::one(),
                     a.as_ptr(),
                     b.as_ptr(),

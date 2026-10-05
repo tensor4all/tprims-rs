@@ -36,11 +36,17 @@ impl Par {
 /// assert_eq!(Exec::serial().budget(), 1);
 /// assert!(!Exec::serial().is_worker());
 /// ```
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 #[non_exhaustive]
 pub enum Exec<'a> {
-    /// Everything on the calling thread.
+    /// Everything on the calling thread, with call-local scratch.
     Serial,
+    /// Everything on the calling thread, with caller-owned reusable scratch.
+    ///
+    /// A serial context owns no storage, so a caller that wants a serial
+    /// steady state to allocate nothing keeps a provider alive across calls
+    /// and lends it here.
+    SerialWithWorkspace(&'a dyn crate::WorkspaceProvider),
     /// A borrowed pool with a thread budget `<= pool.size()`.
     Rayon {
         /// The borrowed pool.
@@ -50,10 +56,32 @@ pub enum Exec<'a> {
     },
 }
 
+// A `&dyn WorkspaceProvider` is not `Debug`, so the derive cannot cover the
+// serial-with-workspace variant. The provider is an anonymous implementation
+// detail here, so only the variant name is shown.
+impl std::fmt::Debug for Exec<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Exec::Serial => f.write_str("Serial"),
+            Exec::SerialWithWorkspace(_) => f.write_str("SerialWithWorkspace(..)"),
+            Exec::Rayon { pool, budget } => f
+                .debug_struct("Rayon")
+                .field("pool", pool)
+                .field("budget", budget)
+                .finish(),
+        }
+    }
+}
+
 impl<'a> Exec<'a> {
     /// The serial context.
     pub const fn serial() -> Exec<'static> {
         Exec::Serial
+    }
+
+    /// Serial execution with caller-owned reusable storage.
+    pub fn serial_with_workspace(workspace: &'a dyn crate::WorkspaceProvider) -> Self {
+        Exec::SerialWithWorkspace(workspace)
     }
 
     /// Use `pool` with its full size as budget.
@@ -77,7 +105,7 @@ impl<'a> Exec<'a> {
     pub fn with_budget(self, max_threads: usize) -> Result<Self, ExecError> {
         let max = NonZeroUsize::new(max_threads).ok_or(ExecError::ZeroBudget)?;
         Ok(match self {
-            Exec::Serial => Exec::Serial,
+            Exec::Serial | Exec::SerialWithWorkspace(_) => self,
             Exec::Rayon { pool, .. } => {
                 let cap = NonZeroUsize::new(pool.size()).unwrap_or(NonZeroUsize::MIN);
                 Exec::Rayon {
@@ -88,22 +116,23 @@ impl<'a> Exec<'a> {
         })
     }
 
-    /// Most threads an operation may occupy (1 for `Serial`).
+    /// Most threads an operation may occupy (1 for a serial context).
     pub fn budget(&self) -> usize {
         match self {
-            Exec::Serial => 1,
+            Exec::Serial | Exec::SerialWithWorkspace(_) => 1,
             Exec::Rayon { budget, .. } => budget.get(),
         }
     }
 
     /// Storage the operations on this context may share, or none.
     ///
-    /// A pool lends its own arena to every operation that runs on it; the
-    /// serial context owns nothing, so a caller that wants reuse keeps a
-    /// provider of its own and lends it directly.
-    pub fn workspace(&self) -> Option<&dyn crate::WorkspaceProvider> {
+    /// A pool lends its own arena to every operation that runs on it; a serial
+    /// context owns nothing, so a caller that wants reuse keeps a provider of
+    /// its own and lends it through [`Exec::serial_with_workspace`].
+    pub fn workspace(&self) -> Option<&'a dyn crate::WorkspaceProvider> {
         match self {
             Exec::Serial => None,
+            Exec::SerialWithWorkspace(workspace) => Some(*workspace),
             Exec::Rayon { pool, .. } => Some(pool.workspace()),
         }
     }
@@ -111,7 +140,7 @@ impl<'a> Exec<'a> {
     /// Whether the calling thread is a worker of this context's pool.
     pub fn is_worker(&self) -> bool {
         match self {
-            Exec::Serial => false,
+            Exec::Serial | Exec::SerialWithWorkspace(_) => false,
             Exec::Rayon { pool, .. } => pool.is_worker(),
         }
     }
@@ -214,7 +243,7 @@ impl<'a> Exec<'a> {
             return Ok(());
         }
         match self {
-            Exec::Serial => {
+            Exec::Serial | Exec::SerialWithWorkspace(_) => {
                 if width == 1 {
                     f(0);
                     Ok(())

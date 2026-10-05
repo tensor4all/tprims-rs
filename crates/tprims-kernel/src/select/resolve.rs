@@ -291,8 +291,9 @@ impl<R: Real> ResolvedGemm<R> {
     ///
     /// # Errors
     /// Everything [`resolve`](Self::resolve) returns, plus
-    /// [`SelectError::Incompatible`] for a half-specified grid or invalid
-    /// `DynamicTiles` geometry (see [`with_partition`](Self::with_partition)).
+    /// [`SelectError::Incompatible`] for a half-specified grid, a grid whose
+    /// `pm * pn` does not fit in `usize`, or invalid `DynamicTiles` geometry
+    /// (see [`with_partition`](Self::with_partition)).
     ///
     /// # Examples
     /// ```
@@ -324,8 +325,9 @@ impl<R: Real> ResolvedGemm<R> {
     /// is checked by the planner that knows the shape.
     ///
     /// # Errors
-    /// `Incompatible` for a half-specified grid, a non-positive or non-multiple
-    /// job extent, or the unsupported option combination.
+    /// `Incompatible` for a half-specified grid, a grid whose `pm * pn` does not
+    /// fit in `usize`, a non-positive or non-multiple job extent, or the
+    /// unsupported option combination.
     ///
     /// # Examples
     /// ```
@@ -361,6 +363,12 @@ impl<R: Real> ResolvedGemm<R> {
                         "DynamicTiles does not support align_c_lines: register-block alignment cannot prove cache-line separation",
                     ));
                 }
+            }
+            PartitionPolicy::StaticGrid { pm, pn } if pm.checked_mul(pn).is_none() => {
+                return Err(SelectError::Incompatible {
+                    id: "StaticGrid".into(),
+                    reason: "a static grid's pm * pn must fit in usize",
+                })
             }
             PartitionPolicy::StaticGrid { pm, pn } if (pm == 0) != (pn == 0) => {
                 return Err(SelectError::Incompatible {

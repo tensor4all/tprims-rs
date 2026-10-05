@@ -1,7 +1,7 @@
 //! Owning workspace: page-aligned, grow-only, reused per worker.
 //!
-//! A workspace belongs to exactly one owner — a `tprims_exec::Pool`, a serial
-//! plan, or a test — and is *lent* to the driver for one call at a time. There
+//! A workspace belongs to exactly one owner — a `tprims_exec::Pool` or a caller
+//! that wants reuse — and is *lent* to the driver for one call at a time. There
 //! is deliberately no process-global arena: storage handed to a team is
 //! returned to the provider that issued it, and a second owner can never see
 //! it.
@@ -18,21 +18,27 @@
 //!   its barriers. They are taken exclusively for the duration of a call and
 //!   returned on drop, so two concurrent executes can never share one.
 //!
-//! Re-entrancy is answered by allocating fresh call-local buffers rather than
-//! blocking on the slot the same thread is already using: the inner call needs
-//! somewhere to write, and waiting for itself would deadlock. Only the outer
-//! call reuses storage, so the steady state still allocates nothing.
+//! # Exclusivity
+//!
+//! A slot that is *in the owner's map* is touched only while the map lock is
+//! held. A slot that is *checked out* is not in the map at all: the thread that
+//! checked it out is its only owner until it is returned, so a re-entrant call
+//! on that thread finds nothing and allocates fresh call-local buffers instead
+//! of aliasing the ones its outer call is using (waiting for itself would
+//! deadlock). `trim` and the accounting snapshot therefore never observe a slot
+//! another thread is writing.
 //!
 //! `ArenaProvider::traced()` additionally records every growth's thread and
 //! size, which is how the tests prove that a worker's buffers were allocated by
-//! the worker. Tracing is off by default and costs a `bool` when off.
+//! the worker. Tracing is off by default and only covers buffers the owner
+//! keeps; the fresh re-entrant path is not traced.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Barrier, Mutex};
 
 /// The 4096-byte alignment every buffer in the workspace has.
-pub const PAGE: usize = 4096;
+const PAGE: usize = 4096;
 
 /// Bytes and counts one execute needs. Buffer sizes are bytes because the
 /// provider is element-type erased: the driver knows the element type and
@@ -55,12 +61,28 @@ pub struct WorkspaceReq {
     pub barriers: usize,
 }
 
+/// What an owner currently holds and currently lends out.
+///
+/// Exactness: both values are settled at every checkout, return, team take,
+/// lease drop and `trim`, so `ArenaProvider::stats` is exact whenever no
+/// execution is in flight. While one is, a checked-out slot is counted at the
+/// capacity it had when it was checked out, so `retained_bytes` is an unsettled
+/// estimate that can lag growth or shrinkage until the call returns.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct WorkspaceStats {
+    /// Capacity the owner holds: worker A/tile/scatter and team
+    /// panel/scatter/barriers, idle or in use.
+    pub retained_bytes: usize,
+    /// The part of `retained_bytes` lent to a call right now.
+    pub leased_bytes: usize,
+}
+
 /// Page-aligned, grow-only, never zeroed storage.
 ///
 /// The caller writes before reading, which is the contract the packing and
 /// kernel code already has; zeroing would only double the traffic.
 #[derive(Default, Debug)]
-pub struct PageBuf {
+struct PageBuf {
     ptr: *mut u8,
     cap: usize,
     /// Owner key this buffer reports growths under, or zero when untraced.
@@ -74,7 +96,7 @@ unsafe impl Send for PageBuf {}
 impl PageBuf {
     /// A buffer that reports its growths under `owner`, for tests that prove
     /// where storage was first touched. Zero means untraced.
-    pub fn traced(owner: u64) -> Self {
+    fn traced(owner: u64) -> Self {
         Self {
             traced: owner,
             ..Self::default()
@@ -84,7 +106,7 @@ impl PageBuf {
     /// A pointer to at least `bytes` writable, page-aligned bytes, growing the
     /// allocation if needed and reusing it otherwise. `ensure(0)` returns a
     /// dangling but well-aligned pointer and allocates nothing.
-    pub fn ensure(&mut self, bytes: usize) -> *mut u8 {
+    fn ensure(&mut self, bytes: usize) -> *mut u8 {
         if bytes == 0 {
             return std::ptr::NonNull::<u8>::dangling().as_ptr();
         }
@@ -118,7 +140,7 @@ impl PageBuf {
     }
 
     /// Pointer to the current allocation, or a dangling pointer when empty.
-    pub fn as_ptr(&self) -> *mut u8 {
+    fn as_ptr(&self) -> *mut u8 {
         if self.ptr.is_null() {
             std::ptr::NonNull::<u8>::dangling().as_ptr()
         } else {
@@ -127,12 +149,12 @@ impl PageBuf {
     }
 
     /// Bytes currently allocated.
-    pub fn cap_bytes(&self) -> usize {
+    fn cap_bytes(&self) -> usize {
         self.cap
     }
 
     /// Release the allocation. Callers must hold the buffer exclusively.
-    pub fn trim(&mut self) {
+    fn trim(&mut self) {
         if !self.ptr.is_null() {
             // SAFETY: allocated with this alignment and a power-of-two size.
             unsafe {
@@ -153,15 +175,12 @@ impl Drop for PageBuf {
     }
 }
 
-/// One thread's buffers, as the owner keeps them.
+/// One thread's buffers, as the owner keeps them between calls.
 #[derive(Debug)]
 struct WorkerSlot {
     a: PageBuf,
     tile: PageBuf,
     scratch: Vec<i64>,
-    /// Set while a call is running on this thread, so a re-entrant call on the
-    /// same thread takes the fresh-buffer path instead of aliasing.
-    borrowed: bool,
 }
 
 impl WorkerSlot {
@@ -171,21 +190,32 @@ impl WorkerSlot {
             a: PageBuf::traced(owner),
             tile: PageBuf::traced(owner),
             scratch: Vec::new(),
-            borrowed: false,
         }
+    }
+
+    fn bytes(&self) -> usize {
+        self.a.cap_bytes()
+            + self.tile.cap_bytes()
+            + self.scratch.capacity() * core::mem::size_of::<i64>()
+    }
+
+    fn trim(&mut self) {
+        self.a.trim();
+        self.tile.trim();
+        self.scratch = Vec::new();
     }
 }
 
 /// A team's shared storage: one packed B panel, the scatter vectors and the
 /// barriers that publish the panel between its threads.
 #[derive(Debug, Default)]
-pub struct TeamSet {
+struct TeamSet {
     /// The packed B panel.
-    pub b: PageBuf,
+    b: PageBuf,
     /// Block-scatter vectors for this call, capacity-reused.
-    pub scatter: Vec<i64>,
+    scatter: Vec<i64>,
     /// One barrier per column group when `pm > 1`, else empty.
-    pub barriers: Vec<Barrier>,
+    barriers: Vec<Barrier>,
     pm: usize,
     pn: usize,
 }
@@ -202,59 +232,94 @@ impl TeamSet {
             self.pn = pn;
         }
     }
+
+    fn bytes(&self) -> usize {
+        self.b.cap_bytes()
+            + self.scatter.capacity() * core::mem::size_of::<i64>()
+            + self.barriers.capacity() * core::mem::size_of::<Barrier>()
+    }
 }
 
-/// An exclusive loan of a [`TeamSet`], returned to its owner on drop.
+/// An exclusive loan of a team set, returned to its owner on drop.
+///
+/// The set is deliberately opaque: the panel grows only through
+/// [`TeamLease::panel`], so every byte the owner hands out is accounted.
 #[derive(Debug)]
 pub struct TeamLease<'a> {
     owner: &'a ArenaProvider,
     set: Option<TeamSet>,
+    /// Bytes this lease has added to the owner's leased total.
+    billed: usize,
 }
 
-impl std::ops::Deref for TeamLease<'_> {
-    type Target = TeamSet;
-    fn deref(&self) -> &TeamSet {
-        self.set.as_ref().expect("team lease holds its set")
-    }
-}
-
-impl std::ops::DerefMut for TeamLease<'_> {
-    fn deref_mut(&mut self) -> &mut TeamSet {
-        self.set.as_mut().expect("team lease holds its set")
-    }
-}
-
-impl TeamLease<'_> {
+impl<'a> TeamLease<'a> {
     /// Size the shared panel and return its pointer, accounting the growth to
     /// the owner. The driver sizes it because only the driver knows the element
     /// type; the provider keeps the storage.
     pub fn panel(&mut self, bytes: usize) -> *mut u8 {
-        let before = self.b.cap_bytes();
-        let ptr = self.b.ensure(bytes);
-        let after = self.b.cap_bytes();
-        if after > before {
-            self.owner
-                .leased
-                .fetch_add(after - before, Ordering::Relaxed);
+        let set = self.set.as_mut().expect("team lease holds its set");
+        let before = set.b.cap_bytes();
+        let ptr = set.b.ensure(bytes);
+        let after = set.b.cap_bytes();
+        if after != before {
+            let delta = after as isize - before as isize;
+            let mut st = lock(&self.owner.state);
+            st.owned = add_signed(st.owned, delta, "retained bytes");
+            st.leased = add_signed(st.leased, delta, "leased bytes");
+            st.panel = add_signed(st.panel, delta, "panel bytes");
+            self.billed = add_signed(self.billed, delta, "billed bytes");
         }
         ptr
+    }
+
+    /// The team's block-scatter buffer, sized by the driver each call.
+    pub fn scatter_mut(&mut self) -> &mut Vec<i64> {
+        &mut self.set.as_mut().expect("team lease holds its set").scatter
+    }
+
+    /// The team's block-scatter buffer.
+    pub fn scatter(&self) -> &[i64] {
+        &self.set.as_ref().expect("team lease holds its set").scatter
+    }
+
+    /// One barrier per column group, empty when nothing is shared.
+    pub fn barriers(&self) -> &[Barrier] {
+        &self
+            .set
+            .as_ref()
+            .expect("team lease holds its set")
+            .barriers
     }
 }
 
 impl Drop for TeamLease<'_> {
     fn drop(&mut self) {
         if let Some(set) = self.set.take() {
-            self.owner
-                .leased
-                .fetch_sub(set.b.cap_bytes(), Ordering::Relaxed);
-            lock(&self.owner.teams).push(set);
+            let mut st = lock(&self.owner.state);
+            // The scatter vector may have been resized through `scatter_mut`
+            // without going through `panel`, so settle both directions.
+            let delta = set.bytes() as isize - self.billed as isize;
+            st.owned = add_signed(st.owned, delta, "retained bytes");
+            st.leased = sub(st.leased, self.billed, "leased bytes");
+            st.teams.push(set);
         }
     }
 }
 
+mod sealed {
+    /// Only the crate's own owner implements [`WorkspaceProvider`](super::WorkspaceProvider):
+    /// the driver writes through the raw pointers it hands out, so an
+    /// implementation must honour the arena's buffer and exclusivity contracts.
+    pub trait Sealed {}
+    impl Sealed for super::ArenaProvider {}
+}
+
 /// Storage an execution may borrow. Implemented by the owner; the driver only
 /// ever sees this trait, so nothing here depends on the driver.
-pub trait WorkspaceProvider: Sync {
+///
+/// Sealed: [`ArenaProvider`] is the supported way to lend reusable storage, and
+/// the trait is deliberately not implementable outside this crate.
+pub trait WorkspaceProvider: sealed::Sealed + Sync {
     /// Run `f` with this thread's A block, tile and scatter scratch. A
     /// re-entrant call on the same thread gets fresh buffers instead of the
     /// ones its outer call is using.
@@ -263,8 +328,24 @@ pub trait WorkspaceProvider: Sync {
     /// Take the team set for `pm x pn`, exclusively, until the lease drops.
     fn take_team(&self, req: &WorkspaceReq, pm: usize, pn: usize) -> TeamLease<'_>;
 
-    /// Release idle storage. Live leases and borrowed worker slots are kept.
+    /// Release idle storage. Live leases and checked-out worker slots are kept.
     fn trim(&self);
+}
+
+/// What one owner holds and lends. One lock covers the storage maps and the
+/// counters, so a snapshot and an update share one synchronization boundary.
+#[derive(Debug, Default)]
+struct State {
+    workers: HashMap<u64, WorkerSlot>,
+    teams: Vec<TeamSet>,
+    /// Capacity of everything owned, idle or in use.
+    owned: usize,
+    /// The part of `owned` lent to a call right now.
+    leased: usize,
+    /// Capacity of the team panels alone, idle or leased. Independent of which
+    /// workers happened to take part, so a test can compare two runs of one
+    /// shape.
+    panel: usize,
 }
 
 /// A workspace owner: per-thread worker slots plus a free list of team sets.
@@ -276,11 +357,8 @@ pub struct ArenaProvider {
     /// Process-unique and never recycled, so a thread-local handle can never be
     /// confused with another provider that happens to share an address.
     key: u64,
-    workers: Mutex<HashMap<u64, Box<WorkerSlot>>>,
-    teams: Mutex<Vec<TeamSet>>,
+    state: Mutex<State>,
     next_worker: AtomicU64,
-    /// Panel bytes currently leased out, which the free list no longer holds.
-    leased: AtomicUsize,
     traced: u64,
 }
 
@@ -305,6 +383,21 @@ fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// `value + delta`, rejecting a decrement below zero. Every caller establishes
+/// the bound; this turns a mistake into a loud failure instead of a wrap.
+fn add_signed(value: usize, delta: isize, what: &str) -> usize {
+    value
+        .checked_add_signed(delta)
+        .unwrap_or_else(|| panic!("workspace {what} went out of range"))
+}
+
+/// `value - amount`, rejecting an underflow for the same reason.
+fn sub(value: usize, amount: usize, what: &str) -> usize {
+    value
+        .checked_sub(amount)
+        .unwrap_or_else(|| panic!("workspace {what} went out of range"))
+}
+
 fn record(owner: u64, bytes: usize) {
     lock(&TRACE).push((owner, std::thread::current().id(), bytes));
 }
@@ -314,10 +407,8 @@ impl ArenaProvider {
     pub fn new() -> Self {
         Self {
             key: NEXT_PROVIDER.fetch_add(1, Ordering::Relaxed),
-            workers: Mutex::new(HashMap::new()),
-            teams: Mutex::new(Vec::new()),
+            state: Mutex::new(State::default()),
             next_worker: AtomicU64::new(0),
-            leased: AtomicUsize::new(0),
             traced: 0,
         }
     }
@@ -346,74 +437,96 @@ impl ArenaProvider {
         mine
     }
 
-    /// Bytes currently retained, for accounting in tests and diagnostics.
-    pub fn retained_bytes(&self) -> usize {
-        let workers: usize = lock(&self.workers)
-            .values()
-            .map(|s| s.a.cap_bytes() + s.tile.cap_bytes())
-            .sum();
-        workers + self.retained_panel_bytes()
-    }
-
-    /// Panel bytes retained, idle or leased. Unlike [`ArenaProvider::retained_bytes`]
-    /// this does not depend on which workers happened to take part, so it is
-    /// what a test can compare between two runs of one shape.
-    pub fn retained_panel_bytes(&self) -> usize {
-        let idle: usize = lock(&self.teams).iter().map(|t| t.b.cap_bytes()).sum();
-        idle + self.leased.load(Ordering::Relaxed)
-    }
-
-    fn slot(&self, index: u64) -> *mut WorkerSlot {
-        let mut workers = lock(&self.workers);
-        match workers.get_mut(&index) {
-            // SAFETY: the `Box` keeps the slot's address stable across map
-            // growth, and only this thread's handle can name this index.
-            Some(slot) => &mut **slot as *mut WorkerSlot,
-            None => std::ptr::null_mut(),
+    /// Bytes currently retained and leased, for accounting by the host.
+    pub fn stats(&self) -> WorkspaceStats {
+        let st = lock(&self.state);
+        WorkspaceStats {
+            retained_bytes: st.owned,
+            leased_bytes: st.leased,
         }
     }
 
-    fn handle_for_this_thread(&self) -> u64 {
-        if let Some(index) = HANDLES.with(|h| {
+    /// Bytes currently retained, for accounting in tests and diagnostics.
+    pub fn retained_bytes(&self) -> usize {
+        self.stats().retained_bytes
+    }
+
+    /// Panel bytes retained, idle or leased. Unlike
+    /// [`ArenaProvider::retained_bytes`] this does not depend on which workers
+    /// happened to take part, so it is what a test can compare between two runs
+    /// of one shape.
+    pub fn retained_panel_bytes(&self) -> usize {
+        lock(&self.state).panel
+    }
+
+    /// Check this thread's slot out of the map, or `None` when the thread
+    /// already holds it (a re-entrant call).
+    fn checkout(&self) -> Option<(u64, WorkerSlot, usize)> {
+        let known = HANDLES.with(|h| {
             h.borrow()
                 .iter()
                 .find(|(k, _)| *k == self.key)
                 .map(|(_, i)| *i)
-        }) {
-            return index;
+        });
+        match known {
+            // The handle exists; a missing slot means an outer call holds it.
+            Some(index) => {
+                let mut st = lock(&self.state);
+                let slot = st.workers.remove(&index)?;
+                let billed = slot.bytes();
+                st.leased += billed;
+                Some((index, slot, billed))
+            }
+            None => {
+                let index = self.next_worker.fetch_add(1, Ordering::Relaxed);
+                HANDLES.with(|h| h.borrow_mut().push((self.key, index)));
+                // A fresh slot owns nothing yet, so the counters do not move.
+                Some((index, WorkerSlot::new(self.traced), 0))
+            }
         }
-        let index = self.next_worker.fetch_add(1, Ordering::Relaxed);
-        lock(&self.workers).insert(index, Box::new(WorkerSlot::new(self.traced)));
-        HANDLES.with(|h| h.borrow_mut().push((self.key, index)));
-        index
+    }
+
+    /// Return a checked-out slot, settling both accounting directions.
+    fn give_back(&self, index: u64, slot: WorkerSlot, billed: usize) {
+        let delta = slot.bytes() as isize - billed as isize;
+        let mut st = lock(&self.state);
+        // `owned` follows the slot's capacity; `leased` gives back exactly what
+        // checkout added, since growth was never lent to anyone else.
+        st.owned = add_signed(st.owned, delta, "retained bytes");
+        st.leased = sub(st.leased, billed, "leased bytes");
+        st.workers.insert(index, slot);
+    }
+}
+
+/// Returns a checked-out slot even when the callback unwinds.
+struct SlotGuard<'a> {
+    owner: &'a ArenaProvider,
+    index: u64,
+    slot: Option<WorkerSlot>,
+    billed: usize,
+}
+
+impl Drop for SlotGuard<'_> {
+    fn drop(&mut self) {
+        if let Some(slot) = self.slot.take() {
+            self.owner.give_back(self.index, slot, self.billed);
+        }
     }
 }
 
 impl WorkspaceProvider for ArenaProvider {
     fn with_worker(&self, req: &WorkspaceReq, f: &mut dyn FnMut(*mut u8, *mut u8, &mut Vec<i64>)) {
-        let index = self.handle_for_this_thread();
-        let raw = self.slot(index);
-        if raw.is_null() {
+        let Some((index, slot, billed)) = self.checkout() else {
             return fresh_worker(req, f);
-        }
-        // SAFETY: the slot belongs to this thread alone (the handle is
-        // thread-local and the map entry never moves), and `borrowed` sends a
-        // re-entrant call down the fresh path instead of aliasing it.
-        let slot = unsafe { &mut *raw };
-        if slot.borrowed {
-            return fresh_worker(req, f);
-        }
-        slot.borrowed = true;
-        // Clears `borrowed` when `f` returns or unwinds, so a panicking callback
-        // cannot leave the slot permanently out of reach.
-        struct Release(*mut WorkerSlot);
-        impl Drop for Release {
-            fn drop(&mut self) {
-                // SAFETY: the slot is boxed and outlives this call (see above).
-                unsafe { (*self.0).borrowed = false };
-            }
-        }
-        let _release = Release(raw);
+        };
+        // Armed before any growth, so a preparation unwind returns the slot too.
+        let mut guard = SlotGuard {
+            owner: self,
+            index,
+            slot: Some(slot),
+            billed,
+        };
+        let slot = guard.slot.as_mut().expect("guard holds its slot");
         slot.a.ensure(req.a_bytes);
         slot.tile.ensure(req.tile_bytes);
         slot.scratch.clear();
@@ -423,35 +536,72 @@ impl WorkspaceProvider for ArenaProvider {
     }
 
     fn take_team(&self, req: &WorkspaceReq, pm: usize, pn: usize) -> TeamLease<'_> {
-        let mut set = lock(&self.teams).pop().unwrap_or_else(|| TeamSet {
-            b: PageBuf::traced(self.traced),
-            ..TeamSet::default()
-        });
+        let (mut set, before, before_panel) = {
+            let mut st = lock(&self.state);
+            let set = st.teams.pop().unwrap_or_default();
+            let (bytes, panel) = (set.bytes(), set.b.cap_bytes());
+            (set, bytes, panel)
+        };
+        // `prepare` allocates, so it can panic. A panic drops `set` and its
+        // pages, and the owner has to stop counting the capacity it had when it
+        // was popped; the guard arms before `prepare` for that reason.
+        let mut teardown = Teardown {
+            owner: self,
+            before,
+            before_panel,
+            armed: true,
+        };
         set.prepare(req, pm, pn);
-        // Account the whole leased panel, so `Drop` can subtract exactly what
-        // it returns and `panel()` only has to add its growth.
-        self.leased.fetch_add(set.b.cap_bytes(), Ordering::Relaxed);
+        let after = set.bytes();
+        teardown.armed = false;
+        let mut st = lock(&self.state);
+        st.owned = add_signed(st.owned, after as isize - before as isize, "retained bytes");
+        // `prepare` touches the scatter vector and the barriers, never the panel.
+        st.leased += after;
+        drop(st);
         TeamLease {
             owner: self,
             set: Some(set),
+            billed: after,
         }
     }
 
     fn trim(&self) {
-        lock(&self.teams).clear();
-        let mut workers = lock(&self.workers);
-        for slot in workers.values_mut() {
-            if !slot.borrowed {
-                slot.a.trim();
-                slot.tile.trim();
-                slot.scratch = Vec::new();
-            }
+        let mut st = lock(&self.state);
+        let idle_slots: usize = st.workers.values().map(|s| s.bytes()).sum();
+        let idle_teams: usize = st.teams.iter().map(|t| t.bytes()).sum();
+        let idle_panels: usize = st.teams.iter().map(|t| t.b.cap_bytes()).sum();
+        for slot in st.workers.values_mut() {
+            slot.trim();
         }
+        st.teams.clear();
+        st.owned = sub(st.owned, idle_slots + idle_teams, "retained bytes");
+        st.panel = sub(st.panel, idle_panels, "panel bytes");
+    }
+}
+
+/// Returns a popped team set's accounting when `prepare` unwinds.
+struct Teardown<'a> {
+    owner: &'a ArenaProvider,
+    before: usize,
+    before_panel: usize,
+    armed: bool,
+}
+
+impl Drop for Teardown<'_> {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        let mut st = lock(&self.owner.state);
+        st.owned = sub(st.owned, self.before, "retained bytes");
+        st.panel = sub(st.panel, self.before_panel, "panel bytes");
     }
 }
 
 /// Buffers for one call that either re-entered its owner or has none. They are
-/// freed when the call returns, which is the price of re-entrancy.
+/// freed when the call returns, which is the price of re-entrancy, and they are
+/// not traced or accounted: the owner never holds them.
 fn fresh_worker(req: &WorkspaceReq, f: &mut dyn FnMut(*mut u8, *mut u8, &mut Vec<i64>)) {
     let mut a = PageBuf::default();
     let mut tile = PageBuf::default();

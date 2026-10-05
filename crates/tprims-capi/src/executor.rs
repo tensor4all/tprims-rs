@@ -17,7 +17,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 use std::thread::JoinHandle;
 
-use ::tprims_exec::{Exec, Pool, PoolStats};
+use ::tprims_exec::{ArenaProvider, Exec, Pool, PoolStats};
 
 use crate::status::*;
 
@@ -34,7 +34,8 @@ pub struct tprims_rayon_opts {
 }
 
 enum Kind {
-    Serial,
+    /// No workers, and the storage its calls reuse across a serial session.
+    Serial(ArenaProvider),
     Pool {
         // The one `Pool` wrapper of this `ThreadPool`: its SPMD gate is
         // pool-wide, so every call must go through this wrapper.
@@ -73,7 +74,7 @@ impl Executor {
     fn serial() -> Box<Self> {
         Box::new(Self {
             inflight: AtomicUsize::new(0),
-            kind: Kind::Serial,
+            kind: Kind::Serial(ArenaProvider::new()),
         })
     }
 
@@ -140,7 +141,7 @@ impl Executor {
         self.inflight.fetch_add(1, Ordering::Acquire);
         let _flight = Flight(&self.inflight);
         match &self.kind {
-            Kind::Serial => f(&Exec::serial()),
+            Kind::Serial(workspace) => f(&Exec::serial_with_workspace(workspace)),
             Kind::Pool { pool, budget, .. } => {
                 let exec = Exec::rayon(pool)
                     .with_budget(budget.load(Ordering::Relaxed))
@@ -154,7 +155,7 @@ impl Executor {
     /// upper bound on a call's width, not the active width.
     pub fn threads(&self) -> (usize, usize) {
         match &self.kind {
-            Kind::Serial => (0, 1),
+            Kind::Serial(_) => (0, 1),
             Kind::Pool { pool, budget, .. } => (
                 pool.size(),
                 budget.load(Ordering::Relaxed).clamp(1, pool.size().max(1)),
@@ -166,7 +167,7 @@ impl Executor {
     /// (which has no pool to enter). For tests and benchmarks.
     pub fn pool_stats(&self) -> Option<PoolStats> {
         match &self.kind {
-            Kind::Serial => None,
+            Kind::Serial(_) => None,
             Kind::Pool { pool, .. } => Some(pool.stats()),
         }
     }
@@ -174,7 +175,7 @@ impl Executor {
     /// Whether the calling thread is a worker of this executor's pool.
     fn on_own_worker(&self) -> bool {
         match &self.kind {
-            Kind::Serial => false,
+            Kind::Serial(_) => false,
             Kind::Pool { pool, .. } => Exec::rayon(pool).is_worker(),
         }
     }

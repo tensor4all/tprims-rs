@@ -106,6 +106,21 @@ fn a_pinned_grid_is_reported_and_honoured() {
     assert!(report.align_c_lines);
 }
 
+/// A pinned grid whose product overflows must be rejected when the plan is
+/// built, not when the driver multiplies `pm * pn` unchecked.
+#[test]
+fn an_overflowing_pinned_grid_is_rejected() {
+    let err = plan(&PlanConfig {
+        partition: Some(Partition::StaticGrid {
+            pin: Some((usize::MAX / 2 + 1, 2)),
+            align_c_lines: false,
+        }),
+        ..PlanConfig::default()
+    })
+    .expect_err("an overflowing grid built a plan");
+    assert!(matches!(err, Error::Select(_)), "{err}");
+}
+
 #[test]
 fn blocking_overrides_are_validated_when_the_config_is_used() {
     let bad = |blocking: BlockingOverride| {

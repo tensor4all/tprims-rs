@@ -20,7 +20,8 @@ use tprims_kernel::{Element, Real};
 
 /// A team of `width` workers on a pool of its own, and optionally a lent
 /// workspace. A refusing team runs the whole execution on one of its own
-/// workers, so the driver's broadcast is declined and the caller does the work.
+/// workers, where a barrier-bearing team cannot be co-scheduled, so the driver
+/// reports the unavailable route.
 struct Team {
     width: usize,
     refuse: bool,
@@ -146,6 +147,20 @@ fn run<T>(
 where
     T: Scalar,
 {
+    try_run::<T>(id, s, policy, team, stats).expect("this team must serve the plan")
+}
+
+/// [`run`] keeping the driver's route error.
+fn try_run<T>(
+    id: &str,
+    s: &Spec,
+    policy: Option<PartitionPolicy>,
+    team: &Team,
+    stats: Option<&DynStats>,
+) -> crate::api::Result<Vec<T>>
+where
+    T: Scalar,
+{
     if team.refuse {
         team.exec()
             .install(2, |_| run_on_team::<T>(id, s, policy, team, stats))
@@ -160,7 +175,7 @@ fn run_on_team<T>(
     policy: Option<PartitionPolicy>,
     team: &Team,
     stats: Option<&DynStats>,
-) -> Vec<T>
+) -> crate::api::Result<Vec<T>>
 where
     T: Scalar,
 {
@@ -223,8 +238,8 @@ where
                 d.as_mut_ptr(),
             ),
         }
-    }
-    d
+    }?;
+    Ok(d)
 }
 
 fn dynamic(job_m: usize, job_n: usize) -> Option<PartitionPolicy> {
@@ -527,7 +542,7 @@ fn the_report_names_the_policy_width_and_mode() {
 }
 
 #[test]
-fn width_one_runs_on_the_caller_without_claims_and_a_refusal_runs_serially() {
+fn width_one_runs_on_the_caller_without_claims_and_a_refusal_reports_no_route() {
     let s = Spec::new(32, 70, 45);
     let serial = run::<f64>(F64, &s, None, &Team::new(1), None);
     let stats = DynStats::new(4);
@@ -537,15 +552,21 @@ fn width_one_runs_on_the_caller_without_claims_and_a_refusal_runs_serially() {
     assert_eq!(one.broadcasts(), 0, "width 1 never broadcasts");
     assert_eq!(stats.snapshot().claims, 0, "no atomic claims at width 1");
 
-    // A declined broadcast runs nothing on the team; the caller does the work
-    // serially with the same frozen family and no barriers.
+    // A same-pool worker cannot be co-scheduled at a barrier, so a
+    // barrier-bearing team is refused rather than silently run serially: the
+    // error comes back with nothing claimed and nothing run.
     let stats = DynStats::new(4);
+    let before = stats.snapshot();
     let mut refuse = Team::new(4);
     refuse.refuse = true;
-    let got = run::<f64>(F64, &s, dynamic(8, 8), &refuse, Some(&stats));
-    assert!(got == serial);
-    assert_eq!(refuse.broadcasts(), 0, "a declined broadcast runs nothing");
-    assert_eq!(stats.snapshot().claims, 0);
+    let err = try_run::<f64>(F64, &s, dynamic(8, 8), &refuse, Some(&stats)).unwrap_err();
+    assert!(matches!(err, crate::api::Error::Exec(_)), "{err}");
+    assert_eq!(refuse.broadcasts(), 0, "a refused team runs nothing");
+    // The refusal is ordered before the call is counted, the workspace is taken
+    // and any epoch claims work, so every counter is exactly what it was before
+    // the call: no part of the driver ran. The packed tests check the sentinel
+    // output directly; here the counters are the observation.
+    assert_eq!(stats.snapshot(), before, "the refusal touched DynStats");
 }
 
 #[test]

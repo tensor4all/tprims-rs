@@ -485,10 +485,17 @@ fn one_thread_exec_enters_no_pool_and_a_four_thread_exec_stays_in_budget() {
         let mut out = c.clone();
         accum(&plan, &exec, 1.0, &a, &b, 0.5, &mut out).unwrap();
         assert!(rel_err(&out, &want) < 1e-12, "{}", be.id());
-        // Nested entry from inside the pool completes (no deadlock) and agrees.
+        // Nested entry from inside the pool: a barrier-free route completes and
+        // agrees, and a plan that needs a barrier-bearing team reports the
+        // refused route instead of deadlocking or silently running serially.
         let mut out = c.clone();
-        tp.install(|| accum(&plan, &exec, 1.0, &a, &b, 0.5, &mut out).unwrap());
-        assert!(rel_err(&out, &want) < 1e-12, "{} nested", be.id());
+        match tp.install(|| accum(&plan, &exec, 1.0, &a, &b, 0.5, &mut out)) {
+            Ok(()) => assert!(rel_err(&out, &want) < 1e-12, "{} nested", be.id()),
+            Err(e) => {
+                assert!(matches!(e, Error::Exec(_)), "{}: {e}", be.id());
+                assert_eq!(rel_err(&out, &c), 0.0, "{}: a refused route wrote", be.id());
+            }
+        }
     }
 }
 

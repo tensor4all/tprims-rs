@@ -47,7 +47,7 @@ pub(crate) mod test_support;
 use core::marker::PhantomData;
 
 use strided_view::{StridedView, StridedViewMut};
-use tprims_exec::{ArenaProvider, Exec, WidthPolicy, WorkspaceProvider};
+use tprims_exec::{Exec, WidthPolicy};
 use tprims_kernel::{Element, KernelCatalog, ResolvedGemm, SelectError};
 
 pub(crate) use analysis::PackedPlan;
@@ -121,9 +121,6 @@ pub struct Plan<T: Scalar> {
     output: ElementPlan,
     report: PlanReport,
     diagnostics: Diagnostics,
-    /// Lent to serial executions so their steady state allocates nothing; a
-    /// borrowed pool lends its own arena instead.
-    workspace: ArenaProvider,
     _t: PhantomData<fn() -> T>,
 }
 
@@ -244,7 +241,6 @@ impl<T: Scalar> Plan<T> {
             diagnostics: Diagnostics::new("tprims-contract", algorithm.name()),
             problem: owned,
             strategy,
-            workspace: ArenaProvider::new(),
             _t: PhantomData,
         })
     }
@@ -360,9 +356,12 @@ impl<T: Scalar> Plan<T> {
     /// as [`StridedView::new`] takes them; the planned extents and strides
     /// address the rest.
     ///
-    /// No view is built, so the call allocates nothing: this is the entry for
-    /// a caller that keeps layouts in the plan and holds only buffers, such as
-    /// an einsum executing its intermediates out of one scratch buffer.
+    /// No view is built, so the call itself allocates no layout metadata: this
+    /// is the entry for a caller that keeps layouts in the plan and holds only
+    /// buffers, such as an einsum executing its intermediates out of one
+    /// scratch buffer. A packed execution still takes its scratch from the
+    /// `Exec`, so a warm serial steady state needs an
+    /// [`Exec::serial_with_workspace`](tprims_exec::Exec::serial_with_workspace).
     ///
     /// # Errors
     ///
@@ -686,10 +685,9 @@ impl<T: Scalar> Plan<T> {
         match &self.strategy {
             Strategy::Packed(pk) => {
                 let exec = exec.with_budget(self.width(exec)).unwrap_or(*exec);
-                // A borrowed pool lends its own arena; a serial context uses the
-                // plan's, which is why a serial plan's steady state allocates
-                // nothing either.
-                let workspace: &dyn WorkspaceProvider = exec.workspace().unwrap_or(&self.workspace);
+                // The caller owns the workspace: a pool lends its arena, a
+                // caller that wants serial reuse lends its own provider, and a
+                // bare serial context runs with call-local scratch.
                 let cp = match c {
                     CRead::Separate(c) => c,
                     _ => d as *const T,
@@ -701,14 +699,14 @@ impl<T: Scalar> Plan<T> {
                         &pk.plan,
                         &pk.rg,
                         &exec,
-                        Some(workspace),
+                        exec.workspace(),
                         alpha,
                         a,
                         b,
                         beta,
                         cp,
                         d,
-                    )
+                    )?
                 };
             }
             Strategy::Faer(_) => unreachable!("served above"),

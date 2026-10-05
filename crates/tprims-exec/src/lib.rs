@@ -30,6 +30,4 @@ pub use error::ExecError;
 pub use exec::{Exec, Par};
 pub use pool::{Pool, PoolStats};
 pub use width::WidthPolicy;
-pub use workspace::{
-    ArenaProvider, PageBuf, TeamLease, TeamSet, WorkspaceProvider, WorkspaceReq, PAGE,
-};
+pub use workspace::{ArenaProvider, TeamLease, WorkspaceProvider, WorkspaceReq, WorkspaceStats};

@@ -981,7 +981,8 @@ fn threaded_case<T>(
                 d.as_ptr(),
                 d.as_mut_ptr(),
             )
-        };
+        }
+        .expect("the sweep's pool serves every width it asks for");
         d
     };
 

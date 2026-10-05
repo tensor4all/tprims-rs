@@ -84,6 +84,12 @@ pub struct BatchItem<'a, T: Scalar> {
 /// it is the reason to prefer this even when serial: a partially executed batch
 /// leaves the caller unable to say which outputs are valid.
 ///
+/// The guarantee covers that layout preflight only. An item can still fail
+/// while executing, after earlier items have written -- for example when the
+/// batch loop was entered from inside a pool worker and an item's plan needs a
+/// barrier-bearing team ([`Error::Exec`](crate::api::Error::Exec)). There is no
+/// whole-batch rollback.
+///
 /// # Examples
 ///
 /// ```
@@ -144,14 +150,18 @@ pub fn contract_batched<T: Scalar>(items: &mut [BatchItem<'_, T>], exec: &Exec<'
 
     // `for_each_partition` takes `Fn`, so each item sits behind its own mutex,
     // locked exactly once and never contended: the `&mut` outputs already prove
-    // the items disjoint. Each item runs serially on its lane.
+    // the items disjoint. Each item runs serially on its lane, reusing the
+    // outer context's workspace so a pooled batch allocates nothing per item.
     let cells: Vec<Mutex<(&mut BatchItem<'_, T>, CRead<T>)>> =
         items.iter_mut().zip(reads).map(Mutex::new).collect();
     let first_error: Mutex<Option<crate::api::Error>> = Mutex::new(None);
+    let item_exec = exec
+        .workspace()
+        .map_or(Exec::Serial, Exec::serial_with_workspace);
     exec.for_each_partition(cells.len(), &|i| {
         let mut cell = cells[i].lock().unwrap_or_else(|e| e.into_inner());
         let (it, c) = &mut *cell;
-        if let Err(e) = run_item(it, *c, &Exec::Serial) {
+        if let Err(e) = run_item(it, *c, &item_exec) {
             first_error
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())

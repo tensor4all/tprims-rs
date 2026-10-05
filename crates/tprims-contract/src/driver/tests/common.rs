@@ -336,6 +336,7 @@ where
             std::ptr::null(),
             d.as_mut_ptr(),
         )
-    };
+    }
+    .expect("the driver must serve this plan at this width");
     d
 }
