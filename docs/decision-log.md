@@ -2,6 +2,12 @@
 
 Dated 2026-09-29, extended through 2026-10-02. Sections below the source-integration entries are history: where a row names `tprims-blas`, `tprims-linalg`, `tprims-core`, `tprims-bundle`, engines, `private-gemm-x86`, the `tensorprimitives/` tree or an environment variable, read the source-integration section above for the current rule. A source link supports the observation; the proposed response remains a hypothesis until an experiment records evidence. Structural decisions (naming, packaging, ABI shape) are marked **Decided** when the maintainer has chosen them; they can still be revisited before the first release.
 
+## 2026-10-05 faer size bound ([#63](https://github.com/tensor4all/tprims-rs/issues/63))
+
+| Question | Ruling | Evidence or next check |
+| --- | --- | --- |
+| Bound faer by size? | **Provisional, supersedes the #50 "any size" ruling for complex double only.** `PlanConfig::faer_limit` (`FaerLimit`, per dtype, `m*n*k`) sends a fusable problem above the bound to the packed driver and reports `Reason::AboveFaerLimit`. The default bounds c64 at 2^17 and leaves f32, f64 and c32 unbounded; `FaerLimit::NONE` restores the #50 rule. The bound does not force packed: forced requests and all-batch problems are unchanged. | tprims-rs#61 corpus (Apple M5 Max, 1 thread, c64 MPS steps, `m*n*k = 2 chi^3`): faer wins up to chi = 16 (8192), ties at chi = 32 (65536) and loses by 1.17x at chi = 64 (524288). The value is provisional; a final sweep over dtypes and small-K, large-output c64 problems (now packed without a measurement of their own) decides it. |
+
 ## 2026-10-03 Phase 2 routing ([#50](https://github.com/tensor4all/tprims-rs/issues/50))
 
 | Question | Ruling | Evidence or next check |

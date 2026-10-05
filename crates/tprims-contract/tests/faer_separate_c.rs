@@ -6,7 +6,7 @@
 //! (`beta == 0` reads no C, `alpha == 0` reads no A or B), in f64 and c64.
 use num_complex::Complex64 as C64;
 use tprims_contract::api::{CSpec, DType, Labels, LayoutSpec, Op, OperandSpec, Problem, Scalar};
-use tprims_contract::{Algorithm, Plan, PlanConfig};
+use tprims_contract::{Algorithm, FaerLimit, Plan, PlanConfig};
 use tprims_exec::Exec;
 use tprims_kernel::Element;
 use tprims_testkit::fixtures::{col_major, row_major, seeded, storage_len};
@@ -121,7 +121,13 @@ fn check<T: Scalar + Element>(
         &Labels::new(&shape.la, &shape.lb, &shape.ld).with_c(&shape.ld),
     )
     .unwrap();
-    let plan = Plan::<T>::new(&problem, &PlanConfig::default()).unwrap();
+    // The separate-C routing under test, without rule 3's volume bound (#63),
+    // which would send the large c64 shapes to packed at every beta.
+    let config = PlanConfig {
+        faer_limit: FaerLimit::NONE,
+        ..PlanConfig::default()
+    };
+    let plan = Plan::<T>::new(&problem, &config).unwrap();
     let routes = (plan.report().algorithm, plan.report().beta_zero);
 
     let c_data: &[T] = match source {

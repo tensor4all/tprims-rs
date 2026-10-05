@@ -309,8 +309,9 @@ M/N/K/H role axes with signed A/B/C/D strides; negative strides are not rejected
 1. An explicit kernel, selector, partition, complex method, blocking, cache model or write-back request forces the packed
    driver, including for an all-batch problem.
 2. An all-batch problem runs the elementwise pass (full `op_C`, `op_D` and separate-C semantics).
-3. A problem that fuses to one strided batched GEMM without copying an operand, with full semantics, runs on faer. A
-   separately described C, or a reduction over an axis one input lacks, is declined.
+3. A problem that fuses to one strided batched GEMM without copying an operand, with full semantics, runs on faer,
+   unless its `m*n*k` exceeds the dtype's `PlanConfig::faer_limit` (default: c64 above 2^17, other dtypes unbounded).
+   A separately described C, or a reduction over an axis one input lacks, is declined.
 4. Everything else runs on the packed driver.
 
 `alpha == 0` or an empty contraction computes `op_D(beta * op_C(C))` in one output pass, for every strategy, reading no

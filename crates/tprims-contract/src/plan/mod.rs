@@ -20,7 +20,8 @@
 //! 2. An all-batch problem runs the **elementwise** pass, which implements the
 //!    full `op_C` / `op_D` / separate-`C` semantics.
 //! 3. A problem that fuses to one strided batched GEMM without copying any
-//!    operand, with full semantics, runs on **faer**.
+//!    operand, with full semantics, runs on **faer**, unless its GEMM volume
+//!    `m * n * k` per batch item exceeds the dtype's [`FaerLimit`] (#63).
 //! 4. Everything else runs on the packed driver.
 //!
 //! Runtime pointers, `alpha` and `beta` may pick the packed driver's existing
@@ -51,9 +52,9 @@ use tprims_kernel::{Element, KernelCatalog, ResolvedGemm, SelectError};
 
 pub(crate) use analysis::PackedPlan;
 pub use analysis::{Axis, PlanStats};
-pub use config::{CacheModel, Partition, PlanConfig, Writeback};
+pub use config::{CacheModel, FaerLimit, Partition, PlanConfig, Writeback};
 pub use orientation::{Orient, RowBlock};
-pub use report::{Algorithm, PackedReport, PlanReport};
+pub use report::{Algorithm, PackedReport, PlanReport, Reason};
 
 use crate::api::{
     AccumulationSource, AliasError, CSpec, ConfigError, Diagnostics, LayoutError, OperandId,
@@ -191,19 +192,38 @@ impl<T: Scalar> Plan<T> {
         config.validate()?;
         let packed = config.requires_packed() || selection.is_some();
         let mut faer_b0 = None;
-        let strategy = if packed {
-            Strategy::Packed(Box::new(Self::plan_packed(problem, config, selection)?))
+        let faer = if packed || problem.all_batch() {
+            None
+        } else {
+            faer_strategy::plan(problem)
+        };
+        let reason = if packed {
+            Reason::Forced
         } else if problem.all_batch() {
-            Strategy::Elementwise(ElementPlan::product(problem))
-        } else if let Some(f) = faer_strategy::plan(problem) {
-            if f.any_beta {
-                Strategy::Faer(f.plan)
-            } else {
+            Reason::AllBatch
+        } else {
+            match &faer {
+                None => Reason::NotFusable,
+                Some(f) => {
+                    let volume = f.plan.volume();
+                    match config.faer_limit.get(problem.dtype()) {
+                        Some(limit) if volume > limit => Reason::AboveFaerLimit { volume, limit },
+                        _ => Reason::Fused,
+                    }
+                }
+            }
+        };
+        let strategy = match (reason, faer) {
+            (Reason::Forced, _) => {
+                Strategy::Packed(Box::new(Self::plan_packed(problem, config, selection)?))
+            }
+            (Reason::AllBatch, _) => Strategy::Elementwise(ElementPlan::product(problem)),
+            (Reason::Fused, Some(f)) if f.any_beta => Strategy::Faer(f.plan),
+            (Reason::Fused, Some(f)) => {
                 faer_b0 = Some(f.plan);
                 Strategy::Packed(Box::new(Self::plan_packed(problem, config, None)?))
             }
-        } else {
-            Strategy::Packed(Box::new(Self::plan_packed(problem, config, None)?))
+            _ => Strategy::Packed(Box::new(Self::plan_packed(problem, config, None)?)),
         };
         let (algorithm, packed_report) = match &strategy {
             Strategy::Packed(p) => (Algorithm::Packed, Some(packed_report(p))),
@@ -214,6 +234,7 @@ impl<T: Scalar> Plan<T> {
             output: ElementPlan::output(problem),
             report: PlanReport {
                 algorithm,
+                reason,
                 beta_zero: faer_b0.as_ref().map(|_| Algorithm::Faer),
                 materialized: [false; 3],
                 packed: packed_report,
