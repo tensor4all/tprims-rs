@@ -164,21 +164,40 @@ unsafe fn write_view<'a, T>(
 #[derive(Clone, Debug)]
 pub struct ElementPlan {
     dims: Vec<usize>,
-    strides: [Vec<isize>; 4],
+    /// The `A`, `B`, `C` and `D` strides, one `dims.len()` run each.
+    strides: Vec<isize>,
     total: usize,
 }
 
 impl ElementPlan {
-    fn from_axes(axes: impl Iterator<Item = (usize, [isize; 4])>) -> Self {
-        let axes: Vec<_> = axes.filter(|a| a.0 != 1).collect();
+    fn from_axes(axes: impl Iterator<Item = (usize, [isize; 4])> + Clone) -> Self {
+        let axes = axes.filter(|a| a.0 != 1);
+        let n = axes.clone().count();
+        let mut dims = Vec::with_capacity(n);
+        let mut strides = vec![0isize; 4 * n];
+        for (i, (e, s)) in axes.enumerate() {
+            dims.push(e);
+            for (j, &x) in s.iter().enumerate() {
+                strides[j * n + i] = x;
+            }
+        }
         Self {
-            dims: axes.iter().map(|a| a.0).collect(),
-            strides: core::array::from_fn(|j| axes.iter().map(|a| a.1[j]).collect()),
-            total: axes.iter().map(|a| a.0).product(),
+            total: dims.iter().product(),
+            dims,
+            strides,
         }
     }
 
-    fn from_roles<'a>(roles: impl Iterator<Item = &'a RoleAxis>, with_inputs: bool) -> Self {
+    /// The `[A, B, C, D]` stride runs.
+    fn strides(&self) -> [&[isize]; 4] {
+        let n = self.dims.len();
+        core::array::from_fn(|j| &self.strides[j * n..(j + 1) * n])
+    }
+
+    fn from_roles<'a>(
+        roles: impl Iterator<Item = &'a RoleAxis> + Clone,
+        with_inputs: bool,
+    ) -> Self {
         Self::from_axes(roles.map(|r| {
             let s = |o| r.stride(o);
             let (sa, sb) = if with_inputs {
@@ -379,10 +398,10 @@ impl<T: Scalar> Job<'_, T> {
     fn with(
         &self,
         exec: &Exec<'_>,
-        body: impl FnOnce(&[usize], &[Vec<isize>; 4]) -> Done + Send,
+        body: impl FnOnce(&[usize], &[&[isize]; 4]) -> Done + Send,
     ) -> Done {
         let plan = self.plan;
-        run_with_exec(exec, plan.total, |_| body(&plan.dims, &plan.strides))
+        run_with_exec(exec, plan.total, |_| body(&plan.dims, &plan.strides()))
     }
 
     // SAFETY (all arms): the contract of `ElementPlan::run`: every origin and
@@ -396,7 +415,7 @@ impl<T: Scalar> Job<'_, T> {
             let z = [<T as Element>::zero()];
             let zeros = vec![0isize; dims.len()];
             let zv = StridedView::<T, Identity>::new_unchecked(&z, dims, &zeros, 0);
-            map_into(&mut write_view(self.d.get(), dims, &st[3]), &zv, |x| x)
+            map_into(&mut write_view(self.d.get(), dims, st[3]), &zv, |x| x)
         })
     }
 
@@ -404,11 +423,11 @@ impl<T: Scalar> Job<'_, T> {
     fn none_c<OC: ElementOp<T>>(&self, exec: &Exec<'_>) -> Done {
         let beta = self.beta;
         self.with(exec, |dims, st| unsafe {
-            let mut dv = write_view(self.d.get(), dims, &st[3]);
+            let mut dv = write_view(self.d.get(), dims, st[3]);
             match self.mode {
                 Mode::InPlace => map_update_into::<T, OC>(&mut dv, move |z| beta * z),
                 Mode::Separate(p) => {
-                    let cv = read_view::<T, OC>(p.get(), dims, &st[2]);
+                    let cv = read_view::<T, OC>(p.get(), dims, st[2]);
                     map_into(&mut dv, &cv, move |x| beta * x)
                 }
                 Mode::Overwrite => unreachable!("dispatched on a C term"),
@@ -420,8 +439,8 @@ impl<T: Scalar> Job<'_, T> {
     fn scaled<OA: ElementOp<T>>(&self, exec: &Exec<'_>) -> Done {
         let alpha = self.alpha;
         self.with(exec, |dims, st| unsafe {
-            let av = read_view::<T, OA>(self.ptrs[0].get(), dims, &st[0]);
-            copy_scale(&mut write_view(self.d.get(), dims, &st[3]), &av, alpha)
+            let av = read_view::<T, OA>(self.ptrs[0].get(), dims, st[0]);
+            copy_scale(&mut write_view(self.d.get(), dims, st[3]), &av, alpha)
         })
     }
 
@@ -429,8 +448,8 @@ impl<T: Scalar> Job<'_, T> {
     fn scaled_c<OA: ElementOp<T>, OC: ElementOp<T>>(&self, exec: &Exec<'_>) -> Done {
         let (alpha, beta) = (self.alpha, self.beta);
         self.with(exec, |dims, st| unsafe {
-            let mut dv = write_view(self.d.get(), dims, &st[3]);
-            let av = read_view::<T, OA>(self.ptrs[0].get(), dims, &st[0]);
+            let mut dv = write_view(self.d.get(), dims, st[3]);
+            let av = read_view::<T, OA>(self.ptrs[0].get(), dims, st[0]);
             match self.mode {
                 Mode::InPlace if beta == <T as Element>::one() && OC::IS_IDENTITY => {
                     axpy(&mut dv, &av, alpha)
@@ -439,7 +458,7 @@ impl<T: Scalar> Job<'_, T> {
                     zip_update2_into::<T, T, OC, OA>(&mut dv, &av, move |z, x| alpha * x + beta * z)
                 }
                 Mode::Separate(p) => {
-                    let cv = read_view::<T, OC>(p.get(), dims, &st[2]);
+                    let cv = read_view::<T, OC>(p.get(), dims, st[2]);
                     zip_map2_into(&mut dv, &av, &cv, move |x, z| alpha * x + beta * z)
                 }
                 Mode::Overwrite => unreachable!("dispatched on a C term"),
@@ -451,9 +470,9 @@ impl<T: Scalar> Job<'_, T> {
     fn product<OA: ElementOp<T>, OB: ElementOp<T>>(&self, exec: &Exec<'_>) -> Done {
         let alpha = self.alpha;
         self.with(exec, |dims, st| unsafe {
-            let mut dv = write_view(self.d.get(), dims, &st[3]);
-            let av = read_view::<T, OA>(self.ptrs[0].get(), dims, &st[0]);
-            let bv = read_view::<T, OB>(self.ptrs[1].get(), dims, &st[1]);
+            let mut dv = write_view(self.d.get(), dims, st[3]);
+            let av = read_view::<T, OA>(self.ptrs[0].get(), dims, st[0]);
+            let bv = read_view::<T, OB>(self.ptrs[1].get(), dims, st[1]);
             if alpha == <T as Element>::one() {
                 mul_into(&mut dv, &av, &bv)
             } else {
@@ -470,9 +489,9 @@ impl<T: Scalar> Job<'_, T> {
         let (alpha, beta) = (self.alpha, self.beta);
         let one = <T as Element>::one();
         self.with(exec, |dims, st| unsafe {
-            let mut dv = write_view(self.d.get(), dims, &st[3]);
-            let av = read_view::<T, OA>(self.ptrs[0].get(), dims, &st[0]);
-            let bv = read_view::<T, OB>(self.ptrs[1].get(), dims, &st[1]);
+            let mut dv = write_view(self.d.get(), dims, st[3]);
+            let av = read_view::<T, OA>(self.ptrs[0].get(), dims, st[0]);
+            let bv = read_view::<T, OB>(self.ptrs[1].get(), dims, st[1]);
             match self.mode {
                 Mode::InPlace if alpha == one && beta == one && OC::IS_IDENTITY => {
                     fma(&mut dv, &av, &bv)
@@ -483,7 +502,7 @@ impl<T: Scalar> Job<'_, T> {
                     })
                 }
                 Mode::Separate(p) => {
-                    let cv = read_view::<T, OC>(p.get(), dims, &st[2]);
+                    let cv = read_view::<T, OC>(p.get(), dims, st[2]);
                     zip_map3_into(&mut dv, &av, &bv, &cv, move |x, y, z| {
                         alpha * x * y + beta * z
                     })
