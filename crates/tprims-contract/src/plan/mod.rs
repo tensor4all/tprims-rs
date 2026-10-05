@@ -354,6 +354,106 @@ impl<T: Scalar> Plan<T> {
         unsafe { self.run(exec, alpha, a.ptr(), b.ptr(), beta, c, d.as_mut_ptr()) }
     }
 
+    /// [`Plan::execute_into`] on plain slices. Each operand is a slice and the
+    /// index of its origin (the element at logical index zero) in that slice,
+    /// as [`StridedView::new`] takes them; the planned extents and strides
+    /// address the rest.
+    ///
+    /// No view is built, so the call allocates nothing: this is the entry for
+    /// a caller that keeps layouts in the plan and holds only buffers, such as
+    /// an einsum executing its intermediates out of one scratch buffer.
+    ///
+    /// # Errors
+    ///
+    /// [`LayoutError::Bounds`] when a slice does not cover the range its
+    /// layout addresses from the given origin (nothing is written);
+    /// [`Error::Exec`](crate::api::Error::Exec) or
+    /// [`Error::Backend`](crate::api::Error::Backend) from a lower layer.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tprims_contract::api::{CSpec, DType, Labels, LayoutSpec, OperandSpec, Problem};
+    /// use tprims_contract::{Plan, PlanConfig};
+    /// use tprims_exec::Exec;
+    /// let l = |d: &[usize], s: &[isize]| OperandSpec::new(LayoutSpec::new(d, s, 0).unwrap());
+    /// // D[i,j] = sum_k A[i,k] B[k,j], column-major 2x2.
+    /// let p = Problem::from_labels(
+    ///     DType::F64,
+    ///     l(&[2, 2], &[1, 2]),
+    ///     l(&[2, 2], &[1, 2]),
+    ///     CSpec::Absent,
+    ///     l(&[2, 2], &[1, 2]),
+    ///     &Labels::new(&[0, 2], &[2, 1], &[0, 1]),
+    /// )
+    /// .unwrap();
+    /// let plan = Plan::<f64>::new(&p, &PlanConfig::default()).unwrap();
+    /// // A is stored after one padding element.
+    /// let (a, b) = ([9.0, 1.0, 2.0, 3.0, 4.0], [0.0, 1.0, 1.0, 0.0]);
+    /// let mut d = [0.0; 4];
+    /// let exec = Exec::serial();
+    /// plan.execute_slices(&exec, 1.0, (&a, 1), (&b, 0), (&mut d, 0)).unwrap();
+    /// assert_eq!(d, [3.0, 4.0, 1.0, 2.0]);
+    /// assert!(plan.execute_slices(&exec, 1.0, (&a, 2), (&b, 0), (&mut d, 0)).is_err());
+    /// ```
+    pub fn execute_slices(
+        &self,
+        exec: &Exec<'_>,
+        alpha: T,
+        (a, a_origin): (&[T], isize),
+        (b, b_origin): (&[T], isize),
+        (d, d_origin): (&mut [T], isize),
+    ) -> Result<()> {
+        let a = self.slice_origin(OperandId::A, a.as_ptr(), a.len(), a_origin)?;
+        let b = self.slice_origin(OperandId::B, b.as_ptr(), b.len(), b_origin)?;
+        let d = self.slice_origin(OperandId::D, d.as_mut_ptr(), d.len(), d_origin)?;
+        // SAFETY: each origin addresses only elements of its slice (checked
+        // above against the operand's span); `d` comes from an exclusive
+        // borrow and cannot alias `a` or `b`.
+        unsafe {
+            self.run(
+                exec,
+                alpha,
+                a,
+                b,
+                <T as Element>::zero(),
+                CRead::None,
+                d.cast_mut(),
+            )
+        }
+    }
+
+    /// The origin of operand `which` at index `origin` of a slice of `len`
+    /// elements starting at `base`, once the slice is known to cover every
+    /// element the operand's layout addresses from there.
+    ///
+    /// An operand with no elements is never read (its output is empty or its
+    /// contraction has no terms), so `base` itself is returned for it.
+    fn slice_origin(
+        &self,
+        which: OperandId,
+        base: *const T,
+        len: usize,
+        origin: isize,
+    ) -> Result<*const T> {
+        let Some(span) = self.problem.span(which) else {
+            return Ok(base);
+        };
+        let planned = match which {
+            OperandId::A => self.problem.a().layout().offset(),
+            OperandId::B => self.problem.b().layout().offset(),
+            _ => self.problem.d().layout().offset(),
+        } as i128;
+        // The span is in the planned offset's coordinates; shift it to the
+        // given origin.
+        let shift = origin as i128 - planned;
+        if span.lo() + shift < 0 || span.hi() + shift >= len as i128 {
+            return Err(LayoutError::Bounds { operand: which }.into());
+        }
+        // INVARIANT: the origin lies in [lo, hi] shifted, inside the slice.
+        Ok(base.wrapping_offset(origin))
+    }
+
     /// Check the views of one operation against the plan, before any write,
     /// and say where the accumulation term is read from.
     ///
