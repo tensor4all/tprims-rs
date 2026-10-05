@@ -136,13 +136,18 @@ const SEPARATE_C_MAX_OUT: usize = 1 << 16;
 /// for operands in faer's native orientation (A unit stride along M).
 const SEPARATE_C_MIN_K: usize = 512;
 
-/// Whether faer also serves a separately described C at `beta != 0`, where D
-/// takes one extra output-sized pass before the product is accumulated.
+/// Whether faer serves a separately described C at all, where D takes one
+/// extra output-sized pass at `beta != 0` before the product is accumulated.
 ///
 /// Fitted on the measured TAPP-style rows (`separate_b1` and `separate_same`,
 /// 4T/8T, `tenferro-p1-gemm` and `large-batched-gemm`; results under
 /// `benchmarks/benchmarks/tprims/contract/results/2026-10-03-phase2-w2b/`);
-/// no admitted case measured below 0.92 of the packed driver. It admits:
+/// no admitted case measured below 0.92 of the packed driver. The clean
+/// confirmation
+/// (`benchmarks/benchmarks/tprims/contract/results/2026-10-04-phase2-w2b-clean/`)
+/// shows the declined cases lose at `beta == 0` too, where there is no pass, so
+/// the gate applies to every `beta` and the packed driver serves them wholly.
+/// It admits:
 /// * a cache-resident output (at most 2^16 elements);
 /// * a K of at least 512 with A unit-stride along M (a transposed A loses to
 ///   packed even without the pass);
@@ -162,19 +167,10 @@ fn separate_c_pays(f: &FaerPlan, p: &Problem) -> bool {
         || f.n.extent == 1
 }
 
-/// A fusion and where it may run.
-#[derive(Debug)]
-pub(crate) struct Planned {
-    pub(crate) plan: FaerPlan,
-    /// Faer serves executions with a nonzero `beta`. It is false only for a
-    /// separate C whose output pass would lose to the packed driver; such a
-    /// plan still serves `beta == 0`, which has no pass.
-    pub(crate) any_beta: bool,
-}
-
 /// The fusion of `p`, or `None` when this strategy cannot run it copy-free with
-/// full semantics.
-pub(crate) fn plan(p: &Problem) -> Option<Planned> {
+/// full semantics, or when a separate C's output pass makes faer lose to the
+/// packed driver at every `beta`.
+pub(crate) fn plan(p: &Problem) -> Option<FaerPlan> {
     let r = p.roles();
     // A reduction over an axis only one input carries has no matrix to hand
     // to faer without a broadcast copy.
@@ -191,11 +187,13 @@ pub(crate) fn plan(p: &Problem) -> Option<Planned> {
         conj_b: p.b().op().is_conj(),
         conj_d: p.d().op().is_conj(),
     };
-    // A separate C costs an output pass whenever `beta != 0`, and `beta` is an
-    // execution argument: the plan keeps the packed driver for those and uses
-    // faer for `beta == 0` (the dispatch is one branch per call).
-    let any_beta = !matches!(p.c_spec(), CSpec::Separate(_)) || separate_c_pays(&plan, p);
-    Some(Planned { plan, any_beta })
+    // A separate C costs an output pass whenever `beta != 0`. Where that pass
+    // makes faer lose to the packed driver, the packed driver serves every
+    // `beta`; declining here is what `Plan`'s strategy choice acts on.
+    if matches!(p.c_spec(), CSpec::Separate(_)) && !separate_c_pays(&plan, p) {
+        return None;
+    }
+    Some(plan)
 }
 
 impl FaerPlan {

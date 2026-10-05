@@ -63,8 +63,12 @@ output elements (workload under the rule 1.06-1.19 at 4T/8T; `decision.txt`).
 Three cases that were overwrite wins flipped to losses under that first rule at 8T
 (`gemm_batched_041/043/044`, outputs of 220-330K elements, K 7-11; 0.78-0.89);
 W2b ([`results/2026-10-03-phase2-w2b/`](results/2026-10-03-phase2-w2b/decision.txt))
-replaced it by a stricter rule and routes `beta == 0` to faer through a second,
-lazily dispatched fusion: no faer-routed case measured below 0.93.
+replaced it by a stricter rule, `separate_c_pays`. W2b also sent `beta == 0` to
+faer through a second, lazily dispatched fusion; the clean confirmation
+([`results/2026-10-04-phase2-w2b-clean/`](results/2026-10-04-phase2-w2b-clean/decision.txt))
+showed that route losing to packed at 4T/8T on the very cases the stricter rule
+declines, at `beta == 0` too where there is no pass, and it was removed: the
+packed driver now serves a declined separate C at every beta.
 No A/A run (host shared); packed rows of two sessions agree within 2%.
 
 ### 2026-10-01 switchable GEMM engine: non-regression

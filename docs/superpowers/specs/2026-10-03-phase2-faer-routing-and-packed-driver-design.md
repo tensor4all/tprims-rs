@@ -73,13 +73,14 @@ neutral or negative result is recorded and reverted.
   `no_materialize` semantics and `PlanReport::materialized` are unchanged.
   W2b replaced the first rule (K >= 512 or at most 2^20 outputs, which
   admitted six cases at 0.69-0.92 of packed) with one measured function,
-  `separate_c_pays`: a separate C goes to faer for every beta when the output
-  has at most 2^16 elements, or K >= 512 with A unit-stride along M, or M or N
-  is 1. Otherwise the plan is packed for `beta != 0` (the output pass costs
-  20-50% of faer's time on a large output with small K) and keeps a faer
-  fusion for `beta == 0`, chosen by one branch per call and reported as
-  `PlanReport::beta_zero`. Results under
-  `results/2026-10-03-phase2-w2/` and `results/2026-10-03-phase2-w2b/`.
+  `separate_c_pays`: a separate C goes to faer when the output has at most
+  2^16 elements, or K >= 512 with A unit-stride along M, or M or N is 1.
+  Otherwise the packed driver serves it at every beta: the output pass costs
+  20-50% of faer's time on a large output with small K, and the clean W2b
+  confirmation measured faer losing the same cases at `beta == 0` too, where
+  there is no pass, so W2b's `beta == 0` faer route was removed. Results under
+  `results/2026-10-03-phase2-w2/`, `results/2026-10-03-phase2-w2b/` and
+  `results/2026-10-04-phase2-w2b-clean/`.
   An isolated one-input K axis stays on packed.
 
 **W3. Packed-driver codegen for its own domain.** These are causes 1 and

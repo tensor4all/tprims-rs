@@ -1,0 +1,56 @@
+# Packed-route instruction count: resolved, the harness filled an unused C
+
+Follow-up to
+`../2026-10-03-phase2-s3-batch/instructions-8t-suspects.txt`, which found that
+main (#56 onward) ran +1.3% (`dot_general_036_f64`) / +3%
+(`dot_general_026_f64`) more user instructions than `c71bba4` on packed-route
+DotGeneral cases and attributed the increase to W2 (#56).
+
+## Cause: the benchmark harness, not tprims
+
+#56 (`c2ac807`) also changed
+`benchmarks/benchmarks/tprims/contract/contract.rs` and introduced
+
+```rust
+let cd: Vec<T> = fill(lc, 3);
+```
+
+`cd` is the separate-C operand. In the default `Overwrite` mode the harness
+never reads it (`c` is a fresh zeroed buffer), but the fill still ran, and it
+costs one pass over the C-sized buffer at about **23.5 instructions per
+element**. The earlier bisect compared binaries whose harnesses differed:
+`c71bba4` and #54 predate the fill, `main` postdates it. The delta is the fill,
+not W2's routing code.
+
+## Evidence
+
+`perf stat -e instructions:u`, `BENCH_RUNS=3 BENCH_WARMUP=1
+BENCH_CASE=<case>`, `--threads 1`, `taskset -c 56`. Every binary below is built
+from that revision's committed sources, so the harness is the only thing that
+changes where noted. C sizes: 026 = 10,103,940 elements, 036 = 1,122,660.
+
+| revision | 026 instructions | 036 instructions |
+|---|---:|---:|
+| `c71bba4` (no `cd`) | 8,150,796,606 | 2,050,802,340 |
+| `e3f4748` (W2 part 1, no `cd`) | 8,130,583,668 | 2,048,554,924 |
+| `c2ac807` (W2 part 2, adds `cd`) | 8,373,103,185 | 2,075,502,741 |
+| `c49370c` (#56 merge) | 8,389,920,902 | 2,077,375,225 |
+| `36bad52` (#58 merge) | 8,387,248,811 | 2,050,416,534 |
+| `main` `5bb35ea` | 8,387,245,705 | 2,050,413,795 |
+| `main` + the W2b harness fix | 8,144,733,498 | 2,023,467,072 |
+
+Delta `c2ac807 - e3f4748` (the fill alone):
+* 026: +242,519,517 / 10,103,940 = **24.0** instructions per C element;
+* 036: +26,947,817 / 1,122,660 = **24.0** instructions per C element.
+
+## Verdict
+
+No packed-path instruction regression in the tprims code:
+
+* with the harness matching (`main` + the W2b harness fix vs `c71bba4`), main is
+  **-0.07%** on 026 and **-1.33%** on 036 — at or below the baseline;
+* the W2b harness change (`contract.rs`, committed here) already removes the
+  fill for `Overwrite`, which is the only mode that never reads `cd`.
+
+No tprims change is warranted. The W2b harness change should reach main with
+this branch.
