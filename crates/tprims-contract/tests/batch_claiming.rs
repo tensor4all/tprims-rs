@@ -189,8 +189,11 @@ fn steady_state_reuses_the_pool_workspace() {
     );
 }
 
+/// A worker caller is a legitimate barrier-free caller: the batch is cut into
+/// lanes and run on the pool the caller already belongs to, with the same
+/// result as the serial path.
 #[test]
-fn a_call_from_a_worker_runs_serially_with_the_same_result() {
+fn a_call_from_a_worker_runs_barrier_free_lanes_with_the_same_result() {
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
         let tp = pool8();
@@ -203,8 +206,10 @@ fn a_call_from_a_worker_runs_serially_with_the_same_result() {
         assert_eq!(nested, serial);
         let after = pool.stats();
         assert_eq!(after.broadcasts, before.broadcasts);
-        // Only the `install` itself entered the pool.
+        // The outer `install` entered the pool; the lanes ran in place on the
+        // worker, which is what makes the batch path barrier-free.
         assert_eq!(after.entries, before.entries + 1);
+        assert_eq!(after.inline_runs, before.inline_runs + 1);
         let _ = tx.send(());
     });
     rx.recv_timeout(Duration::from_secs(60))

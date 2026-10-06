@@ -103,6 +103,22 @@ fn half_specified_static_grid_is_rejected() {
     assert!(matches!(err, Err(SelectError::Incompatible { .. })));
 }
 
+/// The driver derives `pm * pn` unchecked, so a grid whose product overflows
+/// must never be accepted.
+#[test]
+fn a_static_grid_whose_product_overflows_is_rejected() {
+    let err = ResolvedGemm::<f64>::resolve_with::<f64>(
+        &KernelChoice::Auto,
+        4,
+        PartitionPolicy::StaticGrid {
+            pm: usize::MAX / 2 + 1,
+            pn: 2,
+        },
+        PartitionOpts::default(),
+    );
+    assert!(matches!(err, Err(SelectError::Incompatible { .. })));
+}
+
 #[test]
 fn an_explicit_grid_survives_retargeting() {
     let grid = PartitionPolicy::StaticGrid { pm: 3, pn: 2 };

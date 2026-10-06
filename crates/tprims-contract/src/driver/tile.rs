@@ -193,7 +193,14 @@ pub(super) unsafe fn compute_block<T>(
     while jr < jr_hi {
         let nrem = nr.min(jc_len - jr);
         let j0 = jc + jr;
-        let bpan = bp_ptr.add((jr / nr - q0) * b_sliver);
+        // Only the packed path offsets the panel: a direct-B call has none, and
+        // `add` requires a zero offset on a dangling pointer. The direct-B arms
+        // below read `b_base` instead, so the value is never used as a panel.
+        let bpan = if direct_b {
+            bp_ptr
+        } else {
+            bp_ptr.add((jr / nr - q0) * b_sliver)
+        };
         // B's k steps are one apart and its columns one constant
         // stride apart, both checked by `pack_b_needed`; otherwise
         // the tile reads the packed panel (k stride `NR`, columns

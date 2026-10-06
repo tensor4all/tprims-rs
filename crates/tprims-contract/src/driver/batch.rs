@@ -23,8 +23,7 @@ use crate::plan::NS_PER_FLOP;
 /// The rule, from `h` entries of `m x n x k` on `exec` with the default
 /// [`WidthPolicy`] and [`NS_PER_FLOP`]:
 ///
-/// 1. one lane when there is one entry, a budget of one, or the caller is
-///    already a worker of the pool (a nested call runs serially, as always);
+/// 1. one lane when there is one entry or a budget of one;
 /// 2. one lane when the whole batch is too small to leave the caller
 ///    (`exec.width_for(h * item_ns) == 1`);
 /// 3. otherwise lanes when the entry is *tiny*, i.e. alone below the policy's
@@ -43,7 +42,7 @@ pub(super) fn lanes(
     cplx: bool,
 ) -> usize {
     let budget = exec.budget();
-    if h < 2 || budget < 2 || exec.is_worker() {
+    if h < 2 || budget < 2 {
         return 1;
     }
     let policy = WidthPolicy::default();

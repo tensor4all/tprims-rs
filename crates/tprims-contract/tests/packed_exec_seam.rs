@@ -1,10 +1,11 @@
 //! tprims addition: threads come from a `tprims_exec::Exec` alone. A wide
-//! budget broadcasts on the pool, a width of one never does, and a broadcast
-//! the pool refuses runs serially with the same frozen family.
+//! budget broadcasts on the pool, a width of one never does, and a team the
+//! pool refuses is reported as a route error with nothing written.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use strided_view::{StridedView, StridedViewMut};
+use tprims_contract::api::Error;
 use tprims_contract::{Plan, PlanConfig};
 use tprims_exec::{Exec, Pool};
 use tprims_kernel::KernelChoice;
@@ -29,22 +30,26 @@ fn pool4() -> rayon::ThreadPool {
         .unwrap()
 }
 
-fn run_on(plan: &Plan<f64>, exec: &Exec<'_>) -> Vec<f64> {
+/// One contraction into `out`.
+fn fill(plan: &Plan<f64>, exec: &Exec<'_>, out: &mut [f64]) -> Result<(), Error> {
     let (av, bv) = inputs();
-    let mut out = vec![0.0; M * N];
     plan.execute_into(
         exec,
         1.0,
         &StridedView::new(&av, &[M, K], &[1, M as isize], 0).unwrap(),
         &StridedView::new(&bv, &[K, N], &[1, K as isize], 0).unwrap(),
-        &mut StridedViewMut::new(&mut out, &[M, N], &[1, M as isize], 0).unwrap(),
+        &mut StridedViewMut::new(out, &[M, N], &[1, M as isize], 0).unwrap(),
     )
-    .unwrap();
+}
+
+fn run_on(plan: &Plan<f64>, exec: &Exec<'_>) -> Vec<f64> {
+    let mut out = vec![0.0; M * N];
+    fill(plan, exec, &mut out).unwrap();
     out
 }
 
 #[test]
-fn exec_matches_serial_bitwise_and_a_refused_broadcast_falls_back_serially() {
+fn exec_matches_serial_bitwise_and_a_refused_team_reports_no_route() {
     let plan = Plan::<f64>::new(&matmul_problem(M, N, K), &packed()).unwrap();
     let serial = run_on(&plan, &Exec::serial());
 
@@ -54,11 +59,16 @@ fn exec_matches_serial_bitwise_and_a_refused_broadcast_falls_back_serially() {
     assert_eq!(run_on(&plan, &exec), serial);
     assert_eq!(pool.stats().broadcasts, 1);
 
-    // Called from one of the pool's own workers, the broadcast is refused
-    // before any work starts; the same contraction runs serially.
+    // Called from one of the pool's own workers, the team cannot be
+    // co-scheduled; the call reports that instead of silently running serially,
+    // and the output is untouched.
     pool.reset_stats();
-    let nested = exec.install(2, |_| run_on(&plan, &exec));
-    assert_eq!(nested, serial);
+    let mut out = vec![-7.0; M * N];
+    let err = exec
+        .install(2, |_| fill(&plan, &exec, &mut out))
+        .unwrap_err();
+    assert!(matches!(err, Error::Exec(_)), "{err}");
+    assert!(out.iter().all(|&v| v == -7.0), "a refused route wrote");
     assert_eq!(pool.stats().broadcasts, 0);
 }
 
@@ -75,7 +85,7 @@ fn width_one_never_broadcasts_whatever_the_pool_could_do() {
 }
 
 #[test]
-fn a_plan_never_reselects_its_family_for_a_different_budget() {
+fn a_refused_route_runs_no_kernel_and_keeps_the_family() {
     use tprims_kernel::{KernelFamily, UkrFn};
     static CALLS: AtomicUsize = AtomicUsize::new(0);
     unsafe fn traced(k: usize, a: *const f64, b: *const f64, out: *mut f64) {
@@ -111,18 +121,28 @@ fn a_plan_never_reselects_its_family_for_a_different_budget() {
         ..PlanConfig::default()
     };
     let plan = Plan::<f64>::new(&matmul_problem(M, N, K), &config).unwrap();
-    let expected = run_on(&plan, &Exec::serial());
+    let _ = run_on(&plan, &Exec::serial());
+    assert!(
+        CALLS.load(Ordering::Relaxed) > 0,
+        "the forced family never ran"
+    );
     CALLS.store(0, Ordering::Relaxed);
-    // Refused: the caller is a worker of the pool, so the broadcast runs
-    // nothing and the contraction is retried serially, same frozen family.
+    // The caller is a worker of the pool, so no team can be co-scheduled. The
+    // refusal runs nothing at all: no other kernel may be selected in its
+    // place, and the output stays untouched.
     let tp = pool4();
     let pool = Pool::borrow(&tp);
     let exec = Exec::rayon(&pool);
-    let actual = exec.install(2, |_| run_on(&plan, &exec));
-    assert_eq!(actual, expected);
-    assert_eq!(pool.stats().broadcasts, 0);
-    assert!(
-        CALLS.load(Ordering::Relaxed) > 0,
-        "fallback reselected the plan's default family"
+    let mut out = vec![-7.0; M * N];
+    let err = exec
+        .install(2, |_| fill(&plan, &exec, &mut out))
+        .unwrap_err();
+    assert!(matches!(err, Error::Exec(_)), "{err}");
+    assert_eq!(
+        CALLS.load(Ordering::Relaxed),
+        0,
+        "a refused route ran a kernel"
     );
+    assert!(out.iter().all(|&v| v == -7.0), "a refused route wrote");
+    assert_eq!(pool.stats().broadcasts, 0);
 }

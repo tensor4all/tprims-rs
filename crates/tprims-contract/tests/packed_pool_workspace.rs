@@ -52,6 +52,9 @@ fn one_pool_lends_one_workspace_and_two_pools_never_share() {
     assert_eq!(pool_b.workspace().retained_bytes(), 0);
     // A serial context owns nothing; its caller lends a provider explicitly.
     assert!(Exec::serial().workspace().is_none());
+    assert!(Exec::serial_with_workspace(pool_a.workspace())
+        .workspace()
+        .is_some());
 
     // Two operations on one pool reuse its storage: it grows on the first and
     // stops growing after that.

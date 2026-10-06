@@ -375,8 +375,9 @@ Audit hints:
   repartitioned, never served by extra threads. No production path creates
   threads beyond the pool (no scoped-thread fallback, no crate-private pool).
 - An SPMD kernel called from inside a region of the same pool runs its
-  barrier-free variant or serially; concurrent SPMD kernels on one pool are
-  serialized by the context.
+  barrier-free variant; a plan that can only run co-scheduled reports a typed
+  unavailable route before any write instead of being silently serialized.
+  Concurrent SPMD kernels on one pool are serialized by the context.
 - faer parallelism is derived from `Exec`: `Par::Seq` for width one,
   `Par::rayon(k)` inside the borrowed pool's `install` otherwise. Never pick
   `Par` inside a helper.

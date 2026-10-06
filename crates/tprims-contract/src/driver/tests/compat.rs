@@ -348,6 +348,7 @@ impl Plan {
     ) {
         // SAFETY: forwarded.
         unsafe { self.run_raw_with(&Exec::Serial, None, alpha, a, b, beta, c, d) }
+            .expect("a serial route is always available")
     }
 
     /// Run on raw origins on `exec`.
@@ -366,7 +367,7 @@ impl Plan {
         beta: T,
         c: *const T,
         d: *mut T,
-    ) {
+    ) -> std::result::Result<(), tprims_exec::ExecError> {
         let rg = self.resolved::<T>().expect("a valid resolution");
         let problem = self.problem_for(T::STORAGE).expect("validated");
         let packed = PackedPlan::from_problem(&problem, &self.cfg).expect("role products fit");
@@ -510,7 +511,7 @@ pub unsafe fn execute_resolved<T: Scalar>(
     beta: T,
     c: *const T,
     d: *mut T,
-) {
+) -> std::result::Result<(), tprims_exec::ExecError> {
     // SAFETY: forwarded.
     unsafe {
         driver::execute_packed(
@@ -546,7 +547,7 @@ pub unsafe fn execute_resolved_instrumented<T: Scalar>(
     beta: T,
     c: *const T,
     d: *mut T,
-) {
+) -> std::result::Result<(), tprims_exec::ExecError> {
     // SAFETY: forwarded.
     unsafe {
         driver::execute_packed_instrumented(

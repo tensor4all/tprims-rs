@@ -66,17 +66,17 @@ fn concurrent_team_sets_never_share_buffers() {
     // The driver sizes the panel it needs, because only it knows the element
     // type; the lease provides the storage and the barriers.
     let mut a = arena.take_team(&req, 2, 2);
-    let a_ptr = a.b.ensure(req.b_bytes);
+    let a_ptr = a.panel(req.b_bytes);
     let mut b = arena.take_team(&req, 2, 2);
-    let b_ptr = b.b.ensure(req.b_bytes);
+    let b_ptr = b.panel(req.b_bytes);
     assert_ne!(a_ptr, b_ptr);
-    assert_eq!(a.barriers.len(), 2);
-    assert_eq!(b.barriers.len(), 2);
+    assert_eq!(a.barriers().len(), 2);
+    assert_eq!(b.barriers().len(), 2);
     drop(a);
     // The returned set is what the next lease reuses, not a fresh allocation.
-    let c = arena.take_team(&req, 2, 2);
-    assert_eq!(c.b.as_ptr(), a_ptr);
-    assert_eq!(c.barriers.len(), 2);
+    let mut c = arena.take_team(&req, 2, 2);
+    assert_eq!(c.panel(req.b_bytes), a_ptr);
+    assert_eq!(c.barriers().len(), 2);
 }
 
 #[test]
@@ -172,4 +172,188 @@ fn a_panicking_callback_releases_the_worker_slot() {
     );
     arena.trim();
     assert_eq!(arena.retained_bytes(), 0);
+}
+
+/// A caller that wants a serial steady state keeps its own provider: the first
+/// call allocates, the next reuses, `stats` reports both directions and `trim`
+/// releases only the idle half.
+#[test]
+fn a_caller_owned_provider_reuses_and_accounts() {
+    let arena = ArenaProvider::default();
+    let req = WorkspaceReq {
+        a_bytes: 1 << 16,
+        tile_bytes: 4096,
+        b_bytes: 1 << 16,
+        team_scatter: 8,
+        ..Default::default()
+    };
+    let warm = |arena: &ArenaProvider| {
+        arena.with_worker(&req, &mut |_, _, _| {});
+        let mut lease = arena.take_team(&req, 1, 1);
+        lease.panel(req.b_bytes);
+    };
+    let cold = arena.stats();
+    assert_eq!(
+        cold,
+        WorkspaceStats::default(),
+        "an idle owner holds nothing"
+    );
+    warm(&arena);
+    let hot = arena.stats();
+    assert!(hot.retained_bytes >= 2 * (1 << 16), "{hot:?}");
+    assert_eq!(hot.leased_bytes, 0, "nothing is leased between calls");
+    // A second identical call reuses: the owner does not grow.
+    warm(&arena);
+    assert_eq!(arena.stats().retained_bytes, hot.retained_bytes);
+    arena.trim();
+    assert_eq!(
+        arena.stats(),
+        WorkspaceStats::default(),
+        "trim kept idle storage"
+    );
+    // Still usable, and it grows again rather than holding the trimmed bytes.
+    warm(&arena);
+    assert!(arena.stats().retained_bytes > 0);
+}
+
+/// A live lease is accounted separately from the idle storage, and `trim` on
+/// another thread never releases it.
+#[test]
+fn a_live_lease_is_accounted_and_survives_a_trim() {
+    let arena = ArenaProvider::default();
+    let req = WorkspaceReq {
+        b_bytes: 1 << 16,
+        barriers: 1,
+        ..Default::default()
+    };
+    let mut lease = arena.take_team(&req, 2, 2);
+    lease.panel(req.b_bytes);
+    let live = arena.stats();
+    assert!(live.leased_bytes >= 1 << 16, "{live:?}");
+    assert!(live.leased_bytes <= live.retained_bytes, "{live:?}");
+    arena.trim();
+    assert!(
+        arena.stats().leased_bytes >= 1 << 16,
+        "trim released a live lease"
+    );
+    assert_eq!(arena.retained_panel_bytes(), 1 << 16);
+    drop(lease);
+    assert_eq!(arena.stats().leased_bytes, 0);
+}
+
+/// `stats` and `trim` run against a worker that is checking storage in and out.
+/// Before the checkout/return rule, the snapshot and `trim` read and freed
+/// buffers another thread was writing.
+#[test]
+fn stats_and_trim_race_neither_side_against_a_running_worker() {
+    let arena = ArenaProvider::default();
+    let req = WorkspaceReq {
+        a_bytes: 1 << 15,
+        tile_bytes: 4096,
+        b_bytes: 1 << 15,
+        team_scatter: 16,
+        barriers: 1,
+        ..Default::default()
+    };
+    std::thread::scope(|s| {
+        s.spawn(|| {
+            for _ in 0..2000 {
+                arena.with_worker(&req, &mut |_, _, _| {});
+                let mut lease = arena.take_team(&req, 2, 2);
+                lease.panel(req.b_bytes);
+                lease.scatter_mut().push(1);
+            }
+        });
+        s.spawn(|| {
+            for _ in 0..2000 {
+                let st = arena.stats();
+                assert!(
+                    st.leased_bytes <= st.retained_bytes,
+                    "leased exceeds retained: {st:?}"
+                );
+                arena.trim();
+            }
+        });
+    });
+    arena.trim();
+    assert_eq!(arena.stats(), WorkspaceStats::default());
+}
+
+/// A panic while a popped team set is being prepared must not leave its
+/// capacity counted: the set is dropped with its pages, so the owner has to
+/// stop counting them.
+#[test]
+fn a_panicking_team_prepare_counts_nothing() {
+    let arena = ArenaProvider::default();
+    let req = WorkspaceReq {
+        team_scatter: 64,
+        barriers: 1,
+        ..Default::default()
+    };
+    let lease = arena.take_team(&req, 2, 2);
+    drop(lease);
+    let warm = arena.stats().retained_bytes;
+    let warm_panel = arena.retained_panel_bytes();
+    assert!(warm > 0 || warm_panel > 0);
+
+    // `Vec::reserve(usize::MAX)` overflows and panics inside `prepare`, after the
+    // idle set has been popped.
+    let impossible = WorkspaceReq {
+        team_scatter: usize::MAX,
+        barriers: 1,
+        ..Default::default()
+    };
+    let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let _ = arena.take_team(&impossible, 2, 2);
+    }));
+    assert!(unwound.is_err(), "the oversized request must panic");
+    assert_eq!(arena.stats().retained_bytes, 0, "{:?}", arena.stats());
+    assert_eq!(arena.retained_panel_bytes(), 0, "panel capacity survived");
+    assert_eq!(arena.stats().leased_bytes, 0);
+}
+
+/// Re-preparing a set for a different geometry rebuilds the barrier vector, and
+/// the accounting follows it down as well as up.
+#[test]
+fn a_geometry_change_settles_the_barrier_capacity() {
+    let arena = ArenaProvider::default();
+    let two = WorkspaceReq {
+        barriers: 2,
+        ..Default::default()
+    };
+    let one = WorkspaceReq {
+        barriers: 1,
+        ..Default::default()
+    };
+    let lease = arena.take_team(&two, 2, 2);
+    drop(lease);
+    let with_two = arena.stats().retained_bytes;
+    assert!(with_two >= 2 * core::mem::size_of::<std::sync::Barrier>());
+    // A different `pn` forces `prepare` to rebuild the barrier vector.
+    let lease = arena.take_team(&one, 2, 3);
+    drop(lease);
+    let with_one = arena.stats().retained_bytes;
+    assert!(with_one < with_two, "{with_one} is not below {with_two}");
+}
+
+/// Nothing is billed through `panel()` alone: a zero-byte request on a set that
+/// already holds a panel still reports it, and `trim` releases it.
+#[test]
+fn a_zero_request_keeps_a_warmed_panel_counted() {
+    let arena = ArenaProvider::default();
+    let req = WorkspaceReq {
+        b_bytes: 1 << 16,
+        ..Default::default()
+    };
+    let mut lease = arena.take_team(&req, 1, 1);
+    lease.panel(req.b_bytes);
+    drop(lease);
+    assert_eq!(arena.retained_panel_bytes(), 1 << 16);
+    let lease = arena.take_team(&WorkspaceReq::default(), 1, 1);
+    assert!(arena.stats().leased_bytes >= 1 << 16, "{:?}", arena.stats());
+    drop(lease);
+    assert_eq!(arena.retained_panel_bytes(), 1 << 16);
+    arena.trim();
+    assert_eq!(arena.retained_panel_bytes(), 0);
+    assert_eq!(arena.stats(), WorkspaceStats::default());
 }
