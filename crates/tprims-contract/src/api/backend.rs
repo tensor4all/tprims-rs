@@ -116,6 +116,8 @@ impl PlanningBudget {
 /// borrows a distinct C view without owning or copying its payload.
 #[derive(Clone, Copy, Debug)]
 pub enum AccumulationSource<'a, T> {
+    /// No C term. Accepted only with zero beta, for any prepared C mode.
+    Absent,
     /// The previous contents of the output: C is D.
     Output,
     /// A separately described C with the problem's C layout.

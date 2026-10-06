@@ -2,6 +2,7 @@
 //! against the independent oracle, one family at a time, plus the partition,
 //! blocking and selection-boundary cases.
 
+mod c_call;
 mod common;
 mod compat;
 mod correctness;

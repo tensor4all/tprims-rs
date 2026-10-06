@@ -39,6 +39,7 @@
 
 mod analysis;
 mod config;
+mod execution;
 mod orientation;
 mod report;
 #[cfg(test)]
@@ -53,6 +54,7 @@ use tprims_kernel::{Element, KernelCatalog, ResolvedGemm, SelectError};
 pub(crate) use analysis::PackedPlan;
 pub use analysis::{Axis, PlanStats};
 pub use config::{CacheModel, FaerLimit, Partition, PlanConfig, Writeback};
+pub use execution::{ExecutionRoute, OutputContract, PackedRoute, SliceAccumulationSource};
 pub use orientation::{Orient, RowBlock};
 pub use report::{Algorithm, PackedReport, PlanReport, Reason};
 
@@ -117,6 +119,9 @@ enum Strategy<T: Scalar> {
 pub struct Plan<T: Scalar> {
     problem: Problem,
     strategy: Strategy<T>,
+    /// Faer's Replace paths may form references before writing; raw/fresh
+    /// execution uses this prepared, reference-free packed alternative.
+    fresh_packed: Option<Box<Packed<T>>>,
     /// The pass over the output's elements: `alpha == 0` and empty `K`.
     output: ElementPlan,
     report: PlanReport,
@@ -225,6 +230,11 @@ impl<T: Scalar> Plan<T> {
             (Reason::Fused, Some(f)) => Strategy::Faer(f),
             _ => Strategy::Packed(Box::new(Self::plan_packed(problem, config, None)?)),
         };
+        let fresh_packed = if config.fresh_output && matches!(strategy, Strategy::Faer(_)) {
+            Some(Box::new(Self::plan_packed(problem, config, None)?))
+        } else {
+            None
+        };
         let (algorithm, packed_report) = match &strategy {
             Strategy::Packed(p) => (Algorithm::Packed, Some(packed_report(p))),
             Strategy::Faer(_) => (Algorithm::Faer, None),
@@ -241,6 +251,7 @@ impl<T: Scalar> Plan<T> {
             diagnostics: Diagnostics::new("tprims-contract", algorithm.name()),
             problem: owned,
             strategy,
+            fresh_packed,
             _t: PhantomData,
         })
     }
@@ -262,7 +273,9 @@ impl<T: Scalar> Plan<T> {
     }
 
     /// What this plan decided: the algorithm and, for the packed strategy, the
-    /// family, blocking and grid. A lookup, not a re-selection.
+    /// family, blocking and grid of initialized execution. A lookup, not a
+    /// re-selection. Fresh Faer output may use a separately prepared packed
+    /// route; `execution_route` reports that actual execution choice.
     pub fn report(&self) -> &PlanReport {
         &self.report
     }
@@ -333,8 +346,8 @@ impl<T: Scalar> Plan<T> {
     /// # Errors
     ///
     /// As [`Plan::execute_into`], and [`LayoutError::CMode`] for a source that
-    /// does not match the planned C mode (including any accumulation from a
-    /// problem built with [`CSpec::Absent`]).
+    /// does not match the planned C mode, or nonzero beta without a C term.
+    /// `AccumulationSource::Absent` with zero beta is an overwrite for any mode.
     pub fn execute_into_accum(
         &self,
         exec: &Exec<'_>,
@@ -346,6 +359,7 @@ impl<T: Scalar> Plan<T> {
         d: &mut StridedViewMut<'_, T>,
     ) -> Result<()> {
         let c = self.validate_views(a, b, Some(source), d)?;
+        self.validate_c_beta(beta, c)?;
         // SAFETY: as `execute_into`; a separate C is an immutable borrow
         // distinct from the exclusive `d`.
         unsafe { self.run(exec, alpha, a.ptr(), b.ptr(), beta, c, d.as_mut_ptr()) }
@@ -442,7 +456,11 @@ impl<T: Scalar> Plan<T> {
         let planned = match which {
             OperandId::A => self.problem.a().layout().offset(),
             OperandId::B => self.problem.b().layout().offset(),
-            _ => self.problem.d().layout().offset(),
+            OperandId::C => match self.problem.c_spec() {
+                CSpec::Separate(c) => c.layout().offset(),
+                _ => self.problem.d().layout().offset(),
+            },
+            OperandId::D => self.problem.d().layout().offset(),
         } as i128;
         // The span is in the planned offset's coordinates; shift it to the
         // given origin.
@@ -469,7 +487,7 @@ impl<T: Scalar> Plan<T> {
         self.check_layout(OperandId::B, b.dims(), b.strides())?;
         self.check_layout(OperandId::D, d.dims(), d.strides())?;
         Ok(match (self.problem.c_spec(), source) {
-            (_, None) => CRead::None,
+            (_, None | Some(AccumulationSource::Absent)) => CRead::None,
             (CSpec::Output(_), Some(AccumulationSource::Output)) => CRead::InPlace,
             (CSpec::Separate(_), Some(AccumulationSource::Separate(c))) => {
                 self.check_layout(OperandId::C, c.dims(), c.strides())?;
@@ -579,7 +597,10 @@ impl<T: Scalar> Plan<T> {
     /// problem's address range for that operand (see
     /// [`Problem::span`](crate::api::Problem::span), relative to the operand's
     /// logical offset); `d` is valid for writes and nothing else accesses any of
-    /// the memory for the duration of the call.
+    /// the memory for the duration of the call. A Faer plan without
+    /// `PlanConfig::fresh_output` requires initialized D even at beta zero:
+    /// Faer may form references before storing. Prepare `fresh_output` when D
+    /// may be uninitialized. A nonzero beta reading D always requires live D.
     #[allow(clippy::too_many_arguments)] // INVARIANT: the contraction argument set.
     pub unsafe fn execute_raw(
         &self,
@@ -599,8 +620,15 @@ impl<T: Scalar> Plan<T> {
             CSpec::Separate(_) if beta == zero => CRead::None,
             CSpec::Separate(_) => CRead::Separate(c),
         };
-        // SAFETY: preflight passed; the caller's contract covers the rest.
-        unsafe { self.run(exec, alpha, a, b, beta, c_read, d) }
+        self.validate_c_beta(beta, c_read)?;
+        let write_only = beta == zero
+            || matches!(c_read, CRead::None)
+            || matches!(c_read, CRead::Separate(cp) if !core::ptr::eq(cp, d));
+        let fresh = write_only
+            && (!matches!(self.strategy, Strategy::Faer(_)) || self.fresh_packed.is_some());
+        // SAFETY: preflight passed; raw's write-only contract selects a
+        // preprepared fresh route unless execution needs the previous D.
+        unsafe { self.run_storage(exec, alpha, a, b, beta, c_read, d, fresh) }
     }
 
     /// The width the work estimate asks for at the executor's budget.
@@ -625,6 +653,27 @@ impl<T: Scalar> Plan<T> {
         beta: T,
         c: CRead<T>,
         d: *mut T,
+    ) -> Result<()> {
+        // SAFETY: the initialized execution entry's validated buffers.
+        unsafe { self.run_storage(exec, alpha, a, b, beta, c, d, false) }
+    }
+
+    /// Execute with a storage contract fixed by the entry point. Fresh product
+    /// execution never reaches a Faer leaf that forms references before writing.
+    ///
+    /// # Safety
+    /// As `run`; when `fresh` is true no old D value may be required.
+    #[allow(clippy::too_many_arguments)] // INVARIANT: the contraction argument set.
+    unsafe fn run_storage(
+        &self,
+        exec: &Exec<'_>,
+        alpha: T,
+        a: *const T,
+        b: *const T,
+        beta: T,
+        c: CRead<T>,
+        d: *mut T,
+        fresh: bool,
     ) -> Result<()> {
         let p = &self.problem;
         if p.out_empty() {
@@ -652,6 +701,33 @@ impl<T: Scalar> Plan<T> {
             // SAFETY: the caller's contract.
             unsafe { self.output.run(exec, expr, Inputs::None, c, d) }?;
             return Ok(());
+        }
+        if fresh {
+            if let Some(pk) = &self.fresh_packed {
+                let exec = exec.with_budget(self.width(exec))?;
+                let cp = match c {
+                    CRead::Separate(c) => c,
+                    _ => d.cast_const(),
+                };
+                // SAFETY: the caller's write-only contract and validated packed
+                // geometry; unlike Faer Replace, packed leaves write through raw
+                // pointers without first forming initialized output references.
+                return unsafe {
+                    driver::execute_packed(
+                        &pk.plan,
+                        &pk.rg,
+                        &exec,
+                        exec.workspace(),
+                        alpha,
+                        a,
+                        b,
+                        beta,
+                        cp,
+                        d,
+                    )
+                    .map_err(Into::into)
+                };
+            }
         }
         if let Strategy::Faer(f) = &self.strategy {
             // The C term goes into D first, in one parallel output-sized
@@ -684,7 +760,7 @@ impl<T: Scalar> Plan<T> {
         }
         match &self.strategy {
             Strategy::Packed(pk) => {
-                let exec = exec.with_budget(self.width(exec)).unwrap_or(*exec);
+                let exec = exec.with_budget(self.width(exec))?;
                 // The caller owns the workspace: a pool lends its arena, a
                 // caller that wants serial reuse lends its own provider, and a
                 // bare serial context runs with call-local scratch.

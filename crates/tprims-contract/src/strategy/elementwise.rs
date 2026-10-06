@@ -20,7 +20,11 @@
 //!
 //! In-place accumulation reads the previous `D` through the destination with
 //! strided-basic's `map_update_into`, `zip_update2_into` and `zip_update3_into`
-//! (no second view over `D`); `axpy` and `fma` cover the unit-scalar forms.
+//! (no second view over `D`); `axpy` and `fma` cover the unit-scalar forms. The
+//! write-only forms (overwrite and a separate `C`) never form a `&mut [T]` over
+//! `D`: they build a `StridedViewMut<MaybeUninit<T>>` and store
+//! `MaybeUninit::new(value)`, so a fresh, uninitialized destination is never
+//! read.
 //!
 //! 1. `op_D` is folded into the other terms, since
 //!    `conj(alpha*a*b + beta*c) = conj(alpha)*conj(a)*conj(b) + conj(beta)*conj(c)`;
@@ -30,8 +34,10 @@
 //!    a monomorphized closure such as `|a, b| alpha * a * b`. No flag is
 //!    tested per element.
 
+use core::mem::MaybeUninit;
+
 use strided_basic::{
-    axpy, copy_scale, fma, map_into, map_update_into, mul_into, zip_map2_into, zip_map3_into,
+    axpy, fma, map_into, map_update_into, mul_into_uninit, zip_map2_into, zip_map3_into,
     zip_update2_into, zip_update3_into, ElementOp, Identity, StridedError,
 };
 use strided_view::{StridedView, StridedViewMut};
@@ -155,6 +161,32 @@ unsafe fn write_view<'a, T>(
     // SAFETY: the caller's contract.
     unsafe {
         let data = core::slice::from_raw_parts_mut(origin.offset(lo), (hi - lo) as usize + 1);
+        StridedViewMut::new_unchecked(data, dims, strides, -lo)
+    }
+}
+
+/// The write-only view of a destination whose previous values are never read:
+/// the layout of [`write_view`], typed `MaybeUninit` so no `&mut [T]` (and so
+/// no `T` validity assertion) exists before the kernel initializes it.
+///
+/// # Safety
+///
+/// As [`write_view`]; the storage need not be initialized, but the layout must
+/// still be injective and exclusively owned for `'a`.
+unsafe fn write_view_uninit<'a, T>(
+    origin: *mut T,
+    dims: &[usize],
+    strides: &[isize],
+) -> StridedViewMut<'a, MaybeUninit<T>> {
+    let (lo, hi) = offset_span(dims, strides);
+    // SAFETY: `MaybeUninit<T>` has `T`'s size and alignment, so the same live,
+    // exclusively owned reach is valid for writes; `MaybeUninit` asserts no
+    // value validity.
+    unsafe {
+        let data = core::slice::from_raw_parts_mut(
+            origin.offset(lo).cast::<MaybeUninit<T>>(),
+            (hi - lo) as usize + 1,
+        );
         StridedViewMut::new_unchecked(data, dims, strides, -lo)
     }
 }
@@ -407,7 +439,8 @@ impl<T: Scalar> Job<'_, T> {
     // SAFETY (all arms): the contract of `ElementPlan::run`: every origin and
     // layout is validated; the destination is exclusive and injective; a
     // separate C is disjoint from it. In-place forms never build a second view
-    // of the destination.
+    // of the destination; the write-only forms build a `MaybeUninit` view, so
+    // they never assert that a fresh `D` already holds `T` values.
 
     /// `D = op_D(0)`: a stride-0 broadcast of zero.
     fn zero(&self, exec: &Exec<'_>) -> Done {
@@ -415,7 +448,11 @@ impl<T: Scalar> Job<'_, T> {
             let z = [<T as Element>::zero()];
             let zeros = vec![0isize; dims.len()];
             let zv = StridedView::<T, Identity>::new_unchecked(&z, dims, &zeros, 0);
-            map_into(&mut write_view(self.d.get(), dims, st[3]), &zv, |x| x)
+            map_into(
+                &mut write_view_uninit(self.d.get(), dims, st[3]),
+                &zv,
+                MaybeUninit::new,
+            )
         })
     }
 
@@ -423,12 +460,18 @@ impl<T: Scalar> Job<'_, T> {
     fn none_c<OC: ElementOp<T>>(&self, exec: &Exec<'_>) -> Done {
         let beta = self.beta;
         self.with(exec, |dims, st| unsafe {
-            let mut dv = write_view(self.d.get(), dims, st[3]);
             match self.mode {
-                Mode::InPlace => map_update_into::<T, OC>(&mut dv, move |z| beta * z),
+                Mode::InPlace => {
+                    let mut dv = write_view(self.d.get(), dims, st[3]);
+                    map_update_into::<T, OC>(&mut dv, move |z| beta * z)
+                }
                 Mode::Separate(p) => {
                     let cv = read_view::<T, OC>(p.get(), dims, st[2]);
-                    map_into(&mut dv, &cv, move |x| beta * x)
+                    map_into(
+                        &mut write_view_uninit(self.d.get(), dims, st[3]),
+                        &cv,
+                        move |x| MaybeUninit::new(beta * x),
+                    )
                 }
                 Mode::Overwrite => unreachable!("dispatched on a C term"),
             }
@@ -440,7 +483,11 @@ impl<T: Scalar> Job<'_, T> {
         let alpha = self.alpha;
         self.with(exec, |dims, st| unsafe {
             let av = read_view::<T, OA>(self.ptrs[0].get(), dims, st[0]);
-            copy_scale(&mut write_view(self.d.get(), dims, st[3]), &av, alpha)
+            map_into(
+                &mut write_view_uninit(self.d.get(), dims, st[3]),
+                &av,
+                move |x| MaybeUninit::new(alpha * x),
+            )
         })
     }
 
@@ -448,18 +495,26 @@ impl<T: Scalar> Job<'_, T> {
     fn scaled_c<OA: ElementOp<T>, OC: ElementOp<T>>(&self, exec: &Exec<'_>) -> Done {
         let (alpha, beta) = (self.alpha, self.beta);
         self.with(exec, |dims, st| unsafe {
-            let mut dv = write_view(self.d.get(), dims, st[3]);
             let av = read_view::<T, OA>(self.ptrs[0].get(), dims, st[0]);
             match self.mode {
-                Mode::InPlace if beta == <T as Element>::one() && OC::IS_IDENTITY => {
-                    axpy(&mut dv, &av, alpha)
-                }
                 Mode::InPlace => {
-                    zip_update2_into::<T, T, OC, OA>(&mut dv, &av, move |z, x| alpha * x + beta * z)
+                    let mut dv = write_view(self.d.get(), dims, st[3]);
+                    if beta == <T as Element>::one() && OC::IS_IDENTITY {
+                        axpy(&mut dv, &av, alpha)
+                    } else {
+                        zip_update2_into::<T, T, OC, OA>(&mut dv, &av, move |z, x| {
+                            alpha * x + beta * z
+                        })
+                    }
                 }
                 Mode::Separate(p) => {
                     let cv = read_view::<T, OC>(p.get(), dims, st[2]);
-                    zip_map2_into(&mut dv, &av, &cv, move |x, z| alpha * x + beta * z)
+                    zip_map2_into(
+                        &mut write_view_uninit(self.d.get(), dims, st[3]),
+                        &av,
+                        &cv,
+                        move |x, z| MaybeUninit::new(alpha * x + beta * z),
+                    )
                 }
                 Mode::Overwrite => unreachable!("dispatched on a C term"),
             }
@@ -470,13 +525,15 @@ impl<T: Scalar> Job<'_, T> {
     fn product<OA: ElementOp<T>, OB: ElementOp<T>>(&self, exec: &Exec<'_>) -> Done {
         let alpha = self.alpha;
         self.with(exec, |dims, st| unsafe {
-            let mut dv = write_view(self.d.get(), dims, st[3]);
             let av = read_view::<T, OA>(self.ptrs[0].get(), dims, st[0]);
             let bv = read_view::<T, OB>(self.ptrs[1].get(), dims, st[1]);
+            let mut dv = write_view_uninit(self.d.get(), dims, st[3]);
             if alpha == <T as Element>::one() {
-                mul_into(&mut dv, &av, &bv)
+                mul_into_uninit(&mut dv, &av, &bv)
             } else {
-                zip_map2_into(&mut dv, &av, &bv, move |x, y| alpha * x * y)
+                zip_map2_into(&mut dv, &av, &bv, move |x, y| {
+                    MaybeUninit::new(alpha * x * y)
+                })
             }
         })
     }
@@ -489,23 +546,31 @@ impl<T: Scalar> Job<'_, T> {
         let (alpha, beta) = (self.alpha, self.beta);
         let one = <T as Element>::one();
         self.with(exec, |dims, st| unsafe {
-            let mut dv = write_view(self.d.get(), dims, st[3]);
             let av = read_view::<T, OA>(self.ptrs[0].get(), dims, st[0]);
             let bv = read_view::<T, OB>(self.ptrs[1].get(), dims, st[1]);
             match self.mode {
-                Mode::InPlace if alpha == one && beta == one && OC::IS_IDENTITY => {
-                    fma(&mut dv, &av, &bv)
-                }
                 Mode::InPlace => {
-                    zip_update3_into::<T, T, T, OC, OA, OB>(&mut dv, &av, &bv, move |z, x, y| {
-                        alpha * x * y + beta * z
-                    })
+                    let mut dv = write_view(self.d.get(), dims, st[3]);
+                    if alpha == one && beta == one && OC::IS_IDENTITY {
+                        fma(&mut dv, &av, &bv)
+                    } else {
+                        zip_update3_into::<T, T, T, OC, OA, OB>(
+                            &mut dv,
+                            &av,
+                            &bv,
+                            move |z, x, y| alpha * x * y + beta * z,
+                        )
+                    }
                 }
                 Mode::Separate(p) => {
                     let cv = read_view::<T, OC>(p.get(), dims, st[2]);
-                    zip_map3_into(&mut dv, &av, &bv, &cv, move |x, y, z| {
-                        alpha * x * y + beta * z
-                    })
+                    zip_map3_into(
+                        &mut write_view_uninit(self.d.get(), dims, st[3]),
+                        &av,
+                        &bv,
+                        &cv,
+                        move |x, y, z| MaybeUninit::new(alpha * x * y + beta * z),
+                    )
                 }
                 Mode::Overwrite => unreachable!("dispatched on a C term"),
             }

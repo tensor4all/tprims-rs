@@ -56,7 +56,7 @@ pub struct BatchItem<'a, T: Scalar> {
     pub a: StridedView<'a, T>,
     /// Right operand.
     pub b: StridedView<'a, T>,
-    /// Scales the accumulation source. Ignored when `source` is `None`.
+    /// Scales the accumulation source. Must be zero when `source` is `None`.
     pub beta: T,
     /// Where the accumulation term is read from. `None` means `d` is
     /// overwritten.
@@ -132,7 +132,9 @@ pub fn contract_batched<T: Scalar>(items: &mut [BatchItem<'_, T>], exec: &Exec<'
     // Validate everything first, so a failure means no output is written.
     let mut reads = Vec::with_capacity(items.len());
     for it in items.iter() {
-        reads.push(it.plan.validate_views(&it.a, &it.b, it.source, &it.d)?);
+        let c = it.plan.validate_views(&it.a, &it.b, it.source, &it.d)?;
+        it.plan.validate_c_beta(it.beta, c)?;
+        reads.push(c);
     }
     if items.is_empty() {
         return Ok(());

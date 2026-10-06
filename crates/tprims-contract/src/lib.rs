@@ -67,8 +67,9 @@ pub use backend::TprimsBackend;
 pub use batch::{contract_batched, BatchItem};
 pub use driver::{Assignment, DynSnapshot, DynStats, DynamicReport};
 pub use plan::{
-    Algorithm, Axis, CacheModel, FaerLimit, Orient, PackedReport, Partition, Plan, PlanConfig,
-    PlanReport, PlanStats, Reason, RowBlock, Writeback, NS_PER_FLOP,
+    Algorithm, Axis, CacheModel, ExecutionRoute, FaerLimit, Orient, OutputContract, PackedReport,
+    PackedRoute, Partition, Plan, PlanConfig, PlanReport, PlanStats, Reason, RowBlock,
+    SliceAccumulationSource, Writeback, NS_PER_FLOP,
 };
 pub use select::{Chooser, KernelCandidate, OperandMeta, Selection, SelectionContext};
 pub use wrappers::{add, permute};

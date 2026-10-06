@@ -289,7 +289,7 @@ pub(super) unsafe fn run_dynamic<T>(
     for h in 0..plan.stats.batch {
         let ah = ptr_a.offset(cx.ha[h] as isize);
         let bh = ptr_b.offset(cx.hb[h] as isize);
-        let ch = c.offset(plan.h_c[h] as isize);
+        let ch = c.offset(cx.hc[h] as isize);
         let dh = d.offset(plan.h_d[h] as isize);
         let mut jc = 0;
         while jc < n {
