@@ -1,13 +1,14 @@
 use crate::ArenaProvider;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
-/// A Rayon pool lent by the host for the lifetime `'p`.
+/// A wrapper around a host's borrowed, owned or shared Rayon pool.
 ///
 /// tprims never creates threads beyond this pool. Its size is fixed at
 /// construction (Rayon pools cannot resize). The embedded mutex serializes
-/// SPMD broadcasts so two co-scheduled kernels cannot interleave on the same
-/// workers.
+/// SPMD broadcasts through this wrapper. Hosts sharing a raw pool must retain
+/// one wrapper and serialize potentially conflicting numerical work, rather
+/// than constructing independent wrappers with separate SPMD mutexes.
 ///
 /// # Examples
 ///
@@ -20,9 +21,8 @@ use std::sync::Mutex;
 pub struct Pool<'p> {
     pool: PoolRef<'p>,
     pub(crate) spmd: Mutex<()>,
-    /// Retained storage for the operations that run on this pool. One owner per
-    /// pool, so two operations on it reuse the same worker buffers, B panel and
-    /// barriered team sets, and none of it is visible to any other pool.
+    /// Retained storage for operations through this wrapper. Reusing the wrapper
+    /// reuses its worker buffers, B panel and barriered team sets.
     workspace: ArenaProvider,
     entries: AtomicU64,
     broadcasts: AtomicU64,
@@ -32,6 +32,7 @@ pub struct Pool<'p> {
 enum PoolRef<'p> {
     Borrowed(&'p rayon::ThreadPool),
     Owned(Box<rayon::ThreadPool>),
+    Shared(Arc<rayon::ThreadPool>),
 }
 
 /// Counters of how often a [`Pool`] was entered, for tests and benchmarks.
@@ -93,15 +94,17 @@ impl<'p> Pool<'p> {
         match &self.pool {
             PoolRef::Borrowed(p) => p,
             PoolRef::Owned(p) => p,
+            PoolRef::Shared(p) => p,
         }
     }
 
-    /// Give back an owned pool (`None` for a borrowed one), for example so a
-    /// C host can drop it and join its workers.
+    /// Give back an owned pool (`None` for a borrowed or shared one), for example
+    /// so a C host can drop it and join its workers. A shared wrapper releases
+    /// only its Arc reference; other owners keep the raw pool alive.
     pub fn into_owned(self) -> Option<rayon::ThreadPool> {
         match self.pool {
             PoolRef::Owned(p) => Some(*p),
-            PoolRef::Borrowed(_) => None,
+            PoolRef::Borrowed(_) | PoolRef::Shared(_) => None,
         }
     }
 
@@ -139,6 +142,25 @@ impl<'p> Pool<'p> {
 }
 
 impl Pool<'static> {
+    /// Share the host's existing Rayon pool without creating another worker team.
+    ///
+    /// Retain this wrapper across calls and share it (for example through an
+    /// `Arc<Pool<'static>>`) across host clones to reuse workspace and SPMD
+    /// serialization. Other numerical libraries may borrow the host's original
+    /// raw pool, but their work must obey the host's same resource-loan protocol.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::Arc;
+    /// let raw = Arc::new(rayon::ThreadPoolBuilder::new().num_threads(2).build().unwrap());
+    /// let pool = tprims_exec::Pool::shared(Arc::clone(&raw));
+    /// assert_eq!(pool.size(), raw.current_num_threads());
+    /// ```
+    pub fn shared(pool: Arc<rayon::ThreadPool>) -> Self {
+        Self::with(PoolRef::Shared(pool))
+    }
+
     /// Take ownership of a pool, for hosts without one of their own (the C
     /// ABI's `tprims_tapp_executor_create_rayon`). Rust hosts normally [`Pool::borrow`].
     ///

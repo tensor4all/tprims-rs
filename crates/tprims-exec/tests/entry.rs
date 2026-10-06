@@ -9,6 +9,54 @@ fn pool(n: usize) -> rayon::ThreadPool {
 }
 
 #[test]
+fn shared_pool_preserves_selected_workers_workspace_and_arc_ownership() {
+    use std::collections::HashSet;
+    use std::sync::{Arc, Mutex};
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<Pool<'static>>();
+    let raw = Arc::new(pool(2));
+    let weak = Arc::downgrade(&raw);
+    let expected: HashSet<_> = raw
+        .broadcast(|_| std::thread::current().id())
+        .into_iter()
+        .collect();
+    let wrapper = Arc::new(Pool::shared(Arc::clone(&raw)));
+    let alias = Arc::clone(&wrapper);
+    assert!(std::ptr::eq(wrapper.workspace(), alias.workspace()));
+    let exec = Exec::rayon(&wrapper);
+    let caller = std::thread::current().id();
+    assert_eq!(
+        exec.install(1, |par| (par, std::thread::current().id())),
+        (Par::Seq, caller)
+    );
+    assert_eq!(wrapper.stats().entries, 0);
+    for _ in 0..3 {
+        exec.install(2, |par| {
+            assert_eq!(par.threads(), 2);
+            assert!(raw.current_thread_index().is_some());
+        });
+    }
+    let observed = Mutex::new(HashSet::new());
+    exec.broadcast(2, &|_| {
+        observed.lock().unwrap().insert(std::thread::current().id());
+    })
+    .unwrap();
+    assert_eq!(observed.into_inner().unwrap(), expected);
+    // Keep the pre-existing worker-context refusal, including width one.
+    assert_eq!(
+        raw.install(|| exec.broadcast(1, &|_| ())),
+        Err(tprims_exec::ExecError::Unavailable)
+    );
+    drop(raw);
+    assert!(weak.upgrade().is_some());
+    drop(alias);
+    let wrapper = Arc::try_unwrap(wrapper).unwrap();
+    assert!(wrapper.into_owned().is_none());
+    // Ownership retention, not a claim about worker shutdown completion.
+    assert!(weak.upgrade().is_none());
+}
+
+#[test]
 fn serial_install_runs_inline_with_seq() {
     let caller = std::thread::current().id();
     let got = Exec::serial().install(4, |par| (par, std::thread::current().id()));
