@@ -69,7 +69,21 @@ pub const IRREGULAR: i64 = i64::MIN;
 /// ```
 pub fn build_scatter(extents: &[i64], strides: &[i64]) -> Vec<i64> {
     debug_assert_eq!(extents.len(), strides.len());
-    let total: i64 = extents.iter().product();
+    // A zero extent makes the group empty whatever the other extents are, and an
+    // overflowing `i64` product cannot describe a real group: the planner and the
+    // operand validation reject an oversized role before scatter construction.
+    // Both cases produce an empty vector here, so neither may panic.
+    let mut total: i64 = 1;
+    for &extent in extents {
+        if extent == 0 {
+            total = 0;
+            break;
+        }
+        total = match total.checked_mul(extent) {
+            Some(product) => product,
+            None => return Vec::new(),
+        };
+    }
     let total = total.max(0) as usize;
     let mut out = Vec::with_capacity(total);
     if total == 0 {
@@ -98,6 +112,20 @@ pub fn build_scatter(extents: &[i64], strides: &[i64]) -> Vec<i64> {
     }
     debug_assert_eq!(out.len(), total);
     out
+}
+
+#[cfg(test)]
+mod empty_cardinality_tests {
+    use super::build_scatter;
+
+    #[test]
+    fn zero_extent_behind_an_overflowing_prefix_is_empty_not_a_panic() {
+        // The prefix product overflows `i64`, but the zero extent makes the group
+        // empty; the vector must be empty rather than a panic (or a wrapped
+        // length that would allocate wrongly).
+        assert!(build_scatter(&[1i64 << 62, 2, 0], &[1, 1, 1]).is_empty());
+        assert!(build_scatter(&[0, 1i64 << 62], &[isize::MAX as i64, 1]).is_empty());
+    }
 }
 
 /// Derive the block-scatter vector for `scat` at block size `blk`.
