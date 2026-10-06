@@ -232,18 +232,35 @@ impl PackedPlan {
             }
         }
 
-        let a_m = build_scatter_for(&m_ax, |x| x.sa);
-        let a_k = build_scatter_for(&k_ax, |x| x.sa);
-        let b_k = build_scatter_for(&k_ax, |x| x.sb);
-        let b_n = build_scatter_for(&n_ax, |x| x.sb);
-        let c_m = build_scatter_for(&m_ax, |x| x.sc);
-        let c_n = build_scatter_for(&n_ax, |x| x.sc);
-        let d_m = build_scatter_for(&m_ax, |x| x.sd);
-        let d_n = build_scatter_for(&n_ax, |x| x.sd);
-        let h_a = build_scatter_for(&h_ax, |x| x.sa);
-        let h_b = build_scatter_for(&h_ax, |x| x.sb);
-        let h_c = build_scatter_for(&h_ax, |x| x.sc);
-        let h_d = build_scatter_for(&h_ax, |x| x.sd);
+        // An operand with a zero extent holds no element, so no numerical access
+        // can reach it, and its per-role scatter vectors are unreachable values.
+        // A caller may legitimately leave an empty operand's strides at an
+        // unreachable magnitude (a view over an empty slice), which would
+        // overflow the scatter odometer below. Zero that operand's strides
+        // instead; the vector lengths, and so the reported stats, are unchanged.
+        let empty = |groups: [&[Axis]; 3]| {
+            groups
+                .iter()
+                .any(|group| group.iter().any(|axis| axis.extent == 0))
+        };
+        let a_empty = empty([&m_ax, &k_ax, &h_ax]);
+        let b_empty = empty([&k_ax, &n_ax, &h_ax]);
+        let c_empty = empty([&m_ax, &n_ax, &h_ax]);
+        let d_empty = empty([&m_ax, &n_ax, &h_ax]);
+        let stride = |is_empty: bool, value: i64| if is_empty { 0 } else { value };
+
+        let a_m = build_scatter_for(&m_ax, |x| stride(a_empty, x.sa));
+        let a_k = build_scatter_for(&k_ax, |x| stride(a_empty, x.sa));
+        let b_k = build_scatter_for(&k_ax, |x| stride(b_empty, x.sb));
+        let b_n = build_scatter_for(&n_ax, |x| stride(b_empty, x.sb));
+        let c_m = build_scatter_for(&m_ax, |x| stride(c_empty, x.sc));
+        let c_n = build_scatter_for(&n_ax, |x| stride(c_empty, x.sc));
+        let d_m = build_scatter_for(&m_ax, |x| stride(d_empty, x.sd));
+        let d_n = build_scatter_for(&n_ax, |x| stride(d_empty, x.sd));
+        let h_a = build_scatter_for(&h_ax, |x| stride(a_empty, x.sa));
+        let h_b = build_scatter_for(&h_ax, |x| stride(b_empty, x.sb));
+        let h_c = build_scatter_for(&h_ax, |x| stride(c_empty, x.sc));
+        let h_d = build_scatter_for(&h_ax, |x| stride(d_empty, x.sd));
 
         let stats = PlanStats {
             m: d_m.len(),
@@ -296,17 +313,35 @@ impl PackedPlan {
 }
 
 /// Merge adjacent axes whose strides are compatible in every operand.
+///
+/// The compatibility test multiplies a stride by the preceding extent, and the
+/// merged extent multiplies two extents. An empty operand may legitimately carry
+/// an unreachable-magnitude stride on its empty axis, so both are checked: an
+/// overflow means the axes are simply not foldable, which leaves them separate
+/// and keeps the stride normalization for empty operands in charge of the
+/// scatter vectors. The planner's own role-size guards bound a real layout's
+/// role products, so refusing to fold on overflow loses no real fold.
 fn fold_axes(axes: Vec<Axis>) -> Vec<Axis> {
     let mut out: Vec<Axis> = Vec::with_capacity(axes.len());
     for ax in axes {
         if let Some(p) = out.last_mut() {
-            if ax.sa == p.sa * p.extent
-                && ax.sb == p.sb * p.extent
-                && ax.sc == p.sc * p.extent
-                && ax.sd == p.sd * p.extent
-            {
-                p.extent *= ax.extent;
-                continue;
+            let foldable =
+                p.sa.checked_mul(p.extent)
+                    .is_some_and(|expected| expected == ax.sa)
+                    && p.sb
+                        .checked_mul(p.extent)
+                        .is_some_and(|expected| expected == ax.sb)
+                    && p.sc
+                        .checked_mul(p.extent)
+                        .is_some_and(|expected| expected == ax.sc)
+                    && p.sd
+                        .checked_mul(p.extent)
+                        .is_some_and(|expected| expected == ax.sd);
+            if foldable {
+                if let Some(extent) = p.extent.checked_mul(ax.extent) {
+                    p.extent = extent;
+                    continue;
+                }
             }
         }
         out.push(ax);
@@ -322,7 +357,42 @@ fn build_scatter_for(axes: &[Axis], pick: impl Fn(&Axis) -> i64) -> Vec<i64> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::test_support::{build, lay};
+    use super::super::test_support::{build, lay, laying};
+
+    #[test]
+    fn empty_operand_with_unreachable_strides_still_plans() {
+        // A[i,k] over an empty slice with a stride a caller may leave
+        // unreachable, B[k,j] empty, D[i,j]: an empty contraction is a valid
+        // problem, and planning must not overflow while building the scatter
+        // vectors of the empty operands.
+        let a = laying(&[2, 0], &[isize::MAX as i64, 1]);
+        let b = lay(&[0, 3]);
+        let d = lay(&[2, 3]);
+        let p = build(&a, &[0, 1], &b, &[1, 2], &d, &[0, 2]);
+        assert_eq!((p.stats.m, p.stats.n, p.stats.k), (2, 3, 0));
+    }
+
+    #[test]
+    fn multi_axis_empty_view_with_unreachable_stride_still_plans() {
+        // A's empty axis is last, so folding would test `isize::MAX * 2` on the
+        // first M axis before the empty-operand stride normalization runs.
+        let a = laying(&[2, 2, 0], &[isize::MAX as i64, 1, 1]);
+        let b = lay(&[0, 3]);
+        let d = lay(&[2, 2, 3]);
+        let p = build(&a, &[0, 1, 3], &b, &[3, 2], &d, &[0, 1, 2]);
+        assert_eq!((p.stats.m, p.stats.n, p.stats.k), (4, 3, 0));
+    }
+
+    #[test]
+    fn empty_output_with_unreachable_strides_still_plans() {
+        // The output's empty axis carries the unreachable stride, so the write
+        // side has to survive the same preparation.
+        let a = lay(&[2, 0]);
+        let b = lay(&[0, 0]);
+        let d = laying(&[2, 0], &[1, isize::MAX as i64]);
+        let p = build(&a, &[0, 1], &b, &[1, 2], &d, &[0, 2]);
+        assert_eq!((p.stats.m, p.stats.n, p.stats.k), (2, 0, 0));
+    }
 
     #[test]
     fn plain_matmul_folds_to_pure_gemm() {
