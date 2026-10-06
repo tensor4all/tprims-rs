@@ -7,7 +7,7 @@ use std::ffi::c_void;
 use std::os::raw::c_int;
 
 use tprims_contract::api;
-use tprims_contract::Plan;
+use tprims_contract::{OutputContract, Plan};
 
 use crate::abi::*;
 use crate::executor::with_executor;
@@ -115,6 +115,18 @@ where
     // SAFETY: `exec` is zero or a live executor per the contract.
     unsafe {
         with_executor(exec, |x| {
+            // INVARIANT: C plans prepare Separate C and fresh_output. This is
+            // execute_raw's storage classification after the alias preflight.
+            // Resolve every item on the actual caller before the first write.
+            for i in 0..count {
+                let it = item(i);
+                let output = if be == zero || !std::ptr::eq(it.c, it.d.cast_const()) {
+                    OutputContract::Fresh
+                } else {
+                    OutputContract::Initialized
+                };
+                plan.execution_route(x, al, output).map_err(map_err)?;
+            }
             for i in 0..count {
                 // SAFETY: validated above; the caller's pointer contract.
                 run(plan, x, al, be, item(i), zero)?;

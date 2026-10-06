@@ -65,9 +65,9 @@ fn concurrent_nested_and_over_budget_products_neither_deadlock_nor_add_threads()
         });
         assert_eq!(ok.load(std::sync::atomic::Ordering::Relaxed), 24);
 
-        // Nested: a product started from a worker of the executor's own pool
-        // runs serially there instead of waiting for workers that are busy.
-        let mut d = vec![f64::NAN; m * n];
+        // A fresh packed SPMD route is refused before writes on its own pool
+        // worker. A non-team route may execute there; there is no serial retry.
+        let mut d = vec![17.0; m * n];
         let dp = d.as_mut_ptr() as usize;
         let (ap, bp) = (a.as_ptr() as usize, b.as_ptr() as usize);
         let rc = tprims::executor::with_executor(exec, |x| {
@@ -85,8 +85,12 @@ fn concurrent_nested_and_over_budget_products_neither_deadlock_nor_add_threads()
             }))
         })
         .unwrap();
-        assert_eq!(rc, TAPP_SUCCESS);
-        assert_close(&d, &want, 1e-12);
+        if rc == TAPP_ERROR_UNSUPPORTED {
+            assert!(d.iter().all(|&v| v == 17.0));
+        } else {
+            assert_eq!(rc, TAPP_SUCCESS);
+            assert_close(&d, &want, 1e-12);
+        }
 
         // Budget below the pool width: the product still completes.
         assert_eq!(tprims_tapp_executor_set_budget(exec, 2), TAPP_SUCCESS);

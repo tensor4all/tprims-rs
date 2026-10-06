@@ -126,7 +126,7 @@ pub(super) unsafe fn run_strip<T>(
     for h in items {
         let ah = ptr_a.offset(ha[h] as isize);
         let bh = ptr_b.offset(hb[h] as isize);
-        let ch = c.offset(plan.h_c[h] as isize);
+        let ch = c.offset(cx.hc[h] as isize);
         let dh = d.offset(plan.h_d[h] as isize);
 
         // ---- loop 5: N blocking -------------------------------------------

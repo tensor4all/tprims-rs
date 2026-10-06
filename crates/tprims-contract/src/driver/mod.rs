@@ -130,6 +130,8 @@ use tprims_exec::{Exec, ExecError, WorkspaceProvider, WorkspaceReq};
 
 use crate::buffer::Panel;
 mod batch;
+mod route;
+pub(crate) use route::execution_geometry;
 mod dynamic;
 mod static_grid;
 #[cfg(test)]
@@ -296,6 +298,7 @@ struct Ctx<'a, T: Element> {
     dn: &'a [i64],
     ha: &'a [i64],
     hb: &'a [i64],
+    hc: &'a [i64],
     /// Every block-scatter vector this call needs, laid out by `runs`.
     scatter: &'a [i64],
     runs: ScatterRuns,
@@ -309,6 +312,21 @@ struct Ctx<'a, T: Element> {
     d: Shared<T>,
     /// The shared packed-`B` panel: written cooperatively, read by everyone.
     bp: Shared<T::Real>,
+}
+
+// A beta-zero call may have no C storage. Even an unused `offset` must stay
+// within its allocation: use D's live origin and batch offsets, never C's gaps.
+fn c_for_call<T: Element>(
+    plan: &PackedPlan,
+    beta: T,
+    c: *const T,
+    d: *mut T,
+) -> (*const T, &[i64]) {
+    if beta == T::zero() {
+        (d.cast_const(), &plan.h_d)
+    } else {
+        (c, &plan.h_c)
+    }
 }
 
 fn lcm(a: usize, b: usize) -> usize {
@@ -469,6 +487,7 @@ where
         (&plan.h_a, &plan.h_b)
     };
 
+    let (c, hc) = c_for_call(plan, beta, c, d);
     let workspace = workspace.or_else(|| exec.workspace());
     let m = am.len();
     let n = bn.len();
@@ -479,7 +498,7 @@ where
         for h in 0..plan.stats.batch {
             scale_only::<T>(
                 beta,
-                c.offset(plan.h_c[h] as isize),
+                c.offset(hc[h] as isize),
                 cm,
                 cn,
                 plan.conj_c,
@@ -496,11 +515,19 @@ where
     // B access, this B's strides, and whether D can be updated in place. Both
     // are allocation-free, because the partition below depends on them and the
     // team's buffer is only borrowed once the shape is known.
+    let geometry = execution_geometry::<T>(plan, &rg, exec)?;
     let call = ResolvedCall {
-        pack_b_needed: pack_b_needed(rg.family().b_access, bk, bn, nr),
+        pack_b_needed: !geometry.direct_b,
         direct_c_allowed: direct_c_allowed(plan, c, d, beta),
     };
-    let direct_b = !call.pack_b_needed;
+    let route::Geometry {
+        lanes,
+        pm,
+        pn,
+        p,
+        dyn_jobs,
+        direct_b,
+    } = geometry;
 
     // NOTE (Phase 4): `cfg.blk` is still the untouched Phase 2 heuristic, and
     // `MC`/`NC` in it are sized for a `KC`-deep panel. On a third of the corpus
@@ -517,67 +544,9 @@ where
     // each; it caps them at the panel and block counts, so a contraction with
     // three row panels and two column blocks uses six threads at most however
     // many were asked for and however much work it contains.
-    // The width is the `Exec`'s budget, not the plan's: threads come from the
-    // host alone.
-    let want = exec.budget();
-    // An explicit grid is clamped to the width this call may use; the default
-    // grid is the plan's own cost model, which already respects it.
-    let explicit_grid = match rg.partition {
-        tprims_kernel::PartitionPolicy::StaticGrid { pm, pn } if pm != 0 => Some((pm, pn)),
-        _ => None,
-    };
-    // `DynamicTiles`: the team claims jobs, so the grid is `p x 1` (all in the
-    // row direction, which only fixes the barrier's size). The width is the
-    // host's budget capped by the jobs that exist at the widest NC block.
-    let dyn_jobs = match rg.partition {
-        tprims_kernel::PartitionPolicy::DynamicTiles { job_m, job_n } => {
-            let nc_serial = rg.with_threads(1).map_or(n, |rg| rg.nc);
-            let jobs = dynamic::job_count(m, n, nr, nc_serial, job_m, job_n);
-            Some((job_m, job_n, jobs))
-        }
-        _ => None,
-    };
-    // Batch-axis claiming: only on the default partition, and decided here once
-    // from the plan, the item and the budget. One lane means the usual path.
-    let lanes = match (explicit_grid, dyn_jobs) {
-        (None, None) => batch::lanes(exec, plan.stats.batch, (m, n, k), T::IS_COMPLEX),
-        _ => 1,
-    };
-    let (mut pm, mut pn) = match (explicit_grid, dyn_jobs) {
-        _ if lanes > 1 => (1, 1),
-        (_, Some((_, _, jobs))) => (want.min(jobs), 1),
-        (Some((pm, pn)), None) => (pm, pn),
-        (None, None) => plan.partition_with(mr, nr, want),
-    };
-    // A pinned partition (`PartitionMode::Pin` or an explicit grid)
-    // ignores the thread count, so shrink it to the budget.
-    if dyn_jobs.is_none() {
-        while pm * pn > want {
-            if pn > 1 {
-                pn -= 1;
-            } else {
-                pm -= 1;
-            }
-        }
-    }
-    let p = pm * pn;
-    // A direct-B kernel reads B where it lies, one column group at a time, so
-    // there is no shared panel to publish and no cross-thread barrier: the
-    // partition must be a pure split of `N` (`pm == 1`). The total width is
-    // unchanged, so the blocking below still matches the active thread count.
-    if direct_b && dyn_jobs.is_none() {
-        pm = 1;
-        pn = p;
-    }
-    // The route is fixed here, before the workspace is taken, before anything
-    // is allocated and before any output is written. A same-pool worker cannot
-    // be co-scheduled at a barrier, so a partition that needs one is refused
-    // instead of being silently run serially. `p <= budget <= pool size` by
-    // construction, so the worker context is the only way this is unavailable.
+    // Reporting and execution share geometry resolution; unavailable worker
+    // routes were rejected before taking a workspace or writing anything.
     let spmd = pm > 1;
-    if spmd && exec.is_worker() {
-        return Err(ExecError::Unavailable);
-    }
     // INVARIANT: the plan validated serial's maximal NC, and p >= 1.
     let at_width = rg
         .with_threads(p)
@@ -730,6 +699,7 @@ where
         dn,
         ha,
         hb,
+        hc,
         scatter: scatter_buf,
         runs,
         conj_a,

@@ -46,8 +46,13 @@ fn spec(t: &TensorInfo, op: Op) -> Result<OperandSpec, FfiError> {
 }
 
 fn build<T: api::Scalar>(problem: &Problem) -> Result<Plan<T>, FfiError> {
-    // Standard calls use the default configuration: no tuning API in the C ABI.
-    Plan::<T>::new(problem, &PlanConfig::default()).map_err(map_err)
+    // The C boundary permits write-only D, so prepare that storage capability
+    // once. This is not a tuning API or execution-time provider fallback.
+    let config = PlanConfig {
+        fresh_output: true,
+        ..PlanConfig::default()
+    };
+    Plan::<T>::new(problem, &config).map_err(map_err)
 }
 
 /// Plan `D = op_D(alpha * op_A(A) * op_B(B) + beta * op_C(C))` from four tensor

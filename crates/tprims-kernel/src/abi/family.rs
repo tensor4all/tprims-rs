@@ -179,12 +179,18 @@ pub struct Caps {
 }
 
 /// Scratch-tile kernel: overwrite the entire declared tile with A·B.
-/// Pointers must cover the family's packed panel and tile sizes.
+/// Pointers must cover the family's packed panel and tile sizes. The tile may
+/// be uninitialized: do not read it or form initialized references to it before
+/// writing, and initialize every element required by the tile format and
+/// logical geometry before returning (not unused extra `tile_bound` capacity).
 pub type TileUkrFn<R> = unsafe fn(kc: usize, a: *const R, b: *const R, tile: *mut R);
 /// Direct kernel: `d = alpha_d*d + beta_ab*(A*B)` on an m×n tile.
 /// A is packed with unit row stride; B and D use the supplied strides.
-/// With alpha_d zero the kernel must not read D. All addressed values must
-/// be valid and output must not alias input panels.
+/// With alpha_d zero D may be uninitialized: the kernel must not read it or
+/// form initialized references to it before storing. Otherwise D must be live.
+/// Input values must be live, all addressed storage must be in bounds, and
+/// output must not alias input panels. Initialize every addressed D element
+/// before returning.
 pub type DirectUkrFn<R> = unsafe fn(
     m: usize,
     n: usize,

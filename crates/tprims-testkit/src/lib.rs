@@ -237,6 +237,9 @@ impl<T: Scalar> PreparedContraction<T> for NaivePlan {
         d: &mut StridedViewMut<'_, T>,
     ) -> Result<()> {
         match (self.problem.c_spec(), source) {
+            (_, AccumulationSource::Absent) if beta == <T as Element>::zero() => {
+                self.run(exec, alpha, a, b, beta, None, false, d)
+            }
             (CSpec::Output(_), AccumulationSource::Output) => {
                 self.run(exec, alpha, a, b, beta, None, true, d)
             }
