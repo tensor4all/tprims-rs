@@ -16,6 +16,23 @@ use crate::blas::GemmScalar;
 use crate::corpus::{Layout, Sized};
 use crate::tblis;
 
+// Concrete implementations avoid mixing the two libraries' Element traits.
+macro_rules! upstream_method {
+    () => {
+        #[cfg(feature = "upstream")]
+        fn upstream(
+            s: &Sized,
+            threads: usize,
+            a: &[Self],
+            b: &[Self],
+            d: &mut [Self],
+            reps: usize,
+        ) -> f64 {
+            crate::upstream::run(s, threads, a, b, d, reps)
+        }
+    };
+}
+
 /// An element type the harness can drive through every engine.
 #[allow(dead_code)] // some members are only used under optional features
 pub trait BenchElem: Scalar + GemmScalar {
@@ -27,9 +44,19 @@ pub trait BenchElem: Scalar + GemmScalar {
     fn tblis_scalar(v: f64) -> tblis::tblis_scalar;
     fn sample(rng: &mut impl Rng) -> Self;
     fn from_f64(v: f64) -> Self;
+    #[cfg(feature = "upstream")]
+    fn upstream(
+        s: &Sized,
+        threads: usize,
+        a: &[Self],
+        b: &[Self],
+        d: &mut [Self],
+        reps: usize,
+    ) -> f64;
 }
 
 impl BenchElem for f32 {
+    upstream_method!();
     const NAME: &'static str = "f32";
     const TBLIS_TYPE: c_int = tblis::TYPE_SINGLE;
     const REAL_NAME: &'static str = "f32";
@@ -45,6 +72,7 @@ impl BenchElem for f32 {
 }
 
 impl BenchElem for f64 {
+    upstream_method!();
     const NAME: &'static str = "f64";
     const TBLIS_TYPE: c_int = tblis::TYPE_DOUBLE;
     const REAL_NAME: &'static str = "f64";
@@ -60,6 +88,7 @@ impl BenchElem for f64 {
 }
 
 impl BenchElem for Complex<f32> {
+    upstream_method!();
     const NAME: &'static str = "c32";
     const TBLIS_TYPE: c_int = tblis::TYPE_SCOMPLEX;
     const REAL_NAME: &'static str = "f32";
@@ -75,6 +104,7 @@ impl BenchElem for Complex<f32> {
 }
 
 impl BenchElem for Complex<f64> {
+    upstream_method!();
     const NAME: &'static str = "c64";
     const TBLIS_TYPE: c_int = tblis::TYPE_DCOMPLEX;
     const REAL_NAME: &'static str = "f64";
@@ -144,12 +174,13 @@ pub fn rel_error<T: Element>(got: &[T], want: &[T]) -> f64 {
     }
 }
 
-/// Force the process onto one core's worth of BLAS/TBLIS threads, and confirm
-/// the linked TBLIS matches the ABI the harness was compiled for.
-pub fn pin_single_threaded() {
+/// Set provider budgets and confirm the linked TBLIS ABI.
+pub fn configure_threads(threads: usize) {
+    let _ = threads;
     #[cfg(feature = "tblis")]
     unsafe {
-        tblis::tblis_set_num_threads(1);
+        tblis::tblis_set_num_threads(threads.try_into().expect("TBLIS thread count fits u32"));
+        assert_eq!(tblis::tblis_get_num_threads() as usize, threads);
         if let Err(e) = tblis::verify_type_tags() {
             eprintln!("FATAL: {e}");
             std::process::exit(2);
@@ -159,6 +190,8 @@ pub fn pin_single_threaded() {
     // first use, so pinning it is the caller's job and cannot be done from here.
     #[cfg(all(feature = "blas", not(feature = "accelerate")))]
     unsafe {
-        crate::blas::openblas_set_num_threads(1)
+        crate::blas::openblas_set_num_threads(
+            threads.try_into().expect("BLAS thread count fits i32"),
+        )
     };
 }

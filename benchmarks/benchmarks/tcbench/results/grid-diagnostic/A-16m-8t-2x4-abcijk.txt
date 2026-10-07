@@ -1,0 +1,80 @@
+# threads: requested=8 pool=8 budget=8
+host        : shinaoka-EVO-X1Pro
+target      : x86_64 / linux
+cpu features: avx2 fma avx512f avx512dq 
+caches      : L1=48KiB/12-way/2sh L2=1024KiB/16-way/2sh L3=8192KiB/16-way/16sh (via sysfs), blocking=legacy
+l3 domains  : t1=1 t4=1 t8=1 t16=2
+baselines   : tblis=true blas=false
+tblis       : abi 2.x, 8 thread(s)
+
+running 18 cases at 16 MiB nominal tensor size, 5 reps, stress=none
+
+
+=== f64 ===
+             case |    m |    n |  k | regA | regB | packed GF/s 
+------------------+------+------+----+------+------+-------------
+ abcijk-ijma-mkbc | 6912 | 1728 | 24 | 1.00 | 1.00 |       159.0 
+ abcijk-ijmb-mkac | 3456 | 3456 | 24 | 1.00 | 0.67 |       159.0 
+ abcijk-ijmc-mkab | 3456 | 3456 | 24 | 1.00 | 0.67 |       153.6 
+ abcijk-ikma-mjbc | 6912 | 1728 | 24 | 1.00 | 1.00 |       155.2 
+ abcijk-ikmb-mjac | 3456 | 3456 | 24 | 1.00 | 0.67 |       163.3 
+ abcijk-ikmc-mjab | 3456 | 3456 | 24 | 1.00 | 0.67 |       158.1 
+ abcijk-jkma-mibc | 6912 | 1728 | 24 | 1.00 | 1.00 |       160.9 
+ abcijk-jkmb-miac | 3456 | 3456 | 24 | 1.00 | 0.67 |       162.8 
+ abcijk-jkmc-miab | 3456 | 3456 | 24 | 1.00 | 0.67 |       155.3 
+ abcijk-eiab-jkec | 3456 | 3456 | 24 | 1.00 | 0.67 |       157.8 
+ abcijk-eiac-jkeb | 3456 | 3456 | 24 | 1.00 | 0.67 |       163.5 
+ abcijk-eibc-jkea | 1728 | 6912 | 24 | 1.00 | 1.00 |       161.2 
+ abcijk-ejab-ikec | 3456 | 3456 | 24 | 1.00 | 0.67 |       156.0 
+ abcijk-ejac-ikeb | 3456 | 3456 | 24 | 1.00 | 0.67 |       163.7 
+ abcijk-ejbc-ikea | 1728 | 6912 | 24 | 1.00 | 1.00 |       160.4 
+ abcijk-ekab-ijec | 3456 | 3456 | 24 | 1.00 | 0.67 |       154.4 
+ abcijk-ekac-ijeb | 3456 | 3456 | 24 | 1.00 | 0.67 |       161.4 
+ abcijk-ekbc-ijea | 1728 | 6912 | 24 | 1.00 | 1.00 |       161.1 
+
+=== c64 ===
+             case |    m |    n |  k | regA | regB | packed GF/s 
+------------------+------+------+----+------+------+-------------
+ abcijk-ijma-mkbc | 6912 | 1728 | 24 | 1.00 | 1.00 |       222.1 
+ abcijk-ijmb-mkac | 3456 | 3456 | 24 | 1.00 | 1.00 |       232.5 
+ abcijk-ijmc-mkab | 3456 | 3456 | 24 | 1.00 | 1.00 |       270.4 
+ abcijk-ikma-mjbc | 6912 | 1728 | 24 | 1.00 | 1.00 |       268.9 
+ abcijk-ikmb-mjac | 3456 | 3456 | 24 | 1.00 | 1.00 |       269.5 
+ abcijk-ikmc-mjab | 3456 | 3456 | 24 | 1.00 | 1.00 |       271.2 
+ abcijk-jkma-mibc | 6912 | 1728 | 24 | 1.00 | 1.00 |       276.0 
+ abcijk-jkmb-miac | 3456 | 3456 | 24 | 1.00 | 1.00 |       281.3 
+ abcijk-jkmc-miab | 3456 | 3456 | 24 | 1.00 | 1.00 |       267.2 
+ abcijk-eiab-jkec | 3456 | 3456 | 24 | 1.00 | 1.00 |       266.8 
+ abcijk-eiac-jkeb | 3456 | 3456 | 24 | 1.00 | 1.00 |       283.9 
+ abcijk-eibc-jkea | 1728 | 6912 | 24 | 1.00 | 1.00 |       274.9 
+ abcijk-ejab-ikec | 3456 | 3456 | 24 | 1.00 | 1.00 |       271.2 
+ abcijk-ejac-ikeb | 3456 | 3456 | 24 | 1.00 | 1.00 |       267.7 
+ abcijk-ejbc-ikea | 1728 | 6912 | 24 | 1.00 | 1.00 |       268.3 
+ abcijk-ekab-ijec | 3456 | 3456 | 24 | 1.00 | 1.00 |       271.4 
+ abcijk-ekac-ijeb | 3456 | 3456 | 24 | 1.00 | 1.00 |       267.9 
+ abcijk-ekbc-ijea | 1728 | 6912 | 24 | 1.00 | 1.00 |       276.1 
+
+=== complex efficiency ratio (c64 GF/s over f64 GF/s; 1.0 = no penalty) ===
+             case | packed c64/f64 
+------------------+----------------
+ abcijk-ijma-mkbc |          1.397 
+ abcijk-ijmb-mkac |          1.463 
+ abcijk-ijmc-mkab |          1.761 
+ abcijk-ikma-mjbc |          1.733 
+ abcijk-ikmb-mjac |          1.651 
+ abcijk-ikmc-mjab |          1.715 
+ abcijk-jkma-mibc |          1.715 
+ abcijk-jkmb-miac |          1.728 
+ abcijk-jkmc-miab |          1.720 
+ abcijk-eiab-jkec |          1.691 
+ abcijk-eiac-jkeb |          1.736 
+ abcijk-eibc-jkea |          1.705 
+ abcijk-ejab-ikec |          1.738 
+ abcijk-ejac-ikeb |          1.635 
+ abcijk-ejbc-ikea |          1.673 
+ abcijk-ekab-ijec |          1.757 
+ abcijk-ekac-ijeb |          1.659 
+ abcijk-ekbc-ijea |          1.714 
+             MEAN |          1.677 
+
+wrote /home/shinaoka/projects/tensor4all/tprims-rs/benchmarks/benchmarks/tcbench/results/grid-diagnostic/A-16m-8t-2x4-abcijk.pending.csv

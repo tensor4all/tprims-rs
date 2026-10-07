@@ -1,0 +1,10 @@
+[package]
+name = "scatter-cost"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+tprims-kernel = { path = "../../crates/tprims-kernel" }

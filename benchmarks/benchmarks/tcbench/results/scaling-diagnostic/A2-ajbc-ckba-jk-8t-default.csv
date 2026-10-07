@@ -1,0 +1,3 @@
+case,group,dtype,engine,threads,m,n,k,macs,seconds,gflops,regular_a,regular_b,notes
+ajbc-ckba-jk,intensli,c64,plan,8,92160,48,40,176947200,0.046972078,30.1366,1.0000,1.0000,avx512.c64.planar.16x6 16x6 AB 128x256x768
+ajbc-ckba-jk,intensli,c64,packed,8,92160,48,40,176947200,0.047139298,30.0297,1.0000,1.0000,avx512.c64.planar.16x6 16x6 AB 128x256x768

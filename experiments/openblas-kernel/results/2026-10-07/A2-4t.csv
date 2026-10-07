@@ -1,0 +1,8 @@
+# threads: requested=4 pool=4 budget=4
+case,threads,backend,best_s,gflops
+gemm-1024-col,4,tprims,0.016289168,131.835
+gemm-1024-col,4,openblas,0.025762852,83.356
+gemm-512-col,4,tprims,0.002188666,122.648
+gemm-512-col,4,openblas,0.003200942,83.861
+strided-1024-rowa,4,tprims,0.014031453,153.048
+strided-1024-rowa,4,openblas,0.021192490,101.332

@@ -1,0 +1,80 @@
+# threads: requested=1 pool=1 budget=1
+host        : shinaoka-EVO-X1Pro
+target      : x86_64 / linux
+cpu features: avx2 fma avx512f avx512dq 
+caches      : L1=48KiB/12-way/2sh L2=1024KiB/16-way/2sh L3=8192KiB/16-way/16sh (via sysfs), blocking=legacy
+l3 domains  : t1=1
+baselines   : tblis=true blas=false
+tblis       : abi 2.x, 1 thread(s)
+
+running 18 cases at 1 MiB nominal tensor size, 5 reps, stress=none
+
+
+=== f64 ===
+             case |    m |    n |  k | regA | regB | packed GF/s 
+------------------+------+------+----+------+------+-------------
+ abcijk-ijma-mkbc | 4608 |  512 | 24 | 1.00 | 1.00 |        29.0 
+ abcijk-ijmb-mkac | 1536 | 1536 | 24 | 1.00 | 1.00 |        30.7 
+ abcijk-ijmc-mkab | 1536 | 1536 | 24 | 1.00 | 1.00 |        30.0 
+ abcijk-ikma-mjbc | 4608 |  512 | 24 | 1.00 | 1.00 |        28.9 
+ abcijk-ikmb-mjac | 1536 | 1536 | 24 | 1.00 | 1.00 |        39.5 
+ abcijk-ikmc-mjab | 1536 | 1536 | 24 | 1.00 | 1.00 |        40.2 
+ abcijk-jkma-mibc | 4608 |  512 | 24 | 1.00 | 1.00 |        39.4 
+ abcijk-jkmb-miac | 1536 | 1536 | 24 | 1.00 | 1.00 |        41.5 
+ abcijk-jkmc-miab | 1536 | 1536 | 24 | 1.00 | 1.00 |        40.5 
+ abcijk-eiab-jkec | 1536 | 1536 | 24 | 1.00 | 1.00 |        40.8 
+ abcijk-eiac-jkeb | 1536 | 1536 | 24 | 1.00 | 1.00 |        41.6 
+ abcijk-eibc-jkea |  512 | 4608 | 24 | 1.00 | 1.00 |        39.5 
+ abcijk-ejab-ikec | 1536 | 1536 | 24 | 1.00 | 1.00 |        40.2 
+ abcijk-ejac-ikeb | 1536 | 1536 | 24 | 1.00 | 1.00 |        41.4 
+ abcijk-ejbc-ikea |  512 | 4608 | 24 | 1.00 | 1.00 |        39.3 
+ abcijk-ekab-ijec | 1536 | 1536 | 24 | 1.00 | 1.00 |        39.7 
+ abcijk-ekac-ijeb | 1536 | 1536 | 24 | 1.00 | 1.00 |        41.4 
+ abcijk-ekbc-ijea |  512 | 4608 | 24 | 1.00 | 1.00 |        39.7 
+
+=== c64 ===
+             case |    m |    n |  k | regA | regB | packed GF/s 
+------------------+------+------+----+------+------+-------------
+ abcijk-ijma-mkbc | 4608 |  512 | 24 | 1.00 | 0.97 |        31.7 
+ abcijk-ijmb-mkac | 1536 | 1536 | 24 | 1.00 | 0.75 |        32.2 
+ abcijk-ijmc-mkab | 1536 | 1536 | 24 | 1.00 | 0.50 |        32.2 
+ abcijk-ikma-mjbc | 4608 |  512 | 24 | 1.00 | 0.97 |        36.2 
+ abcijk-ikmb-mjac | 1536 | 1536 | 24 | 1.00 | 0.75 |        44.0 
+ abcijk-ikmc-mjab | 1536 | 1536 | 24 | 1.00 | 0.50 |        44.3 
+ abcijk-jkma-mibc | 4608 |  512 | 24 | 1.00 | 0.97 |        43.6 
+ abcijk-jkmb-miac | 1536 | 1536 | 24 | 1.00 | 0.75 |        44.3 
+ abcijk-jkmc-miab | 1536 | 1536 | 24 | 1.00 | 0.50 |        44.1 
+ abcijk-eiab-jkec | 1536 | 1536 | 24 | 1.00 | 0.50 |        44.0 
+ abcijk-eiac-jkeb | 1536 | 1536 | 24 | 1.00 | 0.75 |        44.0 
+ abcijk-eibc-jkea |  512 | 4608 | 24 | 1.00 | 0.97 |        44.1 
+ abcijk-ejab-ikec | 1536 | 1536 | 24 | 1.00 | 0.50 |        44.3 
+ abcijk-ejac-ikeb | 1536 | 1536 | 24 | 1.00 | 0.75 |        43.7 
+ abcijk-ejbc-ikea |  512 | 4608 | 24 | 1.00 | 0.97 |        44.2 
+ abcijk-ekab-ijec | 1536 | 1536 | 24 | 1.00 | 0.50 |        44.3 
+ abcijk-ekac-ijeb | 1536 | 1536 | 24 | 1.00 | 0.75 |        43.9 
+ abcijk-ekbc-ijea |  512 | 4608 | 24 | 1.00 | 0.97 |        44.1 
+
+=== complex efficiency ratio (c64 GF/s over f64 GF/s; 1.0 = no penalty) ===
+             case | packed c64/f64 
+------------------+----------------
+ abcijk-ijma-mkbc |          1.095 
+ abcijk-ijmb-mkac |          1.050 
+ abcijk-ijmc-mkab |          1.074 
+ abcijk-ikma-mjbc |          1.253 
+ abcijk-ikmb-mjac |          1.116 
+ abcijk-ikmc-mjab |          1.101 
+ abcijk-jkma-mibc |          1.107 
+ abcijk-jkmb-miac |          1.068 
+ abcijk-jkmc-miab |          1.090 
+ abcijk-eiab-jkec |          1.079 
+ abcijk-eiac-jkeb |          1.058 
+ abcijk-eibc-jkea |          1.115 
+ abcijk-ejab-ikec |          1.101 
+ abcijk-ejac-ikeb |          1.057 
+ abcijk-ejbc-ikea |          1.125 
+ abcijk-ekab-ijec |          1.115 
+ abcijk-ekac-ijeb |          1.061 
+ abcijk-ekbc-ijea |          1.111 
+             MEAN |          1.099 
+
+wrote /home/shinaoka/projects/tensor4all/tprims-rs/benchmarks/benchmarks/tcbench/results/grid-diagnostic/A2-1m-1t-1x1-abcijk.pending.csv

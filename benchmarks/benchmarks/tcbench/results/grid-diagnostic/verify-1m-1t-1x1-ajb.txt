@@ -1,0 +1,23 @@
+# threads: requested=1 pool=1 budget=1
+host        : shinaoka-EVO-X1Pro
+target      : x86_64 / linux
+cpu features: avx2 fma avx512f avx512dq 
+caches      : L1=48KiB/12-way/2sh L2=1024KiB/16-way/2sh L3=8192KiB/16-way/16sh (via sysfs), blocking=legacy
+l3 domains  : t1=1
+baselines   : tblis=true blas=false
+tblis       : abi 2.x, 1 thread(s)
+
+verifying 3 cases at 1 MiB nominal size
+
+           case | dtype |     m |  n |  k |   plan | packed | vs ttgt | vs tblis | vs upstream | status 
+----------------+-------+-------+----+----+--------+--------+---------+----------+-------------+--------
+       ij-ik-kj |   f64 |    24 |  4 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+       ij-ik-kj |   c64 |    24 |  4 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+     ajb-kba-jk |   f64 |  3744 | 72 | 72 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+     ajb-kba-jk |   c64 |  3744 | 72 | 72 | packed |  0.0e0 |       - |  4.5e-16 |       0.0e0 |     ok 
+   ajbc-ckba-jk |   f64 | 11520 | 24 | 20 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+   ajbc-ckba-jk |   c64 | 11520 | 24 | 20 | packed |  0.0e0 |       - |  2.5e-16 |       0.0e0 |     ok 
+ ajbdc-ckbad-jk |   f64 | 82944 | 24 | 12 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ ajbdc-ckbad-jk |   c64 | 82944 | 24 | 12 | packed |  0.0e0 |       - |  2.0e-16 |       0.0e0 |     ok 
+
+all comparisons within tolerance

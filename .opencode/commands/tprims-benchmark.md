@@ -1,5 +1,5 @@
 ---
-description: Run, add or report a tprims-rs benchmark — build, idle cores in one L3 domain, pinned paired 1T/4T(/8T) runs, A/A noise, recorded results — following PERFORMANCE_TIPS.md.
+description: Run, add or report a tprims-rs benchmark — native release builds, pinned 1T/4T/8T/12T runs (12T explicitly labelled cross-L3), correctness, A/A noise, recorded results — following PERFORMANCE_TIPS.md.
 ---
 
 Use `$ARGUMENTS` as the scope: the benchmark to run or add, or the change whose

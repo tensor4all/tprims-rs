@@ -1,0 +1,12 @@
+=== hadamard_vec_2e24_f64
+# selected hadamard_vec_2e24_f64 plan: elementwise
+hadamard_vec_2e24_f64,packed_plan,1,142462208,5
+# selected hadamard_vec_2e24_f64 packed: packed avx512.f64.real.24x8
+=== hadamard_mat_2048_f64
+# selected hadamard_mat_2048_f64 plan: elementwise
+hadamard_mat_2048_f64,packed_plan,1,41735737,5
+# selected hadamard_mat_2048_f64 packed: packed avx512.f64.real.24x8
+=== hadamard_mat_256_f64
+# selected hadamard_mat_256_f64 plan: elementwise
+hadamard_mat_256_f64,packed_plan,1,465100,5
+# selected hadamard_mat_256_f64 packed: packed avx512.f64.real.24x8

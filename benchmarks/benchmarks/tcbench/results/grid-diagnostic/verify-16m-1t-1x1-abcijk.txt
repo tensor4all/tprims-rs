@@ -1,0 +1,53 @@
+# threads: requested=1 pool=1 budget=1
+host        : shinaoka-EVO-X1Pro
+target      : x86_64 / linux
+cpu features: avx2 fma avx512f avx512dq 
+caches      : L1=48KiB/12-way/2sh L2=1024KiB/16-way/2sh L3=8192KiB/16-way/16sh (via sysfs), blocking=legacy
+l3 domains  : t1=1
+baselines   : tblis=true blas=false
+tblis       : abi 2.x, 1 thread(s)
+
+verifying 18 cases at 16 MiB nominal size
+
+             case | dtype |    m |    n |  k |   plan | packed | vs ttgt | vs tblis | vs upstream | status 
+------------------+-------+------+------+----+--------+--------+---------+----------+-------------+--------
+         ij-ik-kj |   f64 |   24 |    4 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+         ij-ik-kj |   c64 |   24 |    4 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ijma-mkbc |   f64 | 6912 | 1728 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ijma-mkbc |   c64 | 6912 | 1728 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ijmb-mkac |   f64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ijmb-mkac |   c64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ijmc-mkab |   f64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ijmc-mkab |   c64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ikma-mjbc |   f64 | 6912 | 1728 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ikma-mjbc |   c64 | 6912 | 1728 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ikmb-mjac |   f64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ikmb-mjac |   c64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ikmc-mjab |   f64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ikmc-mjab |   c64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-jkma-mibc |   f64 | 6912 | 1728 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-jkma-mibc |   c64 | 6912 | 1728 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-jkmb-miac |   f64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-jkmb-miac |   c64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-jkmc-miab |   f64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-jkmc-miab |   c64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-eiab-jkec |   f64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-eiab-jkec |   c64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-eiac-jkeb |   f64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-eiac-jkeb |   c64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-eibc-jkea |   f64 | 1728 | 6912 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-eibc-jkea |   c64 | 1728 | 6912 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ejab-ikec |   f64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ejab-ikec |   c64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ejac-ikeb |   f64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ejac-ikeb |   c64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ejbc-ikea |   f64 | 1728 | 6912 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ejbc-ikea |   c64 | 1728 | 6912 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ekab-ijec |   f64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ekab-ijec |   c64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ekac-ijeb |   f64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ekac-ijeb |   c64 | 3456 | 3456 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ekbc-ijea |   f64 | 1728 | 6912 | 24 | packed |  0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ekbc-ijea |   c64 | 1728 | 6912 | 24 | packed |  0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+
+all comparisons within tolerance

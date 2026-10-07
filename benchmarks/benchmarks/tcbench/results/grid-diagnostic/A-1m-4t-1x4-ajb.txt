@@ -1,0 +1,35 @@
+# threads: requested=4 pool=4 budget=4
+host        : shinaoka-EVO-X1Pro
+target      : x86_64 / linux
+cpu features: avx2 fma avx512f avx512dq 
+caches      : L1=48KiB/12-way/2sh L2=1024KiB/16-way/2sh L3=8192KiB/16-way/16sh (via sysfs), blocking=legacy
+l3 domains  : t1=1 t4=1 t8=1
+baselines   : tblis=true blas=false
+tblis       : abi 2.x, 4 thread(s)
+
+running 3 cases at 1 MiB nominal tensor size, 5 reps, stress=none
+
+
+=== f64 ===
+           case |     m |  n |  k | regA | regB | packed GF/s 
+----------------+-------+----+----+------+------+-------------
+     ajb-kba-jk |  3744 | 72 | 72 | 1.00 | 1.00 |        47.6 
+   ajbc-ckba-jk | 11520 | 24 | 20 | 1.00 | 1.00 |        25.5 
+ ajbdc-ckbad-jk | 82944 | 24 | 12 | 1.00 | 1.00 |        18.1 
+
+=== c64 ===
+           case |     m |  n |  k | regA | regB | packed GF/s 
+----------------+-------+----+----+------+------+-------------
+     ajb-kba-jk |  3744 | 72 | 72 | 0.89 | 1.00 |       109.5 
+   ajbc-ckba-jk | 11520 | 24 | 20 | 1.00 | 1.00 |        39.6 
+ ajbdc-ckbad-jk | 82944 | 24 | 12 | 1.00 | 1.00 |        42.6 
+
+=== complex efficiency ratio (c64 GF/s over f64 GF/s; 1.0 = no penalty) ===
+           case | packed c64/f64 
+----------------+----------------
+     ajb-kba-jk |          2.301 
+   ajbc-ckba-jk |          1.552 
+ ajbdc-ckbad-jk |          2.349 
+           MEAN |          2.067 
+
+wrote /home/shinaoka/projects/tensor4all/tprims-rs/benchmarks/benchmarks/tcbench/results/grid-diagnostic/A-1m-4t-1x4-ajb.pending.csv

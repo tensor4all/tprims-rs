@@ -1,0 +1,7 @@
+threads=8 m=2112 n=1536 k=1024 mc=264 kc=256 nc=1536
+mode,ms,gflops,vs_kernel_only
+KernelOnly,25.464,260.9,1.000
+NoWriteback,45.624,145.6,0.558
+NoPackB,28.365,234.2,0.898
+NoPackA,41.898,158.6,0.608
+Full,43.820,151.6,0.581

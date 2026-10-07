@@ -1,0 +1,23 @@
+| MiB | dtype | T | baseline / candidate time |
+| --- | --- | --- | --- |
+| 1 | f64 | 1 | 0.990 |
+| 1 | f64 | 4 | 0.990 |
+| 1 | f64 | 8 | 1.111 |
+| 1 | c64 | 1 | 0.992 |
+| 1 | c64 | 4 | 0.999 |
+| 1 | c64 | 8 | 1.157 |
+| 16 | f64 | 1 | 1.004 |
+| 16 | f64 | 4 | 1.006 |
+| 16 | f64 | 8 | 1.002 |
+| 16 | c64 | 1 | 1.003 |
+| 16 | c64 | 4 | 1.001 |
+| 16 | c64 | 8 | 1.089 |
+
+Primary cases (>=2x, exceeds both A/A spreads):
+ajbc-ckba-jk 4.589x PASS
+ajbdc-ckbad-jk 3.091x PASS
+
+Individual >10% regressions above both A/A spreads: 3
+1 f64 1 abjc-cbka-kj 0.905x
+1 f64 4 abjc-kbac-jk 0.497x
+1 f64 4 ajbc-ckba-jk 0.905x

@@ -47,7 +47,8 @@ impl CacheLevel {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum CacheSource {
-    /// Linux `/sys/devices/system/cpu/cpu0/cache`. The only source that
+    /// Linux sysfs caches of the first CPU allowed at probe time (CPU0 when
+    /// affinity information is unavailable). The only source that
     /// reports cache *sharing* directly, and it needs no `unsafe`.
     Sysfs,
     /// x86 `CPUID` leaf 4, or `0x8000001D` on AMD.
@@ -195,7 +196,10 @@ pub fn l3_domains(threads: usize, forced: Option<usize>) -> usize {
 
 /// The cache hierarchy of this machine: sysfs, then `CPUID`, then [`BUILTIN`].
 ///
-/// Probed once per process and cached (an immutable hardware fact). A probe that fails is never an error: it degrades to
+/// Probed once per process and cached. On Linux, sysfs uses the first CPU in
+/// the calling thread's initial affinity mask, not necessarily CPU0. Changing
+/// affinity later does not re-probe; mixed/scattered placement still needs an
+/// explicit domain override. A probe that fails is never an error: it degrades to
 /// the next source, and the last source always succeeds.
 pub fn hierarchy() -> CacheHierarchy {
     #[cfg(feature = "std")]
@@ -330,7 +334,26 @@ fn parse_size(s: &str) -> Option<usize> {
     digits.trim().parse::<usize>().ok()?.checked_mul(mult)
 }
 
-/// Count the CPUs in a `shared_cpu_list`: `0,16` is 2, `0-7,16-23` is 16.
+/// One decimal component of a CPU list, rejecting anything a CPU list cannot
+/// contain. `str::parse::<usize>` alone accepts a leading `+`, which is not
+/// part of the grammar, so the sign is checked explicitly.
+#[cfg(feature = "std")]
+fn cpu_number(s: &str) -> Option<usize> {
+    let s = s.trim();
+    if s.is_empty() || !s.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    s.parse().ok()
+}
+
+/// Count the CPUs in a CPU list: `0,16` is 2, `0-7,16-23` is 16.
+///
+/// Used for both `shared_cpu_list` and `Cpus_allowed_list`; the latter is also
+/// *validated* with it, so the grammar is strict: every comma-separated
+/// component must be a number or an ascending `low-high` range, with no empty
+/// or sign-prefixed component. A list that does not parse is `None`, which the
+/// callers turn into the CPU0 fallback rather than a guess, and the running
+/// total is accumulated with `checked_add` so a hostile list cannot wrap.
 ///
 /// This is the one piece of information no other source reports as directly,
 /// and the model needs it to know whether an L3 budget is one core's or a
@@ -341,26 +364,42 @@ fn parse_cpu_list(s: &str) -> Option<usize> {
     for part in s.trim().split(',') {
         let part = part.trim();
         if part.is_empty() {
-            continue;
+            return None;
         }
-        match part.split_once('-') {
-            Some((a, b)) => {
-                let a: usize = a.trim().parse().ok()?;
-                let b: usize = b.trim().parse().ok()?;
-                n += b.checked_sub(a)?.checked_add(1)?;
-            }
+        let count = match part.split_once('-') {
+            // `low-high`, inclusive; a descending range is not a CPU list.
+            Some((a, b)) => cpu_number(b)?.checked_sub(cpu_number(a)?)?,
             None => {
-                part.parse::<usize>().ok()?;
-                n += 1;
+                cpu_number(part)?;
+                0
             }
-        }
+        };
+        n = n.checked_add(count)?.checked_add(1)?;
     }
     (n > 0).then_some(n)
 }
 
+/// `/proc/thread-self/status` lists allowed CPUs in ascending order. Probe a
+/// permitted CPU so a pinned process on a heterogeneous host does not inherit
+/// CPU0's unrelated cache geometry. This is sampled at most once per process,
+/// through [`hierarchy`], and never in a hot loop.
+#[cfg(feature = "std")]
+fn affinity_cpu(status: &str) -> Option<usize> {
+    let list = status
+        .lines()
+        .find_map(|line| line.strip_prefix("Cpus_allowed_list:"))?
+        .trim();
+    parse_cpu_list(list)?;
+    cpu_number(list.split([',', '-']).next()?)
+}
+
 #[cfg(feature = "std")]
 fn probe_sysfs() -> Option<CacheHierarchy> {
-    const BASE: &str = "/sys/devices/system/cpu/cpu0/cache";
+    let cpu = std::fs::read_to_string("/proc/thread-self/status")
+        .ok()
+        .and_then(|status| affinity_cpu(&status))
+        .unwrap_or(0);
+    let base = format!("/sys/devices/system/cpu/cpu{cpu}/cache");
     let read = |dir: &str, name: &str| -> String {
         std::fs::read_to_string(format!("{dir}/{name}")).unwrap_or_default()
     };
@@ -368,7 +407,7 @@ fn probe_sysfs() -> Option<CacheHierarchy> {
     // `index*` directories are numbered contiguously from 0; stop at the first
     // gap. The bound is a safety net, not a real limit — no CPU has 16 levels.
     for i in 0..16 {
-        let dir = format!("{BASE}/index{i}");
+        let dir = format!("{base}/index{i}");
         let level = read(&dir, "level");
         if level.trim().is_empty() {
             break;
@@ -716,6 +755,46 @@ pub(crate) mod tests {
 
     pub(crate) fn cascade_lake() -> CacheHierarchy {
         CASCADE
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn sysfs_probe_uses_an_allowed_cpu_not_unconditional_cpu0() {
+        assert_eq!(
+            affinity_cpu("Name:\ttcbench\nCpus_allowed_list:\t4-11\n"),
+            Some(4)
+        );
+        assert_eq!(affinity_cpu("Cpus_allowed_list:\t8,10-11\n"), Some(8));
+        assert_eq!(affinity_cpu("Cpus_allowed_list:\t0-23\n"), Some(0));
+        for status in [
+            "",
+            "Cpus_allowed_list:\t",
+            "Cpus_allowed_list:\tbad",
+            "Cpus_allowed_list:\t11-4",
+            // Malformed components must not be skipped into a plausible
+            // answer: each of these previously yielded `Some(4)`.
+            "Cpus_allowed_list:\t4,\n",
+            "Cpus_allowed_list:\t4,,11\n",
+            "Cpus_allowed_list:\t+4\n",
+            "Cpus_allowed_list:\t4-\n",
+            "Cpus_allowed_list:\t-4\n",
+        ] {
+            assert_eq!(affinity_cpu(status), None, "{status}");
+        }
+    }
+
+    /// A list long enough to overflow a running total must decline rather than
+    /// wrap into a plausible count; `parse_cpu_list` is the validator for
+    /// `Cpus_allowed_list`, so a wrap here would silently accept junk.
+    #[cfg(feature = "std")]
+    #[test]
+    fn cpu_list_counting_is_checked() {
+        assert_eq!(parse_cpu_list("0"), Some(1));
+        assert_eq!(parse_cpu_list("0,16"), Some(2));
+        assert_eq!(parse_cpu_list("0-7,16-23"), Some(16));
+        assert_eq!(parse_cpu_list("0-18446744073709551614,0"), None);
+        assert_eq!(parse_cpu_list(""), None);
+        assert_eq!(parse_cpu_list(","), None);
     }
 
     /// This machine's `/sys/devices/system/cpu/cpu0/cache/index*`, verbatim.

@@ -1,0 +1,115 @@
+# threads: requested=4 pool=4 budget=4
+host        : shinaoka-EVO-X1Pro
+target      : x86_64 / linux
+cpu features: avx2 fma avx512f avx512dq 
+caches      : L1=48KiB/12-way/2sh L2=1024KiB/16-way/2sh L3=16384KiB/16-way/8sh (via sysfs), blocking=legacy
+l3 domains  : t1=1 t4=1 t8=2
+baselines   : tblis=true blas=false
+tblis       : abi 2.x, 4 thread(s)
+
+verifying 49 cases at 16 MiB nominal size
+
+             case | dtype |      m |     n |     k |   plan |  packed | vs ttgt | vs tblis | vs upstream | status 
+------------------+-------+--------+-------+-------+--------+---------+---------+----------+-------------+--------
+         ij-ik-kj |   f64 |     24 |     4 |    24 |   faer |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+         ij-ik-kj |   c64 |     24 |     4 |    24 |   faer |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+         ij-ik-kj |   f64 |   1464 |  1448 |  1464 |   faer | 7.0e-16 |       - |  7.0e-16 |     7.0e-16 |     ok 
+         ij-ik-kj |   c64 |   1464 |  1448 |  1464 | packed |   0.0e0 |       - |  8.4e-16 |       0.0e0 |     ok 
+       ij-ikl-ljk |   f64 |    144 |   128 | 18432 | packed |   0.0e0 |       - |  8.3e-16 |       0.0e0 |     ok 
+       ij-ikl-ljk |   c64 |    144 |   128 | 18432 | packed |   0.0e0 |       - |  9.9e-16 |       0.0e0 |     ok 
+       ij-kil-lkj |   f64 |    144 |   128 | 20736 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+       ij-kil-lkj |   c64 |    144 |   128 | 20736 | packed |   0.0e0 |       - |  9.4e-16 |       0.0e0 |     ok 
+       ijk-ikl-lj |   f64 |  18432 |   128 |   144 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+       ijk-ikl-lj |   c64 |  18432 |   128 |   144 | packed |   0.0e0 |       - |  6.4e-16 |       0.0e0 |     ok 
+       ijk-il-jlk |   f64 |    144 | 18432 |   128 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+       ijk-il-jlk |   c64 |    144 | 18432 |   128 | packed |   0.0e0 |       - |  6.0e-16 |       0.0e0 |     ok 
+       ijk-ilk-jl |   f64 |  18432 |   144 |   128 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+       ijk-ilk-jl |   c64 |  18432 |   144 |   128 | packed |   0.0e0 |       - |  6.0e-16 |       0.0e0 |     ok 
+       ijk-ilk-lj |   f64 |  18432 |   128 |   144 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+       ijk-ilk-lj |   c64 |  18432 |   128 |   144 | packed |   0.0e0 |       - |  6.4e-16 |       0.0e0 |     ok 
+     ijk-ilmk-mjl |   f64 |   1920 |    40 |  1920 | packed |   0.0e0 |       - |  7.3e-16 |       0.0e0 |     ok 
+     ijk-ilmk-mjl |   c64 |   1920 |    40 |  1920 | packed |   0.0e0 |       - |  9.0e-16 |       0.0e0 |     ok 
+   ijkl-imjn-lnkm |   f64 |   1920 |  1920 |  1600 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+   ijkl-imjn-lnkm |   c64 |   1920 |  1920 |  1600 | packed |   0.0e0 |       - |  8.4e-16 |       0.0e0 |     ok 
+   ijkl-imjn-nlmk |   f64 |   1920 |  1600 |  1920 | packed |   0.0e0 |       - |  7.3e-16 |       0.0e0 |     ok 
+   ijkl-imjn-nlmk |   c64 |   1920 |  1600 |  1920 | packed |   0.0e0 |       - |  8.9e-16 |       0.0e0 |     ok 
+   ijkl-imkn-jnlm |   f64 |   1920 |  1920 |  1600 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+   ijkl-imkn-jnlm |   c64 |   1920 |  1920 |  1600 | packed |   0.0e0 |       - |  8.4e-16 |       0.0e0 |     ok 
+   ijkl-imkn-njml |   f64 |   1920 |  1600 |  1920 | packed |   0.0e0 |       - |  7.3e-16 |       0.0e0 |     ok 
+   ijkl-imkn-njml |   c64 |   1920 |  1600 |  1920 | packed |   0.0e0 |       - |  8.9e-16 |       0.0e0 |     ok 
+   ijkl-imln-jnkm |   f64 |   1920 |  1920 |  1600 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+   ijkl-imln-jnkm |   c64 |   1920 |  1920 |  1600 | packed |   0.0e0 |       - |  8.4e-16 |       0.0e0 |     ok 
+   ijkl-imln-njmk |   f64 |   1920 |  1600 |  1920 | packed |   0.0e0 |       - |  7.3e-16 |       0.0e0 |     ok 
+   ijkl-imln-njmk |   c64 |   1920 |  1600 |  1920 | packed |   0.0e0 |       - |  8.9e-16 |       0.0e0 |     ok 
+   ijkl-imnj-nlkm |   f64 |   1920 |  1600 |  1920 | packed |   0.0e0 |       - |  7.3e-16 |       0.0e0 |     ok 
+   ijkl-imnj-nlkm |   c64 |   1920 |  1600 |  1920 | packed |   0.0e0 |       - |  8.9e-16 |       0.0e0 |     ok 
+   ijkl-imnk-njml |   f64 |   1920 |  1600 |  1920 | packed |   0.0e0 |       - |  7.3e-16 |       0.0e0 |     ok 
+   ijkl-imnk-njml |   c64 |   1920 |  1600 |  1920 | packed |   0.0e0 |       - |  9.0e-16 |       0.0e0 |     ok 
+   ijkl-minj-nlmk |   f64 |   1920 |  1600 |  2304 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+   ijkl-minj-nlmk |   c64 |   1920 |  1600 |  2304 | packed |   0.0e0 |       - |  8.6e-16 |       0.0e0 |     ok 
+   ijkl-mink-jnlm |   f64 |   1920 |  1920 |  1920 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+   ijkl-mink-jnlm |   c64 |   1920 |  1920 |  1920 | packed |   0.0e0 |       - |  8.4e-16 |       0.0e0 |     ok 
+   ijkl-minl-njmk |   f64 |   1920 |  1600 |  2304 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+   ijkl-minl-njmk |   c64 |   1920 |  1600 |  2304 | packed |   0.0e0 |       - |  8.6e-16 |       0.0e0 |     ok 
+     aqrs-pa-pqrs |   f64 |     48 | 64000 |    48 |   faer |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+     aqrs-pa-pqrs |   c64 |     48 | 64000 |    48 | packed |   0.0e0 |       - |  3.7e-16 |       0.0e0 |     ok 
+     abrs-qb-aqrs |   f64 |     40 | 76800 |    48 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+     abrs-qb-aqrs |   c64 |     40 | 76800 |    48 | packed |   0.0e0 |       - |  3.7e-16 |       0.0e0 |     ok 
+     abcs-rc-abrs |   f64 |     40 | 76800 |    48 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+     abcs-rc-abrs |   c64 |     40 | 76800 |    48 | packed |   0.0e0 |       - |  3.7e-16 |       0.0e0 |     ok 
+       abj-bka-kj |   f64 |  20736 |   128 |   144 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+       abj-bka-kj |   c64 |  20736 |   128 |   144 | packed |   0.0e0 |       - |  6.3e-16 |       0.0e0 |     ok 
+       ajb-kba-jk |   f64 |  18432 |   144 |   144 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+       ajb-kba-jk |   c64 |  18432 |   144 |   144 | packed |   0.0e0 |       - |  6.4e-16 |       0.0e0 |     ok 
+     abjc-cbka-kj |   f64 |  92160 |    40 |    48 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+     abjc-cbka-kj |   c64 |  92160 |    40 |    48 | packed |   0.0e0 |       - |  3.7e-16 |       0.0e0 |     ok 
+     ajbc-ckba-jk |   f64 |  92160 |    48 |    40 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+     ajbc-ckba-jk |   c64 |  92160 |    48 |    40 | packed |   0.0e0 |       - |  3.4e-16 |       0.0e0 |     ok 
+     abjc-kbac-jk |   f64 |  76800 |    48 |    48 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+     abjc-kbac-jk |   c64 |  76800 |    48 |    48 | packed |   0.0e0 |       - |  3.7e-16 |       0.0e0 |     ok 
+   abjcd-dkbac-jk |   f64 | 230400 |    24 |    20 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+   abjcd-dkbac-jk |   c64 | 230400 |    24 |    20 | packed |   0.0e0 |       - |  2.5e-16 |       0.0e0 |     ok 
+   adbjc-cbdka-kj |   f64 | 230400 |    20 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+   adbjc-cbdka-kj |   c64 | 230400 |    20 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+   ajbdc-ckbad-jk |   f64 | 230400 |    24 |    20 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+   ajbdc-ckbad-jk |   c64 | 230400 |    24 |    20 | packed |   0.0e0 |       - |  2.5e-16 |       0.0e0 |     ok 
+ abcijk-ijma-mkbc |   f64 |   6912 |  1728 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ijma-mkbc |   c64 |   6912 |  1728 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ijmb-mkac |   f64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ijmb-mkac |   c64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ijmc-mkab |   f64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ijmc-mkab |   c64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ikma-mjbc |   f64 |   6912 |  1728 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ikma-mjbc |   c64 |   6912 |  1728 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ikmb-mjac |   f64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ikmb-mjac |   c64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ikmc-mjab |   f64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ikmc-mjab |   c64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-jkma-mibc |   f64 |   6912 |  1728 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-jkma-mibc |   c64 |   6912 |  1728 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-jkmb-miac |   f64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-jkmb-miac |   c64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-jkmc-miab |   f64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-jkmc-miab |   c64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-eiab-jkec |   f64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-eiab-jkec |   c64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-eiac-jkeb |   f64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-eiac-jkeb |   c64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-eibc-jkea |   f64 |   1728 |  6912 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-eibc-jkea |   c64 |   1728 |  6912 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ejab-ikec |   f64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ejab-ikec |   c64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ejac-ikeb |   f64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ejac-ikeb |   c64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ejbc-ikea |   f64 |   1728 |  6912 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ejbc-ikea |   c64 |   1728 |  6912 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ekab-ijec |   f64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ekab-ijec |   c64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ekac-ijeb |   f64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ekac-ijeb |   c64 |   3456 |  3456 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+ abcijk-ekbc-ijea |   f64 |   1728 |  6912 |    24 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+ abcijk-ekbc-ijea |   c64 |   1728 |  6912 |    24 | packed |   0.0e0 |       - |  2.7e-16 |       0.0e0 |     ok 
+       abc-bk-akc |   f64 |    144 | 18432 |   128 | packed |   0.0e0 |       - |    0.0e0 |       0.0e0 |     ok 
+       abc-bk-akc |   c64 |    144 | 18432 |   128 | packed |   0.0e0 |       - |  6.0e-16 |       0.0e0 |     ok 
+
+all comparisons within tolerance

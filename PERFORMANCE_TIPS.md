@@ -263,6 +263,13 @@ Audit hints:
   `benchmarks/scripts/pinned.sh` does both). CPU affinity is Linux-only;
   elsewhere, record that the run was unpinned. Never run two
   benchmarks at once. Prefer short per-case runs over long target-wide runs.
+- Warm a microbenchmark to a settled clock before timing it. On the measured
+  AVX-512 host a kernel reads ~25% low for the first 1-2 s of sustained work
+  after an idle gate (39.8 vs 52.7 GFLOP/s for the same kernel), which is
+  large enough to be mistaken for a kernel defect. Warm up for **0.5-2 s of
+  wall time**, not a fixed call count, and give every arm the same warm-up:
+  a count-based warm-up biases the ratio when the arms differ in duration.
+  Quoting an absolute rate without its warm-up and run order is invalid.
 - Read the shape of a slowdown before claiming a cause. A constant absolute
   delta across sizes is a per-call or per-entry cost; a uniform multiplicative
   factor across cases the change cannot affect is host contention. A

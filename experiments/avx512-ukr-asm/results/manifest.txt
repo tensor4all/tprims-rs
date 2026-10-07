@@ -1,0 +1,12 @@
+2026-10-08T06:55:16+09:00
+rustc 1.99.0 (b940084d7 2026-09-28)
+binary: rustc
+Model name:                              AMD Ryzen AI 9 HX 470 w/ Radeon 890M
+bccaf259e84f51acda85c777e6fd744073d69ab6
+protocol: pinned.sh for every probe; guard logs kept beside each output
+warm-up per probe: bench/multicore/stream/driver_sim = time-based warm-up inside the binary; peak = 1.5 s time-based warm-up (added after review; the earlier no-warm-up reading 36.5 GFLOP/s is superseded by 37.6)
+bench-1t.csv: experiment-run 1T benchmark (kc 16/64/256, intrinsic vs frozen)
+peak.txt: pure 512-bit FMA chain ceiling, one accumulator per arm
+multicore-{1t,8t}.txt: the same micro-kernel on N threads, L1-resident panels
+stream-{1t,8t}.txt: the micro-kernel cycling fresh panels; A=256 MiB, B=32 MiB, all workers share the two buffers
+driver-sim-8t.txt: a model of the packed loop nest with each driver stage switched off; a model, not the library

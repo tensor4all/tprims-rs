@@ -1,0 +1,118 @@
+--- native.tramp_real
++++ baseline.real
+@@ -2,0 +3 @@
++subq	$-128, %rsi
+@@ -4 +4,0 @@
+-subq	$-128, %rsi
+@@ -21,9 +21,8 @@
+-vxorpd	%xmm16, %xmm16, %xmm16
+-vxorpd	%xmm17, %xmm17, %xmm17
+-vxorpd	%xmm18, %xmm18, %xmm18
+-vxorpd	%xmm19, %xmm19, %xmm19
+-vxorpd	%xmm20, %xmm20, %xmm20
+-vxorpd	%xmm21, %xmm21, %xmm21
+-vxorpd	%xmm22, %xmm22, %xmm22
+-vxorpd	%xmm23, %xmm23, %xmm23
+-vbroadcastsd	-48(%rdx), %zmm28
++vpxord	%zmm16, %zmm16, %zmm16
++vpxord	%zmm17, %zmm17, %zmm17
++vpxord	%zmm18, %zmm18, %zmm18
++vpxord	%zmm19, %zmm19, %zmm19
++vpxord	%zmm20, %zmm20, %zmm20
++vpxord	%zmm21, %zmm21, %zmm21
++vpxord	%zmm22, %zmm22, %zmm22
++vpxord	%zmm23, %zmm23, %zmm23
+@@ -33 +31,0 @@
+-vbroadcastsd	-40(%rdx), %zmm29
+@@ -35,9 +32,0 @@
+-addq	$192, %rsi
+-vfmadd231pd	%zmm28, %zmm24, %zmm20
+-vfmadd231pd	%zmm28, %zmm25, %zmm19
+-vfmadd231pd	%zmm28, %zmm26, %zmm18
+-vbroadcastsd	-32(%rdx), %zmm28
+-vfmadd231pd	%zmm29, %zmm24, %zmm17
+-vfmadd231pd	%zmm29, %zmm25, %zmm16
+-vfmadd231pd	%zmm29, %zmm26, %zmm15
+-vbroadcastsd	-24(%rdx), %zmm29
+@@ -47,15 +36,29 @@
+-vfmadd231pd	%zmm28, %zmm24, %zmm14
+-vfmadd231pd	%zmm28, %zmm25, %zmm13
+-vfmadd231pd	%zmm28, %zmm26, %zmm12
+-vbroadcastsd	-16(%rdx), %zmm28
+-vfmadd231pd	%zmm29, %zmm24, %zmm11
+-vfmadd231pd	%zmm29, %zmm25, %zmm10
+-vfmadd231pd	%zmm29, %zmm26, %zmm9
+-vbroadcastsd	-8(%rdx), %zmm29
+-vfmadd231pd	%zmm28, %zmm24, %zmm8
+-vfmadd231pd	%zmm28, %zmm25, %zmm7
+-vfmadd231pd	%zmm28, %zmm26, %zmm6
+-vbroadcastsd	(%rdx), %zmm28
+-vfmadd231pd	%zmm29, %zmm24, %zmm5
+-vfmadd231pd	%zmm29, %zmm25, %zmm4
+-vfmadd231pd	%zmm29, %zmm26, %zmm3
++vbroadcastsd	-48(%rdx), %zmm27
++vfmadd231pd	%zmm27, %zmm24, %zmm20
++vfmadd231pd	%zmm27, %zmm25, %zmm19
++vbroadcastsd	-40(%rdx), %zmm28
++vfmadd231pd	%zmm27, %zmm26, %zmm18
++vfmadd231pd	%zmm28, %zmm24, %zmm17
++vfmadd231pd	%zmm28, %zmm25, %zmm16
++vfmadd231pd	%zmm28, %zmm26, %zmm15
++vbroadcastsd	-32(%rdx), %zmm27
++vfmadd231pd	%zmm27, %zmm24, %zmm14
++vfmadd231pd	%zmm27, %zmm25, %zmm13
++vfmadd231pd	%zmm27, %zmm26, %zmm12
++vbroadcastsd	-24(%rdx), %zmm27
++vfmadd231pd	%zmm27, %zmm24, %zmm11
++vfmadd231pd	%zmm27, %zmm25, %zmm10
++vfmadd231pd	%zmm27, %zmm26, %zmm9
++vbroadcastsd	-16(%rdx), %zmm27
++vfmadd231pd	%zmm27, %zmm24, %zmm8
++vfmadd231pd	%zmm27, %zmm25, %zmm7
++vbroadcastsd	-8(%rdx), %zmm28
++vfmadd231pd	%zmm27, %zmm26, %zmm6
++vfmadd231pd	%zmm28, %zmm24, %zmm5
++vfmadd231pd	%zmm28, %zmm25, %zmm4
++vfmadd231pd	%zmm28, %zmm26, %zmm3
++vbroadcastsd	(%rdx), %zmm27
++vfmadd231pd	%zmm24, %zmm27, %zmm2
++vfmadd231pd	%zmm25, %zmm27, %zmm1
++vfmadd231pd	%zmm27, %zmm26, %zmm0
++addq	$192, %rsi
+@@ -64,3 +66,0 @@
+-vfmadd231pd	%zmm24, %zmm28, %zmm2
+-vfmadd231pd	%zmm25, %zmm28, %zmm1
+-vfmadd231pd	%zmm28, %zmm26, %zmm0
+@@ -85,16 +85,16 @@
+-vxorpd	%xmm16, %xmm16, %xmm16
+-vxorpd	%xmm17, %xmm17, %xmm17
+-vxorpd	%xmm18, %xmm18, %xmm18
+-vxorpd	%xmm19, %xmm19, %xmm19
+-vxorpd	%xmm20, %xmm20, %xmm20
+-vxorpd	%xmm21, %xmm21, %xmm21
+-vxorpd	%xmm22, %xmm22, %xmm22
+-vxorpd	%xmm23, %xmm23, %xmm23
+-vmovupd	%zmm23, (%rcx)
+-vmovupd	%zmm22, 64(%rcx)
+-vmovupd	%zmm21, 128(%rcx)
+-vmovupd	%zmm20, 192(%rcx)
+-vmovupd	%zmm19, 256(%rcx)
+-vmovupd	%zmm18, 320(%rcx)
+-vmovupd	%zmm17, 384(%rcx)
+-vmovupd	%zmm16, 448(%rcx)
++vpxord	%zmm16, %zmm16, %zmm16
++vpxord	%zmm17, %zmm17, %zmm17
++vpxord	%zmm18, %zmm18, %zmm18
++vpxord	%zmm19, %zmm19, %zmm19
++vpxord	%zmm20, %zmm20, %zmm20
++vpxord	%zmm21, %zmm21, %zmm21
++vpxord	%zmm22, %zmm22, %zmm22
++vpxord	%zmm23, %zmm23, %zmm23
++vmovdqu64	%zmm23, (%rcx)
++vmovdqu64	%zmm22, 64(%rcx)
++vmovdqu64	%zmm21, 128(%rcx)
++vmovdqu64	%zmm20, 192(%rcx)
++vmovdqu64	%zmm19, 256(%rcx)
++vmovdqu64	%zmm18, 320(%rcx)
++vmovdqu64	%zmm17, 384(%rcx)
++vmovdqu64	%zmm16, 448(%rcx)

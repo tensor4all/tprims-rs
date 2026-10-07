@@ -1,0 +1,159 @@
+| MiB | dtype | T | baseline / candidate time |
+| --- | --- | --- | --- |
+| 1 | f64 | 1 | 0.889 |
+| 1 | f64 | 4 | 0.933 |
+| 1 | f64 | 8 | 1.023 |
+| 1 | c64 | 1 | 0.940 |
+| 1 | c64 | 4 | 0.957 |
+| 1 | c64 | 8 | 1.089 |
+| 16 | f64 | 1 | 0.892 |
+| 16 | f64 | 4 | 0.932 |
+| 16 | f64 | 8 | 0.961 |
+| 16 | c64 | 1 | 0.946 |
+| 16 | c64 | 4 | 0.956 |
+| 16 | c64 | 8 | 1.061 |
+
+Primary cases (>=2x, exceeds both A/A spreads):
+ajbc-ckba-jk 4.533x PASS
+ajbdc-ckbad-jk 2.867x PASS
+
+Individual >10% regressions above both A/A spreads: 139
+1 c64 1 abcijk-eiac-jkeb 0.903x
+1 c64 1 abcijk-eibc-jkea 0.901x
+1 c64 1 abcijk-ejac-ikeb 0.897x
+1 c64 1 abcijk-ejbc-ikea 0.902x
+1 c64 1 abcijk-ekac-ijeb 0.899x
+1 c64 1 abcijk-ekbc-ijea 0.903x
+1 c64 1 abcijk-ijma-mkbc 0.901x
+1 c64 1 abcijk-ijmb-mkac 0.900x
+1 c64 1 abcijk-ikma-mjbc 0.899x
+1 c64 1 abcijk-ikmb-mjac 0.896x
+1 c64 1 abcijk-jkma-mibc 0.901x
+1 c64 1 abcijk-jkmb-miac 0.901x
+1 c64 1 abjcd-dkbac-jk 0.885x
+1 c64 1 abrs-qb-aqrs 0.888x
+1 c64 1 ajbc-ckba-jk 0.903x
+1 c64 1 ajbdc-ckbad-jk 0.857x
+1 c64 4 abcijk-eiac-jkeb 0.899x
+1 c64 4 abcijk-eibc-jkea 0.907x
+1 c64 4 abcijk-ejac-ikeb 0.893x
+1 c64 4 abcijk-ekac-ijeb 0.885x
+1 c64 4 abcijk-ekbc-ijea 0.850x
+1 c64 4 abcijk-ijmb-mkac 0.900x
+1 c64 4 abcijk-ikmb-mjac 0.905x
+1 c64 4 abcijk-jkmb-miac 0.892x
+1 c64 4 abcijk-jkmc-miab 0.851x
+1 c64 4 abrs-qb-aqrs 0.904x
+1 c64 4 ijk-il-jlk 0.887x
+1 f64 1 abc-bk-akc 0.904x
+1 f64 1 abcijk-eiab-jkec 0.804x
+1 f64 1 abcijk-eiac-jkeb 0.801x
+1 f64 1 abcijk-eibc-jkea 0.817x
+1 f64 1 abcijk-ejab-ikec 0.809x
+1 f64 1 abcijk-ejac-ikeb 0.805x
+1 f64 1 abcijk-ejbc-ikea 0.829x
+1 f64 1 abcijk-ekab-ijec 0.809x
+1 f64 1 abcijk-ekac-ijeb 0.809x
+1 f64 1 abcijk-ekbc-ijea 0.818x
+1 f64 1 abcijk-ijma-mkbc 0.815x
+1 f64 1 abcijk-ijmb-mkac 0.805x
+1 f64 1 abcijk-ijmc-mkab 0.804x
+1 f64 1 abcijk-ikma-mjbc 0.813x
+1 f64 1 abcijk-ikmb-mjac 0.798x
+1 f64 1 abcijk-ikmc-mjab 0.806x
+1 f64 1 abcijk-jkma-mibc 0.819x
+1 f64 1 abcijk-jkmb-miac 0.809x
+1 f64 1 abcijk-jkmc-miab 0.804x
+1 f64 1 abcs-rc-abrs 0.835x
+1 f64 1 abjc-kbac-jk 0.851x
+1 f64 1 abjcd-dkbac-jk 0.849x
+1 f64 1 abrs-qb-aqrs 0.838x
+1 f64 1 ajbdc-ckbad-jk 0.829x
+1 f64 4 abcijk-eiab-jkec 0.822x
+1 f64 4 abcijk-eibc-jkea 0.874x
+1 f64 4 abcijk-ejab-ikec 0.878x
+1 f64 4 abcijk-ejac-ikeb 0.831x
+1 f64 4 abcijk-ejbc-ikea 0.828x
+1 f64 4 abcijk-ekab-ijec 0.826x
+1 f64 4 abcijk-ekac-ijeb 0.826x
+1 f64 4 abcijk-ekbc-ijea 0.880x
+1 f64 4 abcijk-ijmb-mkac 0.800x
+1 f64 4 abcijk-ijmc-mkab 0.857x
+1 f64 4 abcijk-ikmb-mjac 0.783x
+1 f64 4 abcijk-ikmc-mjab 0.836x
+1 f64 4 abcijk-jkmb-miac 0.830x
+1 f64 4 abcijk-jkmc-miab 0.846x
+1 f64 4 abcs-rc-abrs 0.860x
+1 f64 4 abjc-kbac-jk 0.885x
+1 f64 4 abrs-qb-aqrs 0.844x
+1 f64 4 ajbdc-ckbad-jk 0.847x
+1 f64 8 abcijk-eiac-jkeb 0.899x
+1 f64 8 abcijk-ejac-ikeb 0.896x
+1 f64 8 abcijk-ikmc-mjab 0.904x
+1 f64 8 abcs-rc-abrs 0.883x
+1 f64 8 abrs-qb-aqrs 0.888x
+1 f64 8 aqrs-pa-pqrs 0.339x
+1 f64 8 ijk-ilk-lj 0.740x
+1 f64 8 ijkl-imjn-nlmk 0.850x
+16 c64 1 abcijk-eiab-jkec 0.909x
+16 c64 1 abcijk-eiac-jkeb 0.877x
+16 c64 1 abcijk-eibc-jkea 0.883x
+16 c64 1 abcijk-ejac-ikeb 0.883x
+16 c64 1 abcijk-ejbc-ikea 0.883x
+16 c64 1 abcijk-ekac-ijeb 0.884x
+16 c64 1 abcijk-ekbc-ijea 0.883x
+16 c64 1 abcijk-ijma-mkbc 0.886x
+16 c64 1 abcijk-ijmb-mkac 0.884x
+16 c64 1 abcijk-ikma-mjbc 0.885x
+16 c64 1 abcijk-ikmb-mjac 0.885x
+16 c64 1 abcijk-jkma-mibc 0.884x
+16 c64 1 abcijk-jkmb-miac 0.876x
+16 c64 1 abcijk-jkmc-miab 0.909x
+16 c64 1 abjcd-dkbac-jk 0.899x
+16 c64 4 abcijk-eiac-jkeb 0.907x
+16 c64 4 abcijk-eibc-jkea 0.889x
+16 c64 4 abcijk-ejac-ikeb 0.905x
+16 c64 4 abcijk-ejbc-ikea 0.893x
+16 c64 4 abcijk-ekbc-ijea 0.887x
+16 c64 4 abcijk-ijma-mkbc 0.889x
+16 c64 4 abcijk-ijmb-mkac 0.903x
+16 c64 4 abcijk-ikma-mjbc 0.846x
+16 c64 4 abcijk-jkma-mibc 0.883x
+16 f64 1 abcijk-eiab-jkec 0.801x
+16 f64 1 abcijk-eiac-jkeb 0.765x
+16 f64 1 abcijk-eibc-jkea 0.800x
+16 f64 1 abcijk-ejab-ikec 0.800x
+16 f64 1 abcijk-ejac-ikeb 0.755x
+16 f64 1 abcijk-ejbc-ikea 0.807x
+16 f64 1 abcijk-ekab-ijec 0.806x
+16 f64 1 abcijk-ekac-ijeb 0.759x
+16 f64 1 abcijk-ekbc-ijea 0.796x
+16 f64 1 abcijk-ijma-mkbc 0.797x
+16 f64 1 abcijk-ijmb-mkac 0.756x
+16 f64 1 abcijk-ijmc-mkab 0.800x
+16 f64 1 abcijk-ikma-mjbc 0.795x
+16 f64 1 abcijk-ikmb-mjac 0.755x
+16 f64 1 abcijk-ikmc-mjab 0.802x
+16 f64 1 abcijk-jkma-mibc 0.795x
+16 f64 1 abcijk-jkmb-miac 0.763x
+16 f64 1 abcijk-jkmc-miab 0.800x
+16 f64 1 ajbc-ckba-jk 0.900x
+16 f64 4 abcijk-eiab-jkec 0.907x
+16 f64 4 abcijk-eiac-jkeb 0.867x
+16 f64 4 abcijk-eibc-jkea 0.816x
+16 f64 4 abcijk-ejac-ikeb 0.866x
+16 f64 4 abcijk-ejbc-ikea 0.841x
+16 f64 4 abcijk-ekac-ijeb 0.828x
+16 f64 4 abcijk-ekbc-ijea 0.851x
+16 f64 4 abcijk-ijma-mkbc 0.852x
+16 f64 4 abcijk-ijmb-mkac 0.855x
+16 f64 4 abcijk-ijmc-mkab 0.905x
+16 f64 4 abcijk-ikma-mjbc 0.818x
+16 f64 4 abcijk-ikmb-mjac 0.852x
+16 f64 4 abcijk-ikmc-mjab 0.898x
+16 f64 4 abcijk-jkma-mibc 0.840x
+16 f64 4 abcijk-jkmb-miac 0.827x
+16 f64 8 abcijk-ikmb-mjac 0.883x
+16 f64 8 abcs-rc-abrs 0.908x
+16 f64 8 ijk-ikl-lj 0.908x
+16 f64 8 ijk-ilk-jl 0.832x

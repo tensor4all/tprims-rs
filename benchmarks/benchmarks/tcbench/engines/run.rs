@@ -9,10 +9,10 @@ use num_complex::Complex;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use tprims_contract::{Plan, PlanConfig};
-use tprims_exec::{ArenaProvider, Exec};
+use tprims_exec::Exec;
 use tprims_kernel::Element;
 
-use super::{gflops, pin_single_threaded, problem_of, rel_error, timed, BenchElem};
+use super::{gflops, problem_of, rel_error, timed, BenchElem};
 use crate::corpus::{self, Sized};
 use crate::report::{Results, Row, Table};
 #[cfg(feature = "blas")]
@@ -21,10 +21,16 @@ use crate::Options;
 
 /// Column order for the report tables: this library's engines first, then the
 /// external baselines.
-pub const ENGINE_ORDER: &[&str] = &["plan", "packed", "ttgt", "tblis"];
+pub const ENGINE_ORDER: &[&str] = &[
+    "plan",
+    "packed",
+    #[cfg(feature = "upstream")]
+    "upstream",
+    "ttgt",
+    "tblis",
+];
 
-pub fn run(opts: &Options) -> ExitCode {
-    pin_single_threaded();
+pub fn run(opts: &Options, exec: &Exec<'_>) -> ExitCode {
     crate::report::print_environment();
     println!();
 
@@ -50,16 +56,16 @@ pub fn run(opts: &Options) -> ExitCode {
     for case in &cases {
         let s = corpus::size_case_stressed(case, opts.tensor_bytes(), opts.stress);
         if opts.wants("f32") {
-            run_case::<f32>(&s, opts, &mut results);
+            run_case::<f32>(&s, opts, exec, &mut results);
         }
         if opts.wants("f64") {
-            run_case::<f64>(&s, opts, &mut results);
+            run_case::<f64>(&s, opts, exec, &mut results);
         }
         if opts.wants("c32") {
-            run_case::<Complex<f32>>(&s, opts, &mut results);
+            run_case::<Complex<f32>>(&s, opts, exec, &mut results);
         }
         if opts.wants("c64") {
-            run_case::<Complex<f64>>(&s, opts, &mut results);
+            run_case::<Complex<f64>>(&s, opts, exec, &mut results);
         }
     }
 
@@ -70,11 +76,15 @@ pub fn run(opts: &Options) -> ExitCode {
             Err(e) => eprintln!("failed to write {path}: {e}"),
         }
     }
-    ExitCode::SUCCESS
+    if results.rows.iter().any(|r| r.notes.contains("MISMATCH")) {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    }
 }
 
 /// Measure one case for one element type across all requested engines.
-pub fn run_case<T>(s: &Sized, opts: &Options, results: &mut Results)
+pub fn run_case<T>(s: &Sized, opts: &Options, exec: &Exec<'_>, results: &mut Results)
 where
     T: BenchElem,
 {
@@ -116,7 +126,7 @@ where
                 } else {
                     1e-10
                 };
-                if err > tol {
+                if !err.is_finite() || err > tol {
                     format!("MISMATCH({name}) rel_err={err:.2e}")
                 } else {
                     String::new()
@@ -132,6 +142,7 @@ where
                 group: s.case.group.to_string(),
                 dtype: T::NAME.to_string(),
                 engine: engine.to_string(),
+                threads: exec.budget(),
                 m,
                 n,
                 k,
@@ -150,10 +161,7 @@ where
     // executes in, which is not necessarily `A`-rows / `B`-columns; a strategy
     // that does not use the packed driver reports no regularity (0, 0).
     let mut regularity = (0.0f64, 0.0f64);
-    // The plan owns no scratch, so the 1T rows own the storage they measure and
-    // keep it warm across repetitions.
-    let workspace = ArenaProvider::new();
-    let serial = Exec::serial_with_workspace(&workspace);
+    // BenchThreads owns the warm arena/pool outside the timed region.
     for (name, config) in [("plan", knobs.config()), ("packed", knobs.packed_config())] {
         if !opts.engine(name) {
             continue;
@@ -174,7 +182,7 @@ where
             // `beta = 0` reads no previous value.
             unsafe {
                 p.execute_raw(
-                    &serial,
+                    exec,
                     <T as Element>::one(),
                     a.as_ptr(),
                     b.as_ptr(),
@@ -218,6 +226,15 @@ where
     let (reg_a, reg_b) = regularity;
     #[cfg(not(any(feature = "blas", feature = "tblis")))]
     let _ = regularity;
+
+    // ---- original tensorprimitives-rs ------------------------------------
+    #[cfg(feature = "upstream")]
+    if opts.engine("upstream") {
+        let mut du = vec![<T as Element>::zero(); s.elems_c()];
+        let secs = T::upstream(s, exec.budget(), &a, &b, &mut du, opts.reps);
+        let notes = check("upstream", &du, &mut reference);
+        push("upstream", secs, regularity.0, regularity.1, notes, results);
+    }
 
     // ---- TTGT ------------------------------------------------------------
     #[cfg(feature = "blas")]

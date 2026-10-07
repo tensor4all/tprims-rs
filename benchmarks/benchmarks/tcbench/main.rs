@@ -11,8 +11,7 @@
 //!   stride-stress mode.
 //! * `info` -- the machine and the baselines this binary was built with.
 //!
-//! Run single-threaded by default so that kernel and packing efficiency, not
-//! thread scaling, is what is being compared. The `sweep`, `shapes`, `orient`
+//! Defaults to one thread; `--threads N` selects an enforced host budget. The `sweep`, `shapes`, `orient`
 //! and `premise` analyses of the original harness were retired with the move into
 //! `tprims-bench`; `docs/migration-2026-10.md` records where they went.
 
@@ -23,6 +22,8 @@ mod knobs;
 mod report;
 mod tblis;
 mod ttgt;
+#[cfg(feature = "upstream")]
+mod upstream;
 
 use std::process::ExitCode;
 
@@ -36,9 +37,12 @@ fn main() -> ExitCode {
     }
     let opts = Options::parse(&args[2.min(args.len())..]);
 
+    let threads = tprims_bench::threads::BenchThreads::from_args();
+    threads.verify();
+    engines::configure_threads(threads.requested);
     match cmd {
-        "verify" => engines::verify::run(&opts),
-        "run" => engines::run::run(&opts),
+        "verify" => threads.with_exec(|exec, _| engines::verify::run(&opts, exec)),
+        "run" => threads.with_exec(|exec, _| engines::run::run(&opts, exec)),
         "info" => {
             report::print_environment();
             ExitCode::SUCCESS
@@ -48,13 +52,14 @@ fn main() -> ExitCode {
                 "usage: tcbench <run|verify|info> [options]\n\
                  \n\
                  options:\n\
+                 \x20 --threads <n>     host/provider thread budget (default 1)\n\
                  \x20 --size <MiB>      tensor size target for TCCG sizing (default 200)\n\
                  \x20 --reps <n>        timed repetitions per measurement (default 5)\n\
                  \x20 --dtype <list>    comma separated: f32,f64,c32,c64 (default all)\n\
                  \x20 --case <substr>   only cases whose name contains this\n\
                  \x20 --engines <list>  comma separated, default all of:\n\
                  \x20                   plan,packed   (this library)\n\
-                 \x20                   ttgt,tblis    (external baselines)\n\
+                 \x20                   upstream,ttgt,tblis (optional external baselines)\n\
                  \x20 --csv <path>      also write machine-readable results\n\
                  \x20 --stress <mode>   none|ragged|padded: perturb TCCG extents/layouts\n\
                  \x20                   so the block-scatter gather path is exercised\n"
@@ -93,6 +98,7 @@ impl Options {
         while i < args.len() {
             let next = |i: usize| args.get(i + 1).cloned().unwrap_or_default();
             match args[i].as_str() {
+                "--threads" => i += 1, // validated by BenchThreads
                 "--size" => {
                     o.size_mib = next(i).parse().unwrap_or(200.0);
                     i += 1;

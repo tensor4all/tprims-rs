@@ -1,0 +1,2 @@
+case,group,dtype,engine,threads,m,n,k,macs,seconds,gflops,regular_a,regular_b,notes
+ij-ik-kj,ccsd,f64,packed,8,1464,1448,1464,3103492608,0.024508595,253.2575,1.0000,1.0000,avx512.f64.real.24x8 24x8 AB 264x256x1536

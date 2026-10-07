@@ -1,0 +1,2296 @@
+diff --git a/.agents/skills/tprims-benchmark/SKILL.md b/.agents/skills/tprims-benchmark/SKILL.md
+index d93572e..1cecbb9 100644
+--- a/.agents/skills/tprims-benchmark/SKILL.md
++++ b/.agents/skills/tprims-benchmark/SKILL.md
+@@ -12,10 +12,16 @@ Protocol`, `CPU Threading Contract`); read those sections first.
+ 1. **Quiet host.** Never run two benchmarks at once, and do not build or test
+    while measuring. Look for other users' load:
+    `ps -eo pid,user,psr,%cpu,comm --sort=-%cpu | head`.
+-2. **Build once, release profile.** The build job count depends on the host:
++2. **Build once, native release profile.** Use the identical
++   `RUSTFLAGS="-C target-cpu=native"` for every Rust provider and harness.
++   (`--target-cpu=native` is not a Cargo flag.) Record the complete effective
++   flags; do not reuse a baseline built without them. Native binaries are
++   host-specific and must not be moved to a different CPU for measurement.
++   Build C/C++ baselines in Release with `-O3 -march=native`, recording their
++   actual configuration and ISA selection. The build job count depends on the host:
+    set `CARGO_BUILD_JOBS` for it (for example 16 on the shared 64-core EPYC)
+    instead of hardcoding `-j`; cargo and the runners read it.
+-   `cargo build --release -p tprims-bench --bins`
++   `RUSTFLAGS="-C target-cpu=native" cargo build --release -p tprims-bench --bins`
+    (the C benchmark builds itself in `benchmarks/c/run.sh`). Build
+    parallelism does not change the measured thread count.
+ 3. **Choose idle cores in one L3 domain:**
+@@ -35,23 +41,87 @@ Protocol`, `CPU Threading Contract`); read those sections first.
+    with `CORPUS=file` (`contract --corpus`, `blas --corpus`; format in
+    `benchmarks/src/corpus.rs`). For a single binary:
+    `BENCH_CASE=<case> benchmarks/scripts/pinned.sh 8 -- target/release/blas --threads 1`.
+-5. **Thread counts:** every tensor-sized case at 1T and 4T in the same run;
+-   add 8T (one full L3 domain) where the experiment calls for it. The binary
++5. **Thread counts:** the default comparison is **1T, 4T, 8T, 12T**, in
++   that order; no 16T arm. Use one logical CPU per physical core, not SMT.
++   Inspect `lscpu -e=CPU,CORE,SOCKET,CACHE` first: requested threads are not
++   proof of the physical-core count. Keep 1T/4T/8T within one L3 domain,
++   with prefix core sets; 12T may span L3 domains only as an explicitly
++   requested full-physical-core scaling arm. This is an exception to the
++   single-L3 selection in step 3: choose and check the 12 distinct physical
++   cores explicitly, do not use `idle_cpus.py pick 12` when no domain holds 12.
++   Label its domain count, and do not interpret 8T-to-12T as pure thread
++   scaling. On the Ryzen AI 9 HX 470 host, use 1T=`4`, 4T=`4-7`, 8T=`4-11`,
++   12T=`0-11`, **only if idle**; the last arm spans both L3 domains. The binary
+    asserts its effective width at startup and rejects conflicting
+    `RAYON_NUM_THREADS` / `OMP_NUM_THREADS` / `OPENBLAS_NUM_THREADS` and any
+    variable of the removed library knobs (the `tcbench` harness knobs are `TCBENCH_*`); do not set them.
+-6. **Noise floor:** run the same binary twice on the same cores minutes apart
++6. **Correctness before timing:** run exact known-value examples and the
++   corpus's `verify` command at every requested thread count before timed
++   runs. Compare full outputs and record relative Frobenius residuals; reject
++   non-finite residuals and out-of-tolerance results. Use the same case list,
++   shapes, strides, dtype, input seed, alpha/beta and output semantics across
++   providers. In particular a tprims `packed` row is not an upstream
++   tensorprimitives-rs measurement: pin and run upstream separately.
++7. **Noise floor:** run the same binary twice on the same cores minutes apart
+    (A/A) and report the spread; differences below it are not findings.
+-7. **Record** beside every published table: tprims-rs commit (and tenferro-rs /
++8. **Record** beside every published table: tprims-rs commit (and tenferro-rs /
+    tenferro-benchmark commits for tenferro runs), CPU model, core set, profile,
+    thread counts, `pinned.sh` attempts, and the A/A spread. Raw CSVs go under
+    the benchmark's `results/`, summaries in its `README.md`. Report negative
+    and inconclusive results as such.
+-8. **tenferro-benchmark runs** (tprims provider vs default backend) use the
++9. **tenferro-benchmark runs** (tprims provider vs default backend) use the
+    same core choice and `pinned.sh`, with tenferro's paired ABBA runner
+    (`scripts/run_paired_timing.sh`) as the command and its idle-host guard
+    left enabled. tenferro-benchmark's devcontainer suites do not pin by
+    default; these runs do, and say so in the result.
+-9. **CPU affinity exists only on Linux.** On other hosts (macOS, Windows)
++10. **CPU affinity exists only on Linux.** On other hosts (macOS, Windows)
+    `idle_cpus.py` exits 3 and `pinned.sh` runs the command unpinned with a
+    note; state in the result that pinning was unavailable.
++
++## Three-provider contraction comparison
++
++Reuse `tcbench`'s full TCCG corpus (49 rows including GEMM), not a new
++hand-picked suite. Pin upstream tensorprimitives-rs to a full git SHA and
++build it into the same harness behind an optional feature, so all engines
++receive identical buffers. Compare tprims `plan` (default API strategy),
++upstream tensorprimitives and actual C++ `tblis`; retain `packed` as a
++separate diagnostic, never call it the external TBLIS baseline.
++
++Before the first timed run, record this protocol in a work log:
++- all 49 cases; `f64,c64`; nominal tensor sizes **1 and 16 MiB**;
++- all four thread counts **1,4,8,12** and exact core sets;
++- contiguous TCCG layouts first; `--stress padded` as a separately labelled
++  follow-up, not silently mixed into the primary result;
++- one warm-up then **5 repetitions**, best wall time per engine/case (the
++  existing `tcbench` statistic); complete suite repeated twice (A/A);
++- timing includes execution, packing, call/FFI and provider-owned allocation;
++  excludes input generation, plan/descriptor construction and tprims pool
++  construction; document scratch/pool reuse differences between providers;
++- correctness: known values first, `verify` at each size/thread count;
++  relative Frobenius error <= `1e-10` for `f64,c64`, finite outputs;
++- idle checks: the existing 3-second window and <=5% busy per selected CPU,
++  3 attempts maximum; no compilation or other benchmarks during timing;
++- **clock ramp**: this host drops about a quarter of its throughput for the
++  first ~1-2 s of sustained AVX-512 work after an idle gate. A microbenchmark
++  whose whole timed window is that short measures the ramp, not the hardware,
++  and the error is large enough to look like a kernel defect (measured:
++  39.8 GFLOP/s for a kernel that reads 52.7 once warm). `tcbench` is safe
++  because it always runs a warm-up before its repetitions, but any new
++  micro-probe or ablation must warm up for **0.5-2 s of wall time**, not a
++  fixed call count, and must use the *same* warm-up on every arm: if one arm
++  is much shorter than the other, a call-count warm-up biases the ratio.
++  Never quote an absolute rate without its warm-up and its run order.
++- report per-case latency, GFLOP/s, speedup vs each provider and 1T scaling;
++  geometric-mean ratios are summaries, not substitutes for all rows;
++- report A/A spread for every case, and treat changes below that spread as
++  inconclusive. Do not choose new cases, repetitions or exclusions after
++  inspecting the results. A failed validity gate makes the paired comparison
++  inconclusive; retain failed observations and rerun the entire pair.
++
++Use the existing optional TBLIS FFI adapter and its startup ABI check.
++TBLIS can be installed using the [RESTGroup tblis-src build-from-source
++procedure](https://github.com/RESTGroup/tblis-rs#installation); pin its TBLIS
++source revision and record the Release/native configuration. System BLIS
++being installed does **not** mean TBLIS is installed, or that TBLIS is using
++that BLIS. Record which BLIS it actually builds/links; do not add a second
++wrapper just to replace an existing working adapter.
+diff --git a/.claude/skills/tprims-benchmark/SKILL.md b/.claude/skills/tprims-benchmark/SKILL.md
+index d93572e..1cecbb9 100644
+--- a/.claude/skills/tprims-benchmark/SKILL.md
++++ b/.claude/skills/tprims-benchmark/SKILL.md
+@@ -12,10 +12,16 @@ Protocol`, `CPU Threading Contract`); read those sections first.
+ 1. **Quiet host.** Never run two benchmarks at once, and do not build or test
+    while measuring. Look for other users' load:
+    `ps -eo pid,user,psr,%cpu,comm --sort=-%cpu | head`.
+-2. **Build once, release profile.** The build job count depends on the host:
++2. **Build once, native release profile.** Use the identical
++   `RUSTFLAGS="-C target-cpu=native"` for every Rust provider and harness.
++   (`--target-cpu=native` is not a Cargo flag.) Record the complete effective
++   flags; do not reuse a baseline built without them. Native binaries are
++   host-specific and must not be moved to a different CPU for measurement.
++   Build C/C++ baselines in Release with `-O3 -march=native`, recording their
++   actual configuration and ISA selection. The build job count depends on the host:
+    set `CARGO_BUILD_JOBS` for it (for example 16 on the shared 64-core EPYC)
+    instead of hardcoding `-j`; cargo and the runners read it.
+-   `cargo build --release -p tprims-bench --bins`
++   `RUSTFLAGS="-C target-cpu=native" cargo build --release -p tprims-bench --bins`
+    (the C benchmark builds itself in `benchmarks/c/run.sh`). Build
+    parallelism does not change the measured thread count.
+ 3. **Choose idle cores in one L3 domain:**
+@@ -35,23 +41,87 @@ Protocol`, `CPU Threading Contract`); read those sections first.
+    with `CORPUS=file` (`contract --corpus`, `blas --corpus`; format in
+    `benchmarks/src/corpus.rs`). For a single binary:
+    `BENCH_CASE=<case> benchmarks/scripts/pinned.sh 8 -- target/release/blas --threads 1`.
+-5. **Thread counts:** every tensor-sized case at 1T and 4T in the same run;
+-   add 8T (one full L3 domain) where the experiment calls for it. The binary
++5. **Thread counts:** the default comparison is **1T, 4T, 8T, 12T**, in
++   that order; no 16T arm. Use one logical CPU per physical core, not SMT.
++   Inspect `lscpu -e=CPU,CORE,SOCKET,CACHE` first: requested threads are not
++   proof of the physical-core count. Keep 1T/4T/8T within one L3 domain,
++   with prefix core sets; 12T may span L3 domains only as an explicitly
++   requested full-physical-core scaling arm. This is an exception to the
++   single-L3 selection in step 3: choose and check the 12 distinct physical
++   cores explicitly, do not use `idle_cpus.py pick 12` when no domain holds 12.
++   Label its domain count, and do not interpret 8T-to-12T as pure thread
++   scaling. On the Ryzen AI 9 HX 470 host, use 1T=`4`, 4T=`4-7`, 8T=`4-11`,
++   12T=`0-11`, **only if idle**; the last arm spans both L3 domains. The binary
+    asserts its effective width at startup and rejects conflicting
+    `RAYON_NUM_THREADS` / `OMP_NUM_THREADS` / `OPENBLAS_NUM_THREADS` and any
+    variable of the removed library knobs (the `tcbench` harness knobs are `TCBENCH_*`); do not set them.
+-6. **Noise floor:** run the same binary twice on the same cores minutes apart
++6. **Correctness before timing:** run exact known-value examples and the
++   corpus's `verify` command at every requested thread count before timed
++   runs. Compare full outputs and record relative Frobenius residuals; reject
++   non-finite residuals and out-of-tolerance results. Use the same case list,
++   shapes, strides, dtype, input seed, alpha/beta and output semantics across
++   providers. In particular a tprims `packed` row is not an upstream
++   tensorprimitives-rs measurement: pin and run upstream separately.
++7. **Noise floor:** run the same binary twice on the same cores minutes apart
+    (A/A) and report the spread; differences below it are not findings.
+-7. **Record** beside every published table: tprims-rs commit (and tenferro-rs /
++8. **Record** beside every published table: tprims-rs commit (and tenferro-rs /
+    tenferro-benchmark commits for tenferro runs), CPU model, core set, profile,
+    thread counts, `pinned.sh` attempts, and the A/A spread. Raw CSVs go under
+    the benchmark's `results/`, summaries in its `README.md`. Report negative
+    and inconclusive results as such.
+-8. **tenferro-benchmark runs** (tprims provider vs default backend) use the
++9. **tenferro-benchmark runs** (tprims provider vs default backend) use the
+    same core choice and `pinned.sh`, with tenferro's paired ABBA runner
+    (`scripts/run_paired_timing.sh`) as the command and its idle-host guard
+    left enabled. tenferro-benchmark's devcontainer suites do not pin by
+    default; these runs do, and say so in the result.
+-9. **CPU affinity exists only on Linux.** On other hosts (macOS, Windows)
++10. **CPU affinity exists only on Linux.** On other hosts (macOS, Windows)
+    `idle_cpus.py` exits 3 and `pinned.sh` runs the command unpinned with a
+    note; state in the result that pinning was unavailable.
++
++## Three-provider contraction comparison
++
++Reuse `tcbench`'s full TCCG corpus (49 rows including GEMM), not a new
++hand-picked suite. Pin upstream tensorprimitives-rs to a full git SHA and
++build it into the same harness behind an optional feature, so all engines
++receive identical buffers. Compare tprims `plan` (default API strategy),
++upstream tensorprimitives and actual C++ `tblis`; retain `packed` as a
++separate diagnostic, never call it the external TBLIS baseline.
++
++Before the first timed run, record this protocol in a work log:
++- all 49 cases; `f64,c64`; nominal tensor sizes **1 and 16 MiB**;
++- all four thread counts **1,4,8,12** and exact core sets;
++- contiguous TCCG layouts first; `--stress padded` as a separately labelled
++  follow-up, not silently mixed into the primary result;
++- one warm-up then **5 repetitions**, best wall time per engine/case (the
++  existing `tcbench` statistic); complete suite repeated twice (A/A);
++- timing includes execution, packing, call/FFI and provider-owned allocation;
++  excludes input generation, plan/descriptor construction and tprims pool
++  construction; document scratch/pool reuse differences between providers;
++- correctness: known values first, `verify` at each size/thread count;
++  relative Frobenius error <= `1e-10` for `f64,c64`, finite outputs;
++- idle checks: the existing 3-second window and <=5% busy per selected CPU,
++  3 attempts maximum; no compilation or other benchmarks during timing;
++- **clock ramp**: this host drops about a quarter of its throughput for the
++  first ~1-2 s of sustained AVX-512 work after an idle gate. A microbenchmark
++  whose whole timed window is that short measures the ramp, not the hardware,
++  and the error is large enough to look like a kernel defect (measured:
++  39.8 GFLOP/s for a kernel that reads 52.7 once warm). `tcbench` is safe
++  because it always runs a warm-up before its repetitions, but any new
++  micro-probe or ablation must warm up for **0.5-2 s of wall time**, not a
++  fixed call count, and must use the *same* warm-up on every arm: if one arm
++  is much shorter than the other, a call-count warm-up biases the ratio.
++  Never quote an absolute rate without its warm-up and its run order.
++- report per-case latency, GFLOP/s, speedup vs each provider and 1T scaling;
++  geometric-mean ratios are summaries, not substitutes for all rows;
++- report A/A spread for every case, and treat changes below that spread as
++  inconclusive. Do not choose new cases, repetitions or exclusions after
++  inspecting the results. A failed validity gate makes the paired comparison
++  inconclusive; retain failed observations and rerun the entire pair.
++
++Use the existing optional TBLIS FFI adapter and its startup ABI check.
++TBLIS can be installed using the [RESTGroup tblis-src build-from-source
++procedure](https://github.com/RESTGroup/tblis-rs#installation); pin its TBLIS
++source revision and record the Release/native configuration. System BLIS
++being installed does **not** mean TBLIS is installed, or that TBLIS is using
++that BLIS. Record which BLIS it actually builds/links; do not add a second
++wrapper just to replace an existing working adapter.
+diff --git a/.opencode/commands/tprims-benchmark.md b/.opencode/commands/tprims-benchmark.md
+index 053df11..d113eee 100644
+--- a/.opencode/commands/tprims-benchmark.md
++++ b/.opencode/commands/tprims-benchmark.md
+@@ -1,5 +1,5 @@
+ ---
+-description: Run, add or report a tprims-rs benchmark — build, idle cores in one L3 domain, pinned paired 1T/4T(/8T) runs, A/A noise, recorded results — following PERFORMANCE_TIPS.md.
++description: Run, add or report a tprims-rs benchmark — native release builds, pinned 1T/4T/8T/12T runs (12T explicitly labelled cross-L3), correctness, A/A noise, recorded results — following PERFORMANCE_TIPS.md.
+ ---
+ 
+ Use `$ARGUMENTS` as the scope: the benchmark to run or add, or the change whose
+diff --git a/Cargo.lock b/Cargo.lock
+index 573127d..d99443f 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -1004,6 +1004,14 @@ dependencies = [
+  "walkdir",
+ ]
+ 
++[[package]]
++name = "tensorcontract"
++version = "0.1.0"
++source = "git+https://github.com/lkdvos/tensorprimitives-rs?rev=8cda75e11ed26f46c0c22f9629004c84dbabc8e5#8cda75e11ed26f46c0c22f9629004c84dbabc8e5"
++dependencies = [
++ "num-complex",
++]
++
+ [[package]]
+ name = "thiserror"
+ version = "1.0.69"
+@@ -1046,6 +1054,7 @@ dependencies = [
+  "serde_json",
+  "strided-basic",
+  "strided-view",
++ "tensorcontract",
+  "tprims-capi",
+  "tprims-contract",
+  "tprims-exec",
+diff --git a/PERFORMANCE_TIPS.md b/PERFORMANCE_TIPS.md
+index 0831ec5..c95ab8a 100644
+--- a/PERFORMANCE_TIPS.md
++++ b/PERFORMANCE_TIPS.md
+@@ -263,6 +263,13 @@ Audit hints:
+   `benchmarks/scripts/pinned.sh` does both). CPU affinity is Linux-only;
+   elsewhere, record that the run was unpinned. Never run two
+   benchmarks at once. Prefer short per-case runs over long target-wide runs.
++- Warm a microbenchmark to a settled clock before timing it. On the measured
++  AVX-512 host a kernel reads ~25% low for the first 1-2 s of sustained work
++  after an idle gate (39.8 vs 52.7 GFLOP/s for the same kernel), which is
++  large enough to be mistaken for a kernel defect. Warm up for **0.5-2 s of
++  wall time**, not a fixed call count, and give every arm the same warm-up:
++  a count-based warm-up biases the ratio when the arms differ in duration.
++  Quoting an absolute rate without its warm-up and run order is invalid.
+ - Read the shape of a slowdown before claiming a cause. A constant absolute
+   delta across sizes is a per-call or per-entry cost; a uniform multiplicative
+   factor across cases the change cannot affect is host contention. A
+diff --git a/benchmarks/Cargo.toml b/benchmarks/Cargo.toml
+index 56b267e..a12b0d6 100644
+--- a/benchmarks/Cargo.toml
++++ b/benchmarks/Cargo.toml
+@@ -25,9 +25,12 @@ rand_chacha = "0.3"
+ rayon = { workspace = true }
+ serde = { version = "1", features = ["derive"] }
+ serde_json = "1"
++# Lukas Devos's original implementation, called (not ported) as a baseline.
++tensorcontract = { git = "https://github.com/lkdvos/tensorprimitives-rs", rev = "8cda75e11ed26f46c0c22f9629004c84dbabc8e5", optional = true }
+ 
+ [features]
+ default = []
++upstream = ["dep:tensorcontract"]
+ # Link the C++ TBLIS baseline. Requires TBLIS_ROOT to point at an install
+ # prefix containing lib/libtblis.{so,a}.
+ tblis = []
+diff --git a/benchmarks/README.md b/benchmarks/README.md
+index d15a16c..ce1d80b 100644
+--- a/benchmarks/README.md
++++ b/benchmarks/README.md
+@@ -9,7 +9,7 @@ package now holds only the tprims benchmarks.
+ | Binary | Page |
+ | --- | --- |
+ | `exec_entry` | [exec_entry](benchmarks/tprims/exec_entry/README.md) |
+-| `tcbench` | the TCCG corpus: `run`, `verify`, `info`, `--stress` (optional TBLIS and BLAS baselines behind the `tblis` and `blas` features) |
++| `tcbench` | [49-case TCCG comparison](benchmarks/tcbench/README.md): `run`, `verify`, `info`, `--threads`, `--stress`; optional `upstream`, `tblis`, `blas` baselines |
+ | `contract` | [contract](benchmarks/tprims/contract/README.md) |
+ | `capi_rust` | [C ABI comparison](c/README.md) |
+ 
+@@ -19,7 +19,7 @@ The package is a member of the root workspace, so binaries land in the
+ repository's `target/`:
+ 
+ ```bash
+-cargo build --release -p tprims-bench --bins   # jobs from CARGO_BUILD_JOBS
++RUSTFLAGS="-C target-cpu=native" cargo build --release -p tprims-bench --bins   # jobs from CARGO_BUILD_JOBS
+ cpus=$(python3 scripts/idle_cpus.py pick 4)          # idle CPUs of one L3 domain
+ scripts/pinned.sh "${cpus%%,*}" -- ../target/release/contract --threads 1
+ scripts/pinned.sh "$cpus"       -- ../target/release/contract --threads 4
+@@ -33,5 +33,7 @@ The full procedure is the `tprims-benchmark` skill
+ Measure every tensor-sized case at 1 and 4 threads in the same run, verify the
+ effective thread count at startup, pin with `taskset` inside one L3 domain,
+ never run two benchmarks at once, and record the tprims-rs commit, CPU, core
+-set and profile beside every published table. See the root
++set and profile beside every published table. The fixed 1T/4T/8T/12T
++three-provider procedure is in the skill; its explicitly requested 12T arm
++may span L3 domains and is labelled separately (no SMT). See the root
+ [`PERFORMANCE_TIPS.md`](../PERFORMANCE_TIPS.md) and [`AGENTS.md`](AGENTS.md).
+diff --git a/benchmarks/benchmarks/tcbench/engines/mod.rs b/benchmarks/benchmarks/tcbench/engines/mod.rs
+index 5f67786..ea2ae9a 100644
+--- a/benchmarks/benchmarks/tcbench/engines/mod.rs
++++ b/benchmarks/benchmarks/tcbench/engines/mod.rs
+@@ -16,6 +16,23 @@ use crate::blas::GemmScalar;
+ use crate::corpus::{Layout, Sized};
+ use crate::tblis;
+ 
++// Concrete implementations avoid mixing the two libraries' Element traits.
++macro_rules! upstream_method {
++    () => {
++        #[cfg(feature = "upstream")]
++        fn upstream(
++            s: &Sized,
++            threads: usize,
++            a: &[Self],
++            b: &[Self],
++            d: &mut [Self],
++            reps: usize,
++        ) -> f64 {
++            crate::upstream::run(s, threads, a, b, d, reps)
++        }
++    };
++}
++
+ /// An element type the harness can drive through every engine.
+ #[allow(dead_code)] // some members are only used under optional features
+ pub trait BenchElem: Scalar + GemmScalar {
+@@ -27,9 +44,19 @@ pub trait BenchElem: Scalar + GemmScalar {
+     fn tblis_scalar(v: f64) -> tblis::tblis_scalar;
+     fn sample(rng: &mut impl Rng) -> Self;
+     fn from_f64(v: f64) -> Self;
++    #[cfg(feature = "upstream")]
++    fn upstream(
++        s: &Sized,
++        threads: usize,
++        a: &[Self],
++        b: &[Self],
++        d: &mut [Self],
++        reps: usize,
++    ) -> f64;
+ }
+ 
+ impl BenchElem for f32 {
++    upstream_method!();
+     const NAME: &'static str = "f32";
+     const TBLIS_TYPE: c_int = tblis::TYPE_SINGLE;
+     const REAL_NAME: &'static str = "f32";
+@@ -45,6 +72,7 @@ impl BenchElem for f32 {
+ }
+ 
+ impl BenchElem for f64 {
++    upstream_method!();
+     const NAME: &'static str = "f64";
+     const TBLIS_TYPE: c_int = tblis::TYPE_DOUBLE;
+     const REAL_NAME: &'static str = "f64";
+@@ -60,6 +88,7 @@ impl BenchElem for f64 {
+ }
+ 
+ impl BenchElem for Complex<f32> {
++    upstream_method!();
+     const NAME: &'static str = "c32";
+     const TBLIS_TYPE: c_int = tblis::TYPE_SCOMPLEX;
+     const REAL_NAME: &'static str = "f32";
+@@ -75,6 +104,7 @@ impl BenchElem for Complex<f32> {
+ }
+ 
+ impl BenchElem for Complex<f64> {
++    upstream_method!();
+     const NAME: &'static str = "c64";
+     const TBLIS_TYPE: c_int = tblis::TYPE_DCOMPLEX;
+     const REAL_NAME: &'static str = "f64";
+@@ -144,12 +174,13 @@ pub fn rel_error<T: Element>(got: &[T], want: &[T]) -> f64 {
+     }
+ }
+ 
+-/// Force the process onto one core's worth of BLAS/TBLIS threads, and confirm
+-/// the linked TBLIS matches the ABI the harness was compiled for.
+-pub fn pin_single_threaded() {
++/// Set provider budgets and confirm the linked TBLIS ABI.
++pub fn configure_threads(threads: usize) {
++    let _ = threads;
+     #[cfg(feature = "tblis")]
+     unsafe {
+-        tblis::tblis_set_num_threads(1);
++        tblis::tblis_set_num_threads(threads.try_into().expect("TBLIS thread count fits u32"));
++        assert_eq!(tblis::tblis_get_num_threads() as usize, threads);
+         if let Err(e) = tblis::verify_type_tags() {
+             eprintln!("FATAL: {e}");
+             std::process::exit(2);
+@@ -159,6 +190,8 @@ pub fn pin_single_threaded() {
+     // first use, so pinning it is the caller's job and cannot be done from here.
+     #[cfg(all(feature = "blas", not(feature = "accelerate")))]
+     unsafe {
+-        crate::blas::openblas_set_num_threads(1)
++        crate::blas::openblas_set_num_threads(
++            threads.try_into().expect("BLAS thread count fits i32"),
++        )
+     };
+ }
+diff --git a/benchmarks/benchmarks/tcbench/engines/run.rs b/benchmarks/benchmarks/tcbench/engines/run.rs
+index c7019a7..dfd057a 100644
+--- a/benchmarks/benchmarks/tcbench/engines/run.rs
++++ b/benchmarks/benchmarks/tcbench/engines/run.rs
+@@ -9,10 +9,10 @@ use num_complex::Complex;
+ use rand::SeedableRng;
+ use rand_chacha::ChaCha8Rng;
+ use tprims_contract::{Plan, PlanConfig};
+-use tprims_exec::{ArenaProvider, Exec};
++use tprims_exec::Exec;
+ use tprims_kernel::Element;
+ 
+-use super::{gflops, pin_single_threaded, problem_of, rel_error, timed, BenchElem};
++use super::{gflops, problem_of, rel_error, timed, BenchElem};
+ use crate::corpus::{self, Sized};
+ use crate::report::{Results, Row, Table};
+ #[cfg(feature = "blas")]
+@@ -21,10 +21,16 @@ use crate::Options;
+ 
+ /// Column order for the report tables: this library's engines first, then the
+ /// external baselines.
+-pub const ENGINE_ORDER: &[&str] = &["plan", "packed", "ttgt", "tblis"];
++pub const ENGINE_ORDER: &[&str] = &[
++    "plan",
++    "packed",
++    #[cfg(feature = "upstream")]
++    "upstream",
++    "ttgt",
++    "tblis",
++];
+ 
+-pub fn run(opts: &Options) -> ExitCode {
+-    pin_single_threaded();
++pub fn run(opts: &Options, exec: &Exec<'_>) -> ExitCode {
+     crate::report::print_environment();
+     println!();
+ 
+@@ -50,16 +56,16 @@ pub fn run(opts: &Options) -> ExitCode {
+     for case in &cases {
+         let s = corpus::size_case_stressed(case, opts.tensor_bytes(), opts.stress);
+         if opts.wants("f32") {
+-            run_case::<f32>(&s, opts, &mut results);
++            run_case::<f32>(&s, opts, exec, &mut results);
+         }
+         if opts.wants("f64") {
+-            run_case::<f64>(&s, opts, &mut results);
++            run_case::<f64>(&s, opts, exec, &mut results);
+         }
+         if opts.wants("c32") {
+-            run_case::<Complex<f32>>(&s, opts, &mut results);
++            run_case::<Complex<f32>>(&s, opts, exec, &mut results);
+         }
+         if opts.wants("c64") {
+-            run_case::<Complex<f64>>(&s, opts, &mut results);
++            run_case::<Complex<f64>>(&s, opts, exec, &mut results);
+         }
+     }
+ 
+@@ -70,11 +76,15 @@ pub fn run(opts: &Options) -> ExitCode {
+             Err(e) => eprintln!("failed to write {path}: {e}"),
+         }
+     }
+-    ExitCode::SUCCESS
++    if results.rows.iter().any(|r| r.notes.contains("MISMATCH")) {
++        ExitCode::FAILURE
++    } else {
++        ExitCode::SUCCESS
++    }
+ }
+ 
+ /// Measure one case for one element type across all requested engines.
+-pub fn run_case<T>(s: &Sized, opts: &Options, results: &mut Results)
++pub fn run_case<T>(s: &Sized, opts: &Options, exec: &Exec<'_>, results: &mut Results)
+ where
+     T: BenchElem,
+ {
+@@ -116,7 +126,7 @@ where
+                 } else {
+                     1e-10
+                 };
+-                if err > tol {
++                if !err.is_finite() || err > tol {
+                     format!("MISMATCH({name}) rel_err={err:.2e}")
+                 } else {
+                     String::new()
+@@ -132,6 +142,7 @@ where
+                 group: s.case.group.to_string(),
+                 dtype: T::NAME.to_string(),
+                 engine: engine.to_string(),
++                threads: exec.budget(),
+                 m,
+                 n,
+                 k,
+@@ -150,10 +161,7 @@ where
+     // executes in, which is not necessarily `A`-rows / `B`-columns; a strategy
+     // that does not use the packed driver reports no regularity (0, 0).
+     let mut regularity = (0.0f64, 0.0f64);
+-    // The plan owns no scratch, so the 1T rows own the storage they measure and
+-    // keep it warm across repetitions.
+-    let workspace = ArenaProvider::new();
+-    let serial = Exec::serial_with_workspace(&workspace);
++    // BenchThreads owns the warm arena/pool outside the timed region.
+     for (name, config) in [("plan", knobs.config()), ("packed", knobs.packed_config())] {
+         if !opts.engine(name) {
+             continue;
+@@ -174,7 +182,7 @@ where
+             // `beta = 0` reads no previous value.
+             unsafe {
+                 p.execute_raw(
+-                    &serial,
++                    exec,
+                     <T as Element>::one(),
+                     a.as_ptr(),
+                     b.as_ptr(),
+@@ -219,6 +227,15 @@ where
+     #[cfg(not(any(feature = "blas", feature = "tblis")))]
+     let _ = regularity;
+ 
++    // ---- original tensorprimitives-rs ------------------------------------
++    #[cfg(feature = "upstream")]
++    if opts.engine("upstream") {
++        let mut du = vec![<T as Element>::zero(); s.elems_c()];
++        let secs = T::upstream(s, exec.budget(), &a, &b, &mut du, opts.reps);
++        let notes = check("upstream", &du, &mut reference);
++        push("upstream", secs, regularity.0, regularity.1, notes, results);
++    }
++
+     // ---- TTGT ------------------------------------------------------------
+     #[cfg(feature = "blas")]
+     if opts.engine("ttgt") {
+diff --git a/benchmarks/benchmarks/tcbench/engines/verify.rs b/benchmarks/benchmarks/tcbench/engines/verify.rs
+index bb6f68a..f03e4e0 100644
+--- a/benchmarks/benchmarks/tcbench/engines/verify.rs
++++ b/benchmarks/benchmarks/tcbench/engines/verify.rs
+@@ -19,13 +19,12 @@ use tprims_kernel::Element;
+ 
+ #[cfg(any(feature = "blas", feature = "tblis"))]
+ use super::rel_error;
+-use super::{pin_single_threaded, BenchElem};
++use super::BenchElem;
+ use crate::corpus::{self, Sized};
+ use crate::report::Table;
+ use crate::Options;
+ 
+-pub fn run(opts: &Options) -> ExitCode {
+-    pin_single_threaded();
++pub fn run(opts: &Options, exec: &Exec<'_>) -> ExitCode {
+     crate::report::print_environment();
+ 
+     let cases: Vec<_> = corpus::corpus()
+@@ -47,23 +46,37 @@ pub fn run(opts: &Options) -> ExitCode {
+     );
+ 
+     let mut t = Table::new(&[
+-        "case", "dtype", "m", "n", "k", "plan", "packed", "vs ttgt", "vs tblis", "status",
++        "case",
++        "dtype",
++        "m",
++        "n",
++        "k",
++        "plan",
++        "packed",
++        "vs ttgt",
++        "vs tblis",
++        "vs upstream",
++        "status",
+     ]);
+     let mut failures = 0usize;
++    // Known-value GEMM: A=B=1 implies every D element is exactly K.
++    let known = corpus::size_case(&corpus::corpus()[0], 256.0);
++    failures += check::<f64>(&known, exec, &mut t, true);
++    failures += check::<Complex<f64>>(&known, exec, &mut t, true);
+ 
+     for case in &cases {
+         let s = corpus::size_case_stressed(case, opts.tensor_bytes(), opts.stress);
+         if opts.wants("f32") {
+-            failures += check::<f32>(&s, &mut t);
++            failures += check::<f32>(&s, exec, &mut t, false);
+         }
+         if opts.wants("f64") {
+-            failures += check::<f64>(&s, &mut t);
++            failures += check::<f64>(&s, exec, &mut t, false);
+         }
+         if opts.wants("c32") {
+-            failures += check::<Complex<f32>>(&s, &mut t);
++            failures += check::<Complex<f32>>(&s, exec, &mut t, false);
+         }
+         if opts.wants("c64") {
+-            failures += check::<Complex<f64>>(&s, &mut t);
++            failures += check::<Complex<f64>>(&s, exec, &mut t, false);
+         }
+     }
+ 
+@@ -86,13 +99,12 @@ fn tol<T: Element>() -> f64 {
+ }
+ 
+ /// Run `plan` once on fresh data, overwriting `d`.
+-fn run_plan<T: BenchElem>(plan: &Plan<T>, s: &Sized, a: &[T], b: &[T], d: &mut [T]) {
+-    let _ = s;
++fn run_plan<T: BenchElem>(plan: &Plan<T>, exec: &Exec<'_>, a: &[T], b: &[T], d: &mut [T]) {
+     // SAFETY: the buffers are sized by the layouts (`elems_*`), `D` is exclusive,
+     // and `beta = 0` so no previous value is read.
+     unsafe {
+         plan.execute_raw(
+-            &Exec::serial(),
++            exec,
+             <T as Element>::one(),
+             a.as_ptr(),
+             b.as_ptr(),
+@@ -104,7 +116,7 @@ fn run_plan<T: BenchElem>(plan: &Plan<T>, s: &Sized, a: &[T], b: &[T], d: &mut [
+     .expect("a validated plan runs");
+ }
+ 
+-fn check<T>(s: &Sized, t: &mut Table) -> usize
++fn check<T>(s: &Sized, exec: &Exec<'_>, t: &mut Table, known: bool) -> usize
+ where
+     T: BenchElem,
+ {
+@@ -126,6 +138,7 @@ where
+                 "-".into(),
+                 "-".into(),
+                 "-".into(),
++                "-".into(),
+                 format!("PLAN ERROR: {e}"),
+             ]);
+             return 1;
+@@ -134,16 +147,23 @@ where
+     let (m, n, k) = s.mnk();
+ 
+     let mut rng = ChaCha8Rng::seed_from_u64(0xA11CE);
+-    let a: Vec<T> = (0..s.elems_a()).map(|_| T::sample(&mut rng)).collect();
+-    let b: Vec<T> = (0..s.elems_b()).map(|_| T::sample(&mut rng)).collect();
++    let mut sample = || {
++        if known {
++            <T as Element>::one()
++        } else {
++            T::sample(&mut rng)
++        }
++    };
++    let a: Vec<T> = (0..s.elems_a()).map(|_| sample()).collect();
++    let b: Vec<T> = (0..s.elems_b()).map(|_| sample()).collect();
+     let mut d: Vec<T> = vec![<T as Element>::zero(); s.elems_c()];
+-    run_plan(&plan, s, &a, &b, &mut d);
++    run_plan(&plan, exec, &a, &b, &mut d);
+     // The packed driver, forced, against the planner's own choice.
+     let mut dp: Vec<T> = vec![<T as Element>::zero(); s.elems_c()];
+-    run_plan(&packed, s, &a, &b, &mut dp);
++    run_plan(&packed, exec, &a, &b, &mut dp);
+     let packed_err = super::rel_error(&dp, &d);
+ 
+-    let mut fails = 0usize;
++    let mut fails = usize::from(known && d.iter().any(|&v| v != T::from_f64(k as f64)));
+ 
+     let ttgt_err: Option<f64> = {
+         #[cfg(feature = "blas")]
+@@ -213,15 +233,29 @@ where
+         }
+     };
+ 
++    let upstream_err: Option<f64> = {
++        #[cfg(feature = "upstream")]
++        {
++            let mut du = vec![<T as Element>::zero(); s.elems_c()];
++            T::upstream(s, exec.budget(), &a, &b, &mut du, 0);
++            Some(super::rel_error(&du, &d))
++        }
++        #[cfg(not(feature = "upstream"))]
++        {
++            None
++        }
++    };
++
+     let fmt = |e: Option<f64>| e.map(|v| format!("{v:.1e}")).unwrap_or_else(|| "-".into());
+     let limit = tol::<T>();
+-    let bad = [Some(packed_err), ttgt_err, tblis_err]
++    let bad = [Some(packed_err), ttgt_err, tblis_err, upstream_err]
+         .iter()
+         .flatten()
+-        .any(|&e| e.is_nan() || e > limit);
++        .any(|&e| !e.is_finite() || e > limit);
+     if bad {
+         fails += 1;
+     }
++    let bad = fails != 0;
+     t.row(vec![
+         s.case.name.into(),
+         T::NAME.into(),
+@@ -232,6 +266,7 @@ where
+         fmt(Some(packed_err)),
+         fmt(ttgt_err),
+         fmt(tblis_err),
++        fmt(upstream_err),
+         if bad { "FAIL".into() } else { "ok".into() },
+     ]);
+     fails
+diff --git a/benchmarks/benchmarks/tcbench/main.rs b/benchmarks/benchmarks/tcbench/main.rs
+index 4a34f8a..c337d87 100644
+--- a/benchmarks/benchmarks/tcbench/main.rs
++++ b/benchmarks/benchmarks/tcbench/main.rs
+@@ -11,8 +11,7 @@
+ //!   stride-stress mode.
+ //! * `info` -- the machine and the baselines this binary was built with.
+ //!
+-//! Run single-threaded by default so that kernel and packing efficiency, not
+-//! thread scaling, is what is being compared. The `sweep`, `shapes`, `orient`
++//! Defaults to one thread; `--threads N` selects an enforced host budget. The `sweep`, `shapes`, `orient`
+ //! and `premise` analyses of the original harness were retired with the move into
+ //! `tprims-bench`; `docs/migration-2026-10.md` records where they went.
+ 
+@@ -23,6 +22,8 @@ mod knobs;
+ mod report;
+ mod tblis;
+ mod ttgt;
++#[cfg(feature = "upstream")]
++mod upstream;
+ 
+ use std::process::ExitCode;
+ 
+@@ -36,9 +37,12 @@ fn main() -> ExitCode {
+     }
+     let opts = Options::parse(&args[2.min(args.len())..]);
+ 
++    let threads = tprims_bench::threads::BenchThreads::from_args();
++    threads.verify();
++    engines::configure_threads(threads.requested);
+     match cmd {
+-        "verify" => engines::verify::run(&opts),
+-        "run" => engines::run::run(&opts),
++        "verify" => threads.with_exec(|exec, _| engines::verify::run(&opts, exec)),
++        "run" => threads.with_exec(|exec, _| engines::run::run(&opts, exec)),
+         "info" => {
+             report::print_environment();
+             ExitCode::SUCCESS
+@@ -48,13 +52,14 @@ fn main() -> ExitCode {
+                 "usage: tcbench <run|verify|info> [options]\n\
+                  \n\
+                  options:\n\
++                 \x20 --threads <n>     host/provider thread budget (default 1)\n\
+                  \x20 --size <MiB>      tensor size target for TCCG sizing (default 200)\n\
+                  \x20 --reps <n>        timed repetitions per measurement (default 5)\n\
+                  \x20 --dtype <list>    comma separated: f32,f64,c32,c64 (default all)\n\
+                  \x20 --case <substr>   only cases whose name contains this\n\
+                  \x20 --engines <list>  comma separated, default all of:\n\
+                  \x20                   plan,packed   (this library)\n\
+-                 \x20                   ttgt,tblis    (external baselines)\n\
++                 \x20                   upstream,ttgt,tblis (optional external baselines)\n\
+                  \x20 --csv <path>      also write machine-readable results\n\
+                  \x20 --stress <mode>   none|ragged|padded: perturb TCCG extents/layouts\n\
+                  \x20                   so the block-scatter gather path is exercised\n"
+@@ -93,6 +98,7 @@ impl Options {
+         while i < args.len() {
+             let next = |i: usize| args.get(i + 1).cloned().unwrap_or_default();
+             match args[i].as_str() {
++                "--threads" => i += 1, // validated by BenchThreads
+                 "--size" => {
+                     o.size_mib = next(i).parse().unwrap_or(200.0);
+                     i += 1;
+diff --git a/benchmarks/benchmarks/tcbench/report.rs b/benchmarks/benchmarks/tcbench/report.rs
+index f8cddb4..be1975f 100644
+--- a/benchmarks/benchmarks/tcbench/report.rs
++++ b/benchmarks/benchmarks/tcbench/report.rs
+@@ -10,6 +10,7 @@ pub struct Row {
+     pub group: String,
+     pub dtype: String,
+     pub engine: String,
++    pub threads: usize,
+     pub m: u64,
+     pub n: u64,
+     pub k: u64,
+@@ -40,16 +41,17 @@ impl Results {
+ 
+     pub fn write_csv(&self, path: &str) -> std::io::Result<()> {
+         let mut s = String::from(
+-            "case,group,dtype,engine,m,n,k,macs,seconds,gflops,regular_a,regular_b,notes\n",
++            "case,group,dtype,engine,threads,m,n,k,macs,seconds,gflops,regular_a,regular_b,notes\n",
+         );
+         for r in &self.rows {
+             let _ = writeln!(
+                 s,
+-                "{},{},{},{},{},{},{},{},{:.9},{:.4},{:.4},{:.4},{}",
++                "{},{},{},{},{},{},{},{},{},{:.9},{:.4},{:.4},{:.4},{}",
+                 r.case,
+                 r.group,
+                 r.dtype,
+                 r.engine,
++                r.threads,
+                 r.m,
+                 r.n,
+                 r.k,
+diff --git a/crates/tprims-contract/src/driver/dynamic.rs b/crates/tprims-contract/src/driver/dynamic.rs
+index d917a94..0c28487 100644
+--- a/crates/tprims-contract/src/driver/dynamic.rs
++++ b/crates/tprims-contract/src/driver/dynamic.rs
+@@ -287,10 +287,10 @@ pub(super) unsafe fn run_dynamic<T>(
+     let bands = m.div_ceil(job_m);
+ 
+     for h in 0..plan.stats.batch {
+-        let ah = ptr_a.offset(cx.ha[h] as isize);
+-        let bh = ptr_b.offset(cx.hb[h] as isize);
+-        let ch = c.offset(cx.hc[h] as isize);
+-        let dh = d.offset(plan.h_d[h] as isize);
++        let ah = ptr_a.offset(cx.ha.at(h) as isize);
++        let bh = ptr_b.offset(cx.hb.at(h) as isize);
++        let ch = c.offset(cx.hc.at(h) as isize);
++        let dh = d.offset(plan.h_d.at(h) as isize);
+         let mut jc = 0;
+         while jc < n {
+             let jc_len = nc.min(n - jc);
+diff --git a/crates/tprims-contract/src/driver/mod.rs b/crates/tprims-contract/src/driver/mod.rs
+index 490c28c..58e9a84 100644
+--- a/crates/tprims-contract/src/driver/mod.rs
++++ b/crates/tprims-contract/src/driver/mod.rs
+@@ -143,7 +143,7 @@ pub use dynamic::{Assignment, DynSnapshot, DynStats, DynamicReport};
+ use static_grid::{run_strip, BPart};
+ use tile::{compute_block, pack_a_rows, pack_b_slivers, Bufs, Epoch};
+ use tprims_kernel::pack::panel_len;
+-use tprims_kernel::scatter::append_block_scatter;
++use tprims_kernel::scatter::Scatter;
+ use tprims_kernel::writeback::scale_only;
+ use tprims_kernel::{Axis, BAccess, Blocking, DriverFamily, Element};
+ 
+@@ -190,7 +190,7 @@ where
+ ///
+ /// This reads the operand's own scatter rather than its block scatter, so it
+ /// can decide before any scratch buffer exists.
+-pub(crate) fn pack_b_needed(b_access: BAccess, bk: &[i64], bn: &[i64], nr: usize) -> bool {
++pub(crate) fn pack_b_needed(b_access: BAccess, bk: &Scatter, bn: &Scatter, nr: usize) -> bool {
+     if !matches!(
+         b_access,
+         BAccess::Direct {
+@@ -199,10 +199,10 @@ pub(crate) fn pack_b_needed(b_access: BAccess, bk: &[i64], bn: &[i64], nr: usize
+     ) {
+         return true;
+     }
+-    if bk.len() > 1 && !bk.windows(2).all(|w| w[1] - w[0] == 1) {
++    if !bk.is_unit_stride() {
+         return true;
+     }
+-    !tprims_kernel::scatter::block_scatter_regular(bn, nr)
++    !bn.is_block_regular(nr)
+ }
+ 
+ /// Whether the Direct kernel may write D in place. Real storage only, no C or D
+@@ -288,17 +288,17 @@ struct Ctx<'a, T: Element> {
+     /// Reals between one column group's slice of the packed `B` panel and the
+     /// next. See `execute` for why the panel is cut per group and not per sliver.
+     b_group: usize,
+-    am: &'a [i64],
+-    ak: &'a [i64],
+-    bk: &'a [i64],
+-    bn: &'a [i64],
+-    cm: &'a [i64],
+-    cn: &'a [i64],
+-    dm: &'a [i64],
+-    dn: &'a [i64],
+-    ha: &'a [i64],
+-    hb: &'a [i64],
+-    hc: &'a [i64],
++    am: &'a Scatter,
++    ak: &'a Scatter,
++    bk: &'a Scatter,
++    bn: &'a Scatter,
++    cm: &'a Scatter,
++    cn: &'a Scatter,
++    dm: &'a Scatter,
++    dn: &'a Scatter,
++    ha: &'a Scatter,
++    hb: &'a Scatter,
++    hc: &'a Scatter,
+     /// Every block-scatter vector this call needs, laid out by `runs`.
+     scatter: &'a [i64],
+     runs: ScatterRuns,
+@@ -321,7 +321,7 @@ fn c_for_call<T: Element>(
+     beta: T,
+     c: *const T,
+     d: *mut T,
+-) -> (*const T, &[i64]) {
++) -> (*const T, &Scatter) {
+     if beta == T::zero() {
+         (d.cast_const(), &plan.h_d)
+     } else {
+@@ -498,13 +498,13 @@ where
+         for h in 0..plan.stats.batch {
+             scale_only::<T>(
+                 beta,
+-                c.offset(hc[h] as isize),
+-                cm,
+-                cn,
++                c.offset(hc.at(h) as isize),
++                cm.view(),
++                cn.view(),
+                 plan.conj_c,
+-                d.offset(plan.h_d[h] as isize),
+-                dm,
+-                dn,
++                d.offset(plan.h_d.at(h) as isize),
++                dm.view(),
++                dn.view(),
+                 plan.conj_d,
+             );
+         }
+@@ -655,13 +655,13 @@ where
+         buf.clear();
+         buf.reserve(req.team_scatter);
+         ScatterRuns {
+-            a: append_block_scatter(buf, am, mr),
+-            b: append_block_scatter(buf, bn, nr),
+-            dm: append_block_scatter(buf, dm, mr),
+-            dn: append_block_scatter(buf, dn, nr),
++            a: am.block_strides(mr, buf),
++            b: bn.block_strides(nr, buf),
++            dm: dm.block_strides(mr, buf),
++            dn: dn.block_strides(nr, buf),
+             cm: match beta == T::zero() {
+                 true => (buf.len(), buf.len()),
+-                false => append_block_scatter(buf, cm, mr),
++                false => cm.block_strides(mr, buf),
+             },
+         }
+     };
+diff --git a/crates/tprims-contract/src/driver/static_grid.rs b/crates/tprims-contract/src/driver/static_grid.rs
+index e924eed..7e4c957 100644
+--- a/crates/tprims-contract/src/driver/static_grid.rs
++++ b/crates/tprims-contract/src/driver/static_grid.rs
+@@ -124,10 +124,10 @@ pub(super) unsafe fn run_strip<T>(
+     let (ptr_a, ptr_b, c, d, bp_ptr) = (cx.a.0, cx.b.0, cx.c.0 as *const T, cx.d.0, cx.bp.0);
+ 
+     for h in items {
+-        let ah = ptr_a.offset(ha[h] as isize);
+-        let bh = ptr_b.offset(hb[h] as isize);
+-        let ch = c.offset(cx.hc[h] as isize);
+-        let dh = d.offset(plan.h_d[h] as isize);
++        let ah = ptr_a.offset(ha.at(h) as isize);
++        let bh = ptr_b.offset(hb.at(h) as isize);
++        let ch = c.offset(cx.hc.at(h) as isize);
++        let dh = d.offset(plan.h_d.at(h) as isize);
+ 
+         // ---- loop 5: N blocking -------------------------------------------
+         let mut jc = 0;
+diff --git a/crates/tprims-contract/src/driver/tests/c_call.rs b/crates/tprims-contract/src/driver/tests/c_call.rs
+index bbd4de4..90f90a8 100644
+--- a/crates/tprims-contract/src/driver/tests/c_call.rs
++++ b/crates/tprims-contract/src/driver/tests/c_call.rs
+@@ -17,19 +17,19 @@ fn absent_c_at_zero_beta_uses_only_destination_batch_offsets() {
+     )
+     .unwrap();
+     let plan = PackedPlan::from_problem(&p, &PlanConfig::packed()).unwrap();
+-    assert_eq!(plan.h_c, [0, 10_000]);
++    assert_eq!(plan.h_c.to_vec(), [0, 10_000]);
+     let mut d = [0_f64; 8];
+     let dp = d.as_mut_ptr();
+     for beta in [0.0, -0.0] {
+         let (cp, hc) = c_for_call(&plan, beta, core::ptr::null(), dp);
+         assert_eq!(cp, dp.cast_const());
+-        assert_eq!(hc, &[0, 4]); // All resulting offsets fit the actual D.
++        assert_eq!(hc.to_vec(), [0, 4]); // All resulting offsets fit the actual D.
+     }
+     let c = [0_f64; 10_004];
+     for beta in [1.0, f64::NAN] {
+         let (cp, hc) = c_for_call(&plan, beta, c.as_ptr(), dp);
+         assert_eq!(cp, c.as_ptr());
+-        assert_eq!(hc, &[0, 10_000]);
++        assert_eq!(hc.to_vec(), [0, 10_000]);
+     }
+     // Exercise the same normalization through the public, safe fresh boundary.
+     let public = crate::Plan::<f64>::new(&p, &PlanConfig::packed()).unwrap();
+diff --git a/crates/tprims-contract/src/driver/tile.rs b/crates/tprims-contract/src/driver/tile.rs
+index daf1b34..8830191 100644
+--- a/crates/tprims-contract/src/driver/tile.rs
++++ b/crates/tprims-contract/src/driver/tile.rs
+@@ -3,7 +3,7 @@
+ //! write-back call. Shared by the static and the dynamic scheduler so there is one
+ //! copy of the arithmetic.
+ 
+-use tprims_kernel::scatter::IRREGULAR;
++use tprims_kernel::scatter::{Scatter, IRREGULAR};
+ use tprims_kernel::{Element, Real, UkrAux, UkrFn};
+ 
+ use super::Ctx;
+@@ -87,9 +87,9 @@ where
+     unsafe {
+         pack_b(
+             ep.bh,
+-            &bn[c0..c1],
++            bn.slice(c0, c1 - c0),
+             &b_n_bs[c0 / nr..c1.div_ceil(nr)],
+-            &bk[pc..pc + pc_len],
++            bk.slice(pc, pc_len),
+             nr,
+             conj_b,
+             out,
+@@ -97,6 +97,26 @@ where
+     }
+ }
+ 
++/// The widest register block any built-in family uses, plus slack. Panels of a
++/// scatter are at most one register block wide, so this bounds the buffers in
++/// `emit_tile`'s callers.
++const PANEL_MAX: usize = 64;
++
++/// `scatter[lo .. lo + len]` written into `buf`, for an emitter that takes a
++/// slice. `len` never exceeds one register block.
++fn scatter_panel<'a>(
++    scatter: &Scatter,
++    lo: usize,
++    len: usize,
++    buf: &'a mut [i64; PANEL_MAX],
++) -> &'a [i64] {
++    assert!(len <= PANEL_MAX, "scatter panel wider than PANEL_MAX");
++    for (t, slot) in buf[..len].iter_mut().enumerate() {
++        *slot = scatter.at(lo + t);
++    }
++    &buf[..len]
++}
++
+ /// Pack rows `[ic, ic + ic_len)` of the epoch's K slab into `ap`.
+ ///
+ /// # Safety
+@@ -119,9 +139,9 @@ pub(super) unsafe fn pack_a_rows<T>(
+     unsafe {
+         pack_a(
+             ep.ah,
+-            &am[ic..ic + ic_len],
++            am.slice(ic, ic_len),
+             &a_m_bs[ic / mr..(ic + ic_len).div_ceil(mr)],
+-            &ak[pc..pc + pc_len],
++            ak.slice(pc, pc_len),
+             mr,
+             conj_a,
+             ap,
+@@ -209,7 +229,7 @@ pub(super) unsafe fn compute_block<T>(
+             // The base carries this k block's and this column
+             // block's offsets, so the kernel's own k stride is one.
+             (
+-                bh.offset((bn[j0] + bk[pc]) as isize) as *const T::Real,
++                bh.offset((bn.at(j0) + bk.at(pc)) as isize) as *const T::Real,
+                 1,
+                 b_n_bs[j0 / nr] as isize,
+             )
+@@ -256,7 +276,7 @@ pub(super) unsafe fn compute_block<T>(
+                     // scratch path does.
+                     let (d_base, rs_d, cs_d, alpha_d, beta_ab) = if direct_tile {
+                         (
+-                            dh.offset((dm[i0] + dn[j0]) as isize) as *mut T::Real,
++                            dh.offset((dm.at(i0) + dn.at(j0)) as isize) as *mut T::Real,
+                             d_rs as isize,
+                             *d_n_bs.get_unchecked(j0 / nr) as isize,
+                             if first_k_block {
+@@ -316,6 +336,17 @@ pub(super) unsafe fn compute_block<T>(
+                 ir += mr;
+                 continue;
+             }
++            // The write-back takes whole slices and the panels are at most one
++            // register block wide, so materialising them here costs a few
++            // hundred bytes and keeps the emitter's signature unchanged.
++            let mut cm_panel = [0i64; PANEL_MAX];
++            let mut cn_panel = [0i64; PANEL_MAX];
++            let mut dm_panel = [0i64; PANEL_MAX];
++            let mut dn_panel = [0i64; PANEL_MAX];
++            let cm_row = scatter_panel(cm, i0, mrem, &mut cm_panel);
++            let cn_col = scatter_panel(cn, j0, nrem, &mut cn_panel);
++            let dm_row = scatter_panel(dm, i0, mrem, &mut dm_panel);
++            let dn_col = scatter_panel(dn, j0, nrem, &mut dn_panel);
+             if first_k_block {
+                 let c_rs = c_m_bs.get(i0 / mr).copied().unwrap_or(IRREGULAR);
+                 emit_tile::<T>(
+@@ -325,13 +356,13 @@ pub(super) unsafe fn compute_block<T>(
+                     nrem,
+                     beta,
+                     ch,
+-                    &cm[i0..i0 + mrem],
+-                    &cn[j0..j0 + nrem],
++                    cm_row,
++                    cn_col,
+                     c_rs,
+                     plan.conj_c,
+                     dh,
+-                    &dm[i0..i0 + mrem],
+-                    &dn[j0..j0 + nrem],
++                    dm_row,
++                    dn_col,
+                     d_rs,
+                     plan.conj_d,
+                 );
+@@ -345,13 +376,13 @@ pub(super) unsafe fn compute_block<T>(
+                     nrem,
+                     one,
+                     dh as *const T,
+-                    &dm[i0..i0 + mrem],
+-                    &dn[j0..j0 + nrem],
++                    dm_row,
++                    dn_col,
+                     d_rs,
+                     plan.conj_d,
+                     dh,
+-                    &dm[i0..i0 + mrem],
+-                    &dn[j0..j0 + nrem],
++                    dm_row,
++                    dn_col,
+                     d_rs,
+                     plan.conj_d,
+                 );
+diff --git a/crates/tprims-contract/src/plan/analysis.rs b/crates/tprims-contract/src/plan/analysis.rs
+index ac8945c..5ed9e4e 100644
+--- a/crates/tprims-contract/src/plan/analysis.rs
++++ b/crates/tprims-contract/src/plan/analysis.rs
+@@ -53,7 +53,7 @@
+ //! claim on contiguity; `K` only affects the packing of `A` and `B`. This is a
+ //! heuristic and a Phase 4 tuning knob.
+ 
+-use tprims_kernel::scatter::{build_scatter, run_structure};
++use tprims_kernel::scatter::Scatter;
+ 
+ use super::config::PlanConfig;
+ use super::orientation::{Orient, RowBlock};
+@@ -148,18 +148,18 @@ impl PlanStats {
+ /// row-block requests are read from [`PlanConfig`] once, here.
+ #[derive(Clone, Debug)]
+ pub struct PackedPlan {
+-    pub(crate) a_m: Vec<i64>,
+-    pub(crate) a_k: Vec<i64>,
+-    pub(crate) b_k: Vec<i64>,
+-    pub(crate) b_n: Vec<i64>,
+-    pub(crate) c_m: Vec<i64>,
+-    pub(crate) c_n: Vec<i64>,
+-    pub(crate) d_m: Vec<i64>,
+-    pub(crate) d_n: Vec<i64>,
+-    pub(crate) h_a: Vec<i64>,
+-    pub(crate) h_b: Vec<i64>,
+-    pub(crate) h_c: Vec<i64>,
+-    pub(crate) h_d: Vec<i64>,
++    pub(crate) a_m: Scatter,
++    pub(crate) a_k: Scatter,
++    pub(crate) b_k: Scatter,
++    pub(crate) b_n: Scatter,
++    pub(crate) c_m: Scatter,
++    pub(crate) c_n: Scatter,
++    pub(crate) d_m: Scatter,
++    pub(crate) d_n: Scatter,
++    pub(crate) h_a: Scatter,
++    pub(crate) h_b: Scatter,
++    pub(crate) h_c: Scatter,
++    pub(crate) h_d: Scatter,
+     /// Run structure of the output's `M` and `N` scatters, `(len, stride)`, or
+     /// `(len, 0)` when there is none. Cached because
+     /// [`PackedPlan::transposes_gemm`] and [`PackedPlan::row_block`] both turn
+@@ -273,8 +273,8 @@ impl PackedPlan {
+             k_axes: k_ax,
+             h_axes: h_ax,
+         };
+-        let d_m_run = run_structure(&d_m).unwrap_or((d_m.len(), 0));
+-        let d_n_run = run_structure(&d_n).unwrap_or((d_n.len(), 0));
++        let d_m_run = d_m.run_structure().unwrap_or((d_m.len(), 0));
++        let d_n_run = d_n.run_structure().unwrap_or((d_n.len(), 0));
+         Ok(PackedPlan {
+             a_m,
+             a_k,
+@@ -349,10 +349,10 @@ fn fold_axes(axes: Vec<Axis>) -> Vec<Axis> {
+     out
+ }
+ 
+-fn build_scatter_for(axes: &[Axis], pick: impl Fn(&Axis) -> i64) -> Vec<i64> {
++fn build_scatter_for(axes: &[Axis], pick: impl Fn(&Axis) -> i64) -> Scatter {
+     let extents: Vec<i64> = axes.iter().map(|a| a.extent).collect();
+     let strides: Vec<i64> = axes.iter().map(pick).collect();
+-    build_scatter(&extents, &strides)
++    Scatter::from_axes(&extents, &strides)
+ }
+ 
+ #[cfg(test)]
+@@ -441,7 +441,7 @@ mod tests {
+         assert_eq!(p.stats.k, 15, "contraction extent is 5*3");
+         // B must re-read the same column for each r.
+         assert_eq!(p.b_k.len(), 15);
+-        assert_eq!(&p.b_k[..6], &[0, 1, 2, 3, 4, 0]);
++        assert_eq!(&p.b_k.to_vec()[..6], &[0, 1, 2, 3, 4, 0]);
+     }
+ 
+     #[test]
+@@ -453,6 +453,6 @@ mod tests {
+         let p = build(&a, &[0, 0], &b, &[0, 1], &d, &[1]);
+         assert_eq!(p.stats.k, 4);
+         // stride 1 + stride 4 = 5
+-        assert_eq!(p.a_k, vec![0, 5, 10, 15]);
++        assert_eq!(p.a_k.to_vec(), vec![0, 5, 10, 15]);
+     }
+ }
+diff --git a/crates/tprims-contract/src/plan/mod.rs b/crates/tprims-contract/src/plan/mod.rs
+index a6dd0d9..7cdcb5e 100644
+--- a/crates/tprims-contract/src/plan/mod.rs
++++ b/crates/tprims-contract/src/plan/mod.rs
+@@ -808,15 +808,10 @@ fn packed_report<T: Scalar>(pk: &Packed<T>) -> PackedReport {
+     } else {
+         (&pk.plan.a_m, &pk.plan.b_n)
+     };
+-    let regular = |scatter: &[i64], block: usize| {
+-        tprims_kernel::scatter::regular_fraction(&tprims_kernel::scatter::build_block_scatter(
+-            scatter, block,
+-        ))
+-    };
+     PackedReport {
+         swapped,
+-        regular_rows: regular(rows, rg.mr),
+-        regular_cols: regular(cols, rg.nr),
++        regular_rows: rows.regular_fraction(rg.mr),
++        regular_cols: cols.regular_fraction(rg.nr),
+         family_id: fam.id,
+         origin: fam.origin,
+         complex: fam.complex,
+diff --git a/crates/tprims-contract/src/plan/orientation.rs b/crates/tprims-contract/src/plan/orientation.rs
+index f31f346..16d53d9 100644
+--- a/crates/tprims-contract/src/plan/orientation.rs
++++ b/crates/tprims-contract/src/plan/orientation.rs
+@@ -93,7 +93,7 @@ const BANDWIDTH_BOUND_K: usize = 64;
+ /// threads (`panels >= p`, which the caller has already established), should the
+ /// column axis take them instead?
+ ///
+-/// All three conditions were put here by measurement:
++/// The original multi-domain arm has three measured conditions:
+ ///
+ /// 1. **`domains > 1`** — the thread set spans more than one L3. This is the
+ ///    mechanism, and the only quantity A36 separates from thread count: Ice Lake
+@@ -110,10 +110,24 @@ const BANDWIDTH_BOUND_K: usize = 64;
+ ///    measured *losing* 25% in the complex methods from the same swap. The guard
+ ///    confines the rule to the population the evidence covers.
+ ///
+-/// A pure function of four numbers so that the whole truth table can be pinned
+-/// by a test on any machine, rather than only on a chiplet one.
+-fn columns_beat_rows(blocks: usize, k: usize, p: usize, domains: usize) -> bool {
+-    domains > 1 && blocks >= p && k <= BANDWIDTH_BOUND_K
++/// The local-column exception also requires a saturated known L3 and a long
++/// contiguous output run; see `local_columns` and the scaling worklog.
++/// Pure inputs let both gates be tested without depending on the host CPU.
++fn columns_beat_rows(blocks: usize, k: usize, p: usize, domains: usize, local: bool) -> bool {
++    (domains > 1 || local) && blocks >= p && k <= BANDWIDTH_BOUND_K
++}
++
++fn local_columns(
++    rows: usize,
++    cols: usize,
++    mr: usize,
++    p: usize,
++    run: (usize, i64),
++    cores: Option<usize>,
++) -> bool {
++    // ponytail: measured layout heuristic, not a full cost model; calibrate on
++    // other CPUs before claiming architecture-independent optimality.
++    cores == Some(p) && p > 1 && cols >= rows && run.1 == 1 && run.0 / mr.max(1) > p
+ }
+ 
+ impl PackedPlan {
+@@ -128,10 +142,10 @@ impl PackedPlan {
+         /// See [`Plan::partition`]; deliberately at the conservative end.
+         const PACK_WEIGHT: usize = 8;
+ 
+-        let (rows, cols) = if self.transposes_gemm(mr) {
+-            (self.b_n.len(), self.a_m.len())
++        let (rows, cols, run) = if self.transposes_gemm(mr) {
++            (self.b_n.len(), self.a_m.len(), self.d_n_run)
+         } else {
+-            (self.a_m.len(), self.b_n.len())
++            (self.a_m.len(), self.b_n.len(), self.d_m_run)
+         };
+         let panels = rows.div_ceil(mr.max(1)).max(1);
+         let blocks = cols.div_ceil(nr.max(1)).max(1);
+@@ -139,7 +153,16 @@ impl PackedPlan {
+ 
+         if panels >= p {
+             let domains = tprims_kernel::blocking::l3_domains(p, self.l3_domains);
+-            if columns_beat_rows(blocks, self.a_k.len(), p, domains) {
++            let local = if domains == 1 {
++                let h = tprims_kernel::blocking::hierarchy();
++                let cores = (h.source != tprims_kernel::blocking::CacheSource::Builtin)
++                    .then(|| h.l3.map(|l3| h.cores_sharing(&l3)))
++                    .flatten();
++                local_columns(rows, cols, mr, p, run, cores)
++            } else {
++                false
++            };
++            if columns_beat_rows(blocks, self.a_k.len(), p, domains, local) {
+                 return (1, p.min(blocks));
+             }
+             return (p, 1);
+@@ -356,6 +379,10 @@ impl PackedPlan {
+     }
+ }
+ 
++#[cfg(test)]
++#[path = "tests/local_columns.rs"]
++mod local_column_tests;
++
+ #[cfg(test)]
+ mod tests {
+     use super::super::test_support::{build, lay, laying};
+@@ -371,25 +398,31 @@ mod tests {
+     fn domain_gate_needs_all_three_conditions() {
+         // The measured population: 64 threads over 16 L3 domains, 1024 column
+         // blocks against 768 row panels, `k = 24`. Worth up to 4.3x (A36).
+-        assert!(columns_beat_rows(1024, 24, 64, 16));
++        assert!(columns_beat_rows(1024, 24, 64, 16, false));
+         // One L3 domain: the early return is *correct* here, at any thread count.
+         // Ice Lake reaches 32 threads on one domain and reads 1.014 — the point
+         // that separates domain count from thread count — so it is pinned at both
+         // ends of the thread range.
+-        assert!(!columns_beat_rows(1024, 24, 32, 1));
+-        assert!(!columns_beat_rows(1024, 24, 4, 1));
++        assert!(!columns_beat_rows(1024, 24, 32, 1, false));
++        assert!(!columns_beat_rows(1024, 24, 4, 1, false));
+         // Too few column blocks to feed the threads: swapping would run the case
+         // on a fraction of its cores, which the corpus's narrow half pays 2-5x for.
+-        assert!(!columns_beat_rows(63, 24, 64, 16));
+-        assert!(columns_beat_rows(64, 24, 64, 16));
++        assert!(!columns_beat_rows(63, 24, 64, 16, false));
++        assert!(columns_beat_rows(64, 24, 64, 16, false));
+         // Deep enough to be compute-bound: the cross-domain penalty is a
+         // bandwidth cost and cannot dominate here. `ijkl-*` and `ij-ik-kj` sit on
+         // this side and were measured *losing* 25% in the complex methods.
+-        assert!(!columns_beat_rows(1024, 2704, 64, 16));
+-        assert!(columns_beat_rows(1024, BANDWIDTH_BOUND_K, 64, 16));
+-        assert!(!columns_beat_rows(1024, BANDWIDTH_BOUND_K + 1, 64, 16));
++        assert!(!columns_beat_rows(1024, 2704, 64, 16, false));
++        assert!(columns_beat_rows(1024, BANDWIDTH_BOUND_K, 64, 16, false));
++        assert!(!columns_beat_rows(
++            1024,
++            BANDWIDTH_BOUND_K + 1,
++            64,
++            16,
++            false
++        ));
+         // Serial is never a partition question.
+-        assert!(!columns_beat_rows(1024, 24, 1, 1));
++        assert!(!columns_beat_rows(1024, 24, 1, 1, false));
+     }
+ 
+     /// `D[i,j] = A[i,k] B[k,j]` with `D` stored in the given strides.
+diff --git a/crates/tprims-kernel/src/abi/family.rs b/crates/tprims-kernel/src/abi/family.rs
+index d9d24ea..294e5f9 100644
+--- a/crates/tprims-kernel/src/abi/family.rs
++++ b/crates/tprims-kernel/src/abi/family.rs
+@@ -286,9 +286,9 @@ impl<R: 'static> DriverFamily<R> {
+ /// every packed lane, including edge padding, is overwritten.
+ pub type PackFn<T> = unsafe fn(
+     base: *const T,
+-    vscat: &[i64],
++    vscat: crate::scatter::ScatSlice<'_>,
+     vbs: &[i64],
+-    kscat: &[i64],
++    kscat: crate::scatter::ScatSlice<'_>,
+     vr: usize,
+     conj: bool,
+     out: *mut <T as Element>::Real,
+diff --git a/crates/tprims-kernel/src/blocking/probe.rs b/crates/tprims-kernel/src/blocking/probe.rs
+index 2241557..efedc3a 100644
+--- a/crates/tprims-kernel/src/blocking/probe.rs
++++ b/crates/tprims-kernel/src/blocking/probe.rs
+@@ -47,7 +47,8 @@ impl CacheLevel {
+ #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+ #[non_exhaustive]
+ pub enum CacheSource {
+-    /// Linux `/sys/devices/system/cpu/cpu0/cache`. The only source that
++    /// Linux sysfs caches of the first CPU allowed at probe time (CPU0 when
++    /// affinity information is unavailable). The only source that
+     /// reports cache *sharing* directly, and it needs no `unsafe`.
+     Sysfs,
+     /// x86 `CPUID` leaf 4, or `0x8000001D` on AMD.
+@@ -195,7 +196,10 @@ pub fn l3_domains(threads: usize, forced: Option<usize>) -> usize {
+ 
+ /// The cache hierarchy of this machine: sysfs, then `CPUID`, then [`BUILTIN`].
+ ///
+-/// Probed once per process and cached (an immutable hardware fact). A probe that fails is never an error: it degrades to
++/// Probed once per process and cached. On Linux, sysfs uses the first CPU in
++/// the calling thread's initial affinity mask, not necessarily CPU0. Changing
++/// affinity later does not re-probe; mixed/scattered placement still needs an
++/// explicit domain override. A probe that fails is never an error: it degrades to
+ /// the next source, and the last source always succeeds.
+ pub fn hierarchy() -> CacheHierarchy {
+     #[cfg(feature = "std")]
+@@ -358,9 +362,26 @@ fn parse_cpu_list(s: &str) -> Option<usize> {
+     (n > 0).then_some(n)
+ }
+ 
++/// `/proc/thread-self/status` lists allowed CPUs in ascending order. Probe a
++/// permitted CPU so a pinned process on a heterogeneous host does not inherit
++/// CPU0's unrelated cache geometry. This is sampled once, never in a hot loop.
++#[cfg(feature = "std")]
++fn affinity_cpu(status: &str) -> Option<usize> {
++    let list = status
++        .lines()
++        .find_map(|line| line.strip_prefix("Cpus_allowed_list:"))?
++        .trim();
++    parse_cpu_list(list)?;
++    list.split([',', '-']).next()?.trim().parse().ok()
++}
++
+ #[cfg(feature = "std")]
+ fn probe_sysfs() -> Option<CacheHierarchy> {
+-    const BASE: &str = "/sys/devices/system/cpu/cpu0/cache";
++    let cpu = std::fs::read_to_string("/proc/thread-self/status")
++        .ok()
++        .and_then(|status| affinity_cpu(&status))
++        .unwrap_or(0);
++    let base = format!("/sys/devices/system/cpu/cpu{cpu}/cache");
+     let read = |dir: &str, name: &str| -> String {
+         std::fs::read_to_string(format!("{dir}/{name}")).unwrap_or_default()
+     };
+@@ -368,7 +389,7 @@ fn probe_sysfs() -> Option<CacheHierarchy> {
+     // `index*` directories are numbered contiguously from 0; stop at the first
+     // gap. The bound is a safety net, not a real limit — no CPU has 16 levels.
+     for i in 0..16 {
+-        let dir = format!("{BASE}/index{i}");
++        let dir = format!("{base}/index{i}");
+         let level = read(&dir, "level");
+         if level.trim().is_empty() {
+             break;
+@@ -718,6 +739,25 @@ pub(crate) mod tests {
+         CASCADE
+     }
+ 
++    #[cfg(feature = "std")]
++    #[test]
++    fn sysfs_probe_uses_an_allowed_cpu_not_unconditional_cpu0() {
++        assert_eq!(
++            affinity_cpu("Name:\ttcbench\nCpus_allowed_list:\t4-11\n"),
++            Some(4)
++        );
++        assert_eq!(affinity_cpu("Cpus_allowed_list:\t8,10-11\n"), Some(8));
++        assert_eq!(affinity_cpu("Cpus_allowed_list:\t0-23\n"), Some(0));
++        for status in [
++            "",
++            "Cpus_allowed_list:\t",
++            "Cpus_allowed_list:\tbad",
++            "Cpus_allowed_list:\t11-4",
++        ] {
++            assert_eq!(affinity_cpu(status), None, "{status}");
++        }
++    }
++
+     /// This machine's `/sys/devices/system/cpu/cpu0/cache/index*`, verbatim.
+     #[cfg(feature = "std")]
+     fn cascade_lake_fixture() -> Vec<[&'static str; 7]> {
+diff --git a/crates/tprims-kernel/src/pack/pack.rs b/crates/tprims-kernel/src/pack/pack.rs
+index d1c90ec..c7de358 100644
+--- a/crates/tprims-kernel/src/pack/pack.rs
++++ b/crates/tprims-kernel/src/pack/pack.rs
+@@ -24,7 +24,7 @@
+ 
+ use crate::element::Element;
+ use crate::family::{Layout, PackFn};
+-use crate::scatter::IRREGULAR;
++use crate::scatter::{ScatSlice, IRREGULAR};
+ use crate::PackFormat;
+ 
+ /// Number of `T::Real` values a packed panel needs.
+@@ -56,9 +56,9 @@ pub fn panel_len(vlen: usize, vr: usize, kc: usize, fmt: PackFormat) -> usize {
+ #[doc(hidden)]
+ pub unsafe fn pack_panel<T: Element>(
+     base: *const T,
+-    vscat: &[i64],
++    vscat: ScatSlice<'_>,
+     vbs: &[i64],
+-    kscat: &[i64],
++    kscat: ScatSlice<'_>,
+     vr: usize,
+     conj: bool,
+     fmt: PackFormat,
+@@ -102,9 +102,9 @@ pub(crate) fn pack_fn<T: Element>(layout: Layout, simd: bool) -> PackFn<T> {
+ #[inline(always)]
+ unsafe fn pack_dispatch<T: Element, const F: u8>(
+     base: *const T,
+-    vscat: &[i64],
++    vscat: ScatSlice<'_>,
+     vbs: &[i64],
+-    kscat: &[i64],
++    kscat: ScatSlice<'_>,
+     vr: usize,
+     conj: bool,
+     out: *mut T::Real,
+@@ -118,9 +118,9 @@ unsafe fn pack_dispatch<T: Element, const F: u8>(
+ 
+ unsafe fn pack_fmt<T: Element, const F: u8>(
+     base: *const T,
+-    vscat: &[i64],
++    vscat: ScatSlice<'_>,
+     vbs: &[i64],
+-    kscat: &[i64],
++    kscat: ScatSlice<'_>,
+     vr: usize,
+     conj: bool,
+     out: *mut T::Real,
+@@ -138,9 +138,9 @@ unsafe fn pack_fmt<T: Element, const F: u8>(
+ #[target_feature(enable = "avx2,fma")]
+ unsafe fn pack_fmt_avx2<T: Element, const F: u8>(
+     base: *const T,
+-    vscat: &[i64],
++    vscat: ScatSlice<'_>,
+     vbs: &[i64],
+-    kscat: &[i64],
++    kscat: ScatSlice<'_>,
+     vr: usize,
+     conj: bool,
+     out: *mut T::Real,
+@@ -151,9 +151,9 @@ unsafe fn pack_fmt_avx2<T: Element, const F: u8>(
+ #[inline(always)]
+ unsafe fn pack_panel_fmt<T: Element, const F: u8, const CONJ: bool>(
+     base: *const T,
+-    vscat: &[i64],
++    vscat: ScatSlice<'_>,
+     vbs: &[i64],
+-    kscat: &[i64],
++    kscat: ScatSlice<'_>,
+     vr: usize,
+     out: *mut T::Real,
+ ) {
+@@ -171,9 +171,9 @@ unsafe fn pack_panel_fmt<T: Element, const F: u8, const CONJ: bool>(
+         if vlen == vr && bs != IRREGULAR {
+             // Regular block: the vr values for a fixed k are an arithmetic
+             // progression, so no scatter table lookups are needed.
+-            let b0 = vscat[v0];
+-            for (p, &koff) in kscat.iter().enumerate() {
+-                let src = base.offset((b0 + koff) as isize);
++            let b0 = vscat.at(v0);
++            for p in 0..kc {
++                let src = base.offset((b0 + kscat.at(p)) as isize);
+                 let o = dst.add(p * per_k);
+                 if bs == 1 {
+                     for t in 0..vr {
+@@ -187,11 +187,12 @@ unsafe fn pack_panel_fmt<T: Element, const F: u8, const CONJ: bool>(
+             }
+         } else {
+             // Irregular or partial block: full gather, zero-filling the tail.
+-            for (p, &koff) in kscat.iter().enumerate() {
++            for p in 0..kc {
++                let koff = kscat.at(p);
+                 let o = dst.add(p * per_k);
+                 for t in 0..vr {
+                     let z = if t < vlen {
+-                        *base.offset((*vscat.get_unchecked(v0 + t) + koff) as isize)
++                        *base.offset((vscat.at(v0 + t) + koff) as isize)
+                     } else {
+                         T::zero()
+                     };
+@@ -288,9 +289,9 @@ mod tests {
+         unsafe {
+             pack_panel::<C64>(
+                 data.as_ptr(),
+-                vscat,
++                vscat.into(),
+                 &vbs,
+-                kscat,
++                kscat.into(),
+                 vr,
+                 conj,
+                 fmt,
+@@ -312,9 +313,9 @@ mod tests {
+         unsafe {
+             pack_panel::<f64>(
+                 data.as_ptr(),
+-                &vscat,
++                vscat.as_slice().into(),
+                 &vbs,
+-                &kscat,
++                kscat.as_slice().into(),
+                 2,
+                 false,
+                 PackFormat::Real,
+@@ -381,9 +382,9 @@ mod tests {
+         unsafe {
+             (pack_fn::<C64>(Layout::OneR, false))(
+                 data.as_ptr(),
+-                &vscat,
++                vscat.as_slice().into(),
+                 &vbs,
+-                &[0],
++                [0i64].as_slice().into(),
+                 2,
+                 false,
+                 out.as_mut_ptr(),
+@@ -412,9 +413,9 @@ mod tests {
+         unsafe {
+             pack_panel::<f64>(
+                 data.as_ptr(),
+-                &vscat,
++                vscat.as_slice().into(),
+                 &vbs,
+-                &kscat,
++                kscat.as_slice().into(),
+                 3,
+                 false,
+                 PackFormat::Real,
+@@ -513,9 +514,9 @@ mod tests {
+                             unsafe {
+                                 pack_fn::<C64>(layout, simd)(
+                                     data.as_ptr(),
+-                                    vscat,
++                                    vscat.into(),
+                                     &vbs,
+-                                    &kscat,
++                                    (&kscat[..]).into(),
+                                     vr,
+                                     conj,
+                                     out.as_mut_ptr(),
+@@ -544,18 +545,18 @@ mod tests {
+                 unsafe {
+                     pack_fn::<f64>(Layout::Real, simd)(
+                         real.as_ptr(),
+-                        vscat,
++                        vscat.into(),
+                         &vbs,
+-                        &[0, 17, 40],
++                        [0i64, 17, 40].as_slice().into(),
+                         4,
+                         true,
+                         a.as_mut_ptr(),
+                     );
+                     pack_panel::<f64>(
+                         real.as_ptr(),
+-                        vscat,
++                        vscat.into(),
+                         &vbs,
+-                        &[0, 17, 40],
++                        [0i64, 17, 40].as_slice().into(),
+                         4,
+                         false,
+                         PackFormat::Real,
+diff --git a/crates/tprims-kernel/src/pack/scatter.rs b/crates/tprims-kernel/src/pack/scatter.rs
+index b25bec3..54f0fca 100644
+--- a/crates/tprims-kernel/src/pack/scatter.rs
++++ b/crates/tprims-kernel/src/pack/scatter.rs
+@@ -42,6 +42,216 @@
+ /// are *not* an arithmetic progression.
+ pub const IRREGULAR: i64 = i64::MIN;
+ 
++/// A role's scatter: one arithmetic progression, or the offsets themselves.
++///
++/// A role that folds to a single axis -- which is what `role_axes` produces
++/// whenever the strides are compatible, and therefore what a large batch or
++/// free role usually is -- needs no per-element vector at all: entry `i` is
++/// `i * stride`. Keeping that case compact is the difference between an
++/// `O(elements)` plan and an `O(rank)` one for a tensor-sized role.
++///
++/// [`Scatter::Full`] holds the same values [`build_scatter`] returns, so the
++/// two arms are interchangeable and `at` is defined for both.
++#[derive(Clone, Debug, PartialEq, Eq)]
++pub enum Scatter {
++    /// `len` entries, entry `i` equal to `i * stride`.
++    Run {
++        /// Number of entries.
++        len: usize,
++        /// Common difference.
++        stride: i64,
++    },
++    /// A role that did not fold to one axis: the offsets, one per element.
++    Full(Vec<i64>),
++}
++
++impl Scatter {
++    /// The compact form when `extents` is one axis, the offsets otherwise.
++    ///
++    /// Equal to [`Scatter::Full`]`(build_scatter(...))` in either case.
++    ///
++    /// ```
++    /// use tprims_kernel::scatter::{build_scatter, Scatter};
++    ///
++    /// let s = Scatter::from_axes(&[4], &[3]);
++    /// assert_eq!(s, Scatter::Run { len: 4, stride: 3 });
++    /// assert_eq!(Scatter::from_axes(&[2, 3], &[1, 10]), Scatter::Full(build_scatter(&[2, 3], &[1, 10])));
++    /// ```
++    pub fn from_axes(extents: &[i64], strides: &[i64]) -> Self {
++        if extents.len() <= 1 {
++            Scatter::Run {
++                len: role_len(extents),
++                stride: strides.first().copied().unwrap_or(0),
++            }
++        } else {
++            Scatter::Full(build_scatter(extents, strides))
++        }
++    }
++
++    /// Number of entries.
++    pub fn len(&self) -> usize {
++        match self {
++            Scatter::Run { len, .. } => *len,
++            Scatter::Full(v) => v.len(),
++        }
++    }
++
++    /// Whether the role holds no element.
++    pub fn is_empty(&self) -> bool {
++        self.len() == 0
++    }
++
++    /// Entry `i`. Panics out of range, exactly like indexing a vector.
++    pub fn at(&self, i: usize) -> i64 {
++        match self {
++            Scatter::Run { stride, .. } => (i as i64).wrapping_mul(*stride),
++            Scatter::Full(v) => v[i],
++        }
++    }
++
++    /// The offsets as a vector, for a caller that needs the values.
++    pub fn to_vec(&self) -> Vec<i64> {
++        (0..self.len()).map(|i| self.at(i)).collect()
++    }
++
++    /// Entry `i`, or `None` when out of range.
++    pub fn get(&self, i: usize) -> Option<i64> {
++        (i < self.len()).then(|| self.at(i))
++    }
++
++    /// The entries `[lo, lo + len)` as a view the packers can walk without
++    /// materialising them.
++    pub fn slice(&self, lo: usize, len: usize) -> ScatSlice<'_> {
++        match self {
++            Scatter::Run { stride, .. } => ScatSlice::Run {
++                base: (lo as i64).wrapping_mul(*stride),
++                stride: *stride,
++                len,
++            },
++            Scatter::Full(v) => ScatSlice::Full(&v[lo..lo + len]),
++        }
++    }
++
++    /// The whole role as a view.
++    pub fn view(&self) -> ScatSlice<'_> {
++        self.slice(0, self.len())
++    }
++
++    /// Whether consecutive entries differ by one, which is what lets a kernel
++    /// address a panel with a unit k stride instead of a gather.
++    pub fn is_unit_stride(&self) -> bool {
++        match self {
++            Scatter::Run { len, stride } => *len <= 1 || *stride == 1,
++            Scatter::Full(v) => v.len() <= 1 || v.windows(2).all(|w| w[1] - w[0] == 1),
++        }
++    }
++
++    /// See [`block_scatter_regular`]. A one-axis role is always regular: every
++    /// block of an arithmetic progression is an arithmetic progression.
++    pub fn is_block_regular(&self, blk: usize) -> bool {
++        match self {
++            Scatter::Run { .. } => {
++                assert!(blk > 0);
++                true
++            }
++            Scatter::Full(v) => block_scatter_regular(v, blk),
++        }
++    }
++
++    /// See [`regular_fraction`]: the share of aligned blocks that reach the
++    /// strided path. A one-axis role is all of them.
++    pub fn regular_fraction(&self, blk: usize) -> f64 {
++        match self {
++            Scatter::Run { .. } => {
++                assert!(blk > 0);
++                1.0
++            }
++            Scatter::Full(v) => regular_fraction(&build_block_scatter(v, blk)),
++        }
++    }
++
++    /// See [`run_structure`]: the run shape when this scatter is periodic.
++    pub fn run_structure(&self) -> Option<(usize, i64)> {
++        match self {
++            Scatter::Run { len, stride } => (*len >= 2).then_some((*len, *stride)),
++            Scatter::Full(v) => run_structure(v),
++        }
++    }
++
++    /// See [`append_block_scatter`]: the per-block common differences.
++    pub fn block_strides(&self, blk: usize, out: &mut Vec<i64>) -> (usize, usize) {
++        match self {
++            Scatter::Run { len, stride } => {
++                assert!(blk > 0);
++                let start = out.len();
++                for b in 0..len.div_ceil(blk) {
++                    let n = ((b * blk + blk).min(*len)) - b * blk;
++                    out.push(if n <= 1 { 0 } else { *stride });
++                }
++                (start, out.len())
++            }
++            Scatter::Full(v) => append_block_scatter(out, v, blk),
++        }
++    }
++}
++
++/// A borrowed range of a [`Scatter`], for the packers' inner loops.
++///
++/// [`ScatSlice::Run`] is the point: a panel of a one-axis role is an arithmetic
++/// progression, so the packers index into it arithmetically instead of reading
++/// a materialised vector.
++#[derive(Clone, Copy, Debug)]
++pub enum ScatSlice<'a> {
++    /// `len` entries starting at `base` with a common difference of `stride`.
++    Run {
++        /// Entry zero.
++        base: i64,
++        /// Common difference.
++        stride: i64,
++        /// Number of entries in the range.
++        len: usize,
++    },
++    /// Borrowed offsets.
++    Full(&'a [i64]),
++}
++
++impl<'a> From<&'a [i64]> for ScatSlice<'a> {
++    fn from(v: &'a [i64]) -> Self {
++        ScatSlice::Full(v)
++    }
++}
++
++impl<'a> From<&'a Vec<i64>> for ScatSlice<'a> {
++    fn from(v: &'a Vec<i64>) -> Self {
++        ScatSlice::Full(v)
++    }
++}
++
++impl ScatSlice<'_> {
++    /// Number of entries.
++    pub fn len(&self) -> usize {
++        match self {
++            ScatSlice::Run { len, .. } => *len,
++            ScatSlice::Full(v) => v.len(),
++        }
++    }
++
++    /// Whether the range holds no entry.
++    pub fn is_empty(&self) -> bool {
++        self.len() == 0
++    }
++
++    /// Entry `i`, for `i` inside the range.
++    pub fn at(&self, i: usize) -> i64 {
++        match self {
++            ScatSlice::Run { base, stride, .. } => {
++                base.wrapping_add((i as i64).wrapping_mul(*stride))
++            }
++            ScatSlice::Full(v) => v[i],
++        }
++    }
++}
++
+ /// Build the scatter vector for a mixed-radix index group.
+ ///
+ /// `extents`/`strides` are ordered fastest-varying first. The returned vector
+@@ -94,6 +304,16 @@ pub fn build_scatter(extents: &[i64], strides: &[i64]) -> Vec<i64> {
+         return out;
+     }
+ 
++    // One axis is a ramp, and a ramp is a vectorisable loop rather than an
++    // odometer: `role_axes` folds compatible adjacent axes, so the roles whose
++    // element count is large enough for this to matter arrive here as a single
++    // axis. Same values, ~10x less time.
++    if extents.len() == 1 {
++        let stride = strides[0];
++        out.extend((0..total).map(|i| (i as i64).wrapping_mul(stride)));
++        return out;
++    }
++
+     // Odometer over the mixed-radix multi-index.
+     let n = extents.len();
+     let mut counter = vec![0i64; n];
+@@ -186,6 +406,142 @@ pub fn append_block_scatter(out: &mut Vec<i64>, scat: &[i64], blk: usize) -> (us
+     (start, out.len())
+ }
+ 
++/// Length of a mixed-radix role: the product of `extents`, or zero when any
++/// extent is zero or the product overflows `i64`.
++///
++/// Exactly the length [`build_scatter`] would return, without building it.
++///
++/// ```
++/// use tprims_kernel::scatter::role_len;
++///
++/// assert_eq!(role_len(&[2, 3]), 6);
++/// assert_eq!(role_len(&[]), 1);
++/// assert_eq!(role_len(&[0, 7]), 0);
++/// assert_eq!(role_len(&[1i64 << 62, 2, 2]), 0);
++/// ```
++pub fn role_len(extents: &[i64]) -> usize {
++    let mut total: i64 = 1;
++    for &extent in extents {
++        if extent == 0 {
++            return 0;
++        }
++        total = match total.checked_mul(extent) {
++            Some(product) => product,
++            None => return 0,
++        };
++    }
++    total.max(0) as usize
++}
++
++/// [`append_block_scatter`] over a mixed-radix role, without materialising the
++/// per-element offset vector.
++///
++/// The offsets are the same odometer [`build_scatter`] walks; this only keeps
++/// the running block. The result is byte-for-byte what
++/// `append_block_scatter(out, &build_scatter(extents, strides), blk)` produces,
++/// so a role described by `(extents, strides)` -- which the plan already holds
++/// -- no longer costs `O(elements)` memory or a second pass to describe.
++///
++/// Returns the halves `(start, end)` of `out` it wrote, as
++/// [`append_block_scatter`] does.
++///
++/// # Panics
++///
++/// Panics if `blk` is 0, like the function it replaces.
++///
++/// ```
++/// use tprims_kernel::scatter::{append_block_scatter, block_strides_from_axes, build_scatter, IRREGULAR};
++///
++/// let scat = build_scatter(&[2, 3], &[1, 10]);
++/// let mut want = Vec::new();
++/// append_block_scatter(&mut want, &scat, 3);
++/// let mut got = Vec::new();
++/// block_strides_from_axes(&[2, 3], &[1, 10], 3, &mut got);
++/// assert_eq!(got, want);
++/// assert_eq!(got, vec![IRREGULAR, IRREGULAR]);
++/// ```
++pub fn block_strides_from_axes(
++    extents: &[i64],
++    strides: &[i64],
++    blk: usize,
++    out: &mut Vec<i64>,
++) -> (usize, usize) {
++    assert!(blk > 0);
++    debug_assert_eq!(extents.len(), strides.len());
++    let start = out.len();
++    let total = role_len(extents);
++    if total == 0 {
++        return (start, out.len());
++    }
++    let nblk = total.div_ceil(blk);
++    // One axis is one arithmetic progression, whatever the block size or the
++    // partial tail: no odometer, no per-element work.
++    if extents.len() <= 1 {
++        let stride = strides.first().copied().unwrap_or(0);
++        // A one-entry block has no difference to report, so a short tail block
++        // is zero even on a single axis.
++        for b in 0..nblk {
++            let len = ((b * blk + blk).min(total)) - b * blk;
++            out.push(if len <= 1 { 0 } else { stride });
++        }
++        return (start, out.len());
++    }
++
++    out.reserve(nblk);
++    let n = extents.len();
++    let mut counter = vec![0i64; n];
++    // `offset` is the scatter entry of position `pos`. The walk steps one
++    // position at a time and never stores an entry, so a block only has to
++    // compare the differences it sees.
++    let mut offset = 0i64;
++    let mut pos = 0usize;
++    let mut lo = 0usize;
++    while lo < total {
++        let hi = (lo + blk).min(total);
++        // Reposition onto the first entry of this block; that step is not one
++        // of the block's differences.
++        while pos < lo {
++            offset = step(&mut counter, extents, strides, offset, n);
++            pos += 1;
++        }
++        let mut stride = 0i64;
++        let mut irregular = false;
++        for entry in lo + 1..hi {
++            let before = offset;
++            offset = step(&mut counter, extents, strides, offset, n);
++            pos += 1;
++            let delta = offset - before;
++            if entry == lo + 1 {
++                stride = delta;
++            } else if delta != stride {
++                irregular = true;
++            }
++        }
++        out.push(match hi - lo {
++            0 | 1 => 0,
++            _ if irregular => IRREGULAR,
++            _ => stride,
++        });
++        lo = hi;
++    }
++    (start, out.len())
++}
++
++/// One odometer step of the mixed-radix walk, returning the new offset.
++#[inline]
++fn step(counter: &mut [i64], extents: &[i64], strides: &[i64], mut offset: i64, n: usize) -> i64 {
++    for d in 0..n {
++        counter[d] += 1;
++        offset += strides[d];
++        if counter[d] < extents[d] {
++            break;
++        }
++        offset -= strides[d] * extents[d];
++        counter[d] = 0;
++    }
++    offset
++}
++
+ /// Whether every `blk`-sized block of `scat` is an arithmetic progression, so
+ /// one stride per block expresses the whole scatter. Allocation-free, for
+ /// decisions taken before any scratch exists.
+@@ -318,6 +674,94 @@ pub fn regular_fraction(bs: &[i64]) -> f64 {
+ mod tests {
+     use super::*;
+ 
++    /// The whole point of the axis-driven path is that it is *equal* to
++    /// materialising the offsets and then compressing them, so that is what is
++    /// asserted, over shapes that carry, tie, repeat and straddle blocks.
++    #[test]
++    fn block_strides_from_axes_matches_the_materialised_path() {
++        let cases: &[(&[i64], &[i64])] = &[
++            (&[], &[]),
++            (&[1], &[0]),
++            (&[7], &[1]),
++            (&[2, 3], &[1, 10]),
++            (&[2, 3], &[1, 2]),
++            (&[4, 4], &[1, 4]),
++            (&[4, 4], &[0, 1]),
++            (&[16, 3, 5], &[1, 16, 48]),
++            (&[16, 3, 5], &[3, 16, 48]),
++            (&[3, 2, 5], &[2, 6, 1]),
++            (&[24, 8], &[1, 24]),
++            (&[24, 8], &[24, 1]),
++            (&[1024], &[1]),
++            (&[0, 5], &[1, 5]),
++            (&[1i64 << 62, 2, 2], &[1, 1, 1]),
++        ];
++        for &(extents, strides) in cases {
++            // The single-axis fast path must agree with the generic walk, so
++            // one case with a large extent and a negative stride is checked
++            // against a hand-written ramp as well as against the compressor.
++            if extents.len() == 1 && extents[0] > 0 {
++                let scat = build_scatter(extents, strides);
++                let want: Vec<i64> = (0..extents[0]).map(|i| i * strides[0]).collect();
++                assert_eq!(scat, want, "ramp extents={extents:?} strides={strides:?}");
++            }
++            for blk in [1usize, 2, 3, 7, 8, 24, 64] {
++                let want = build_block_scatter(&build_scatter(extents, strides), blk);
++                let mut got = Vec::new();
++                block_strides_from_axes(extents, strides, blk, &mut got);
++                assert_eq!(
++                    got, want,
++                    "extents={extents:?} strides={strides:?} blk={blk}"
++                );
++                assert_eq!(role_len(extents), build_scatter(extents, strides).len());
++            }
++        }
++    }
++
++    /// Every operation the driver and the packers ask of a scatter must give
++    /// the same answer in both representations, or the compact form changes
++    /// behaviour rather than representation.
++    #[test]
++    fn compact_and_materialised_scatters_agree() {
++        let cases: &[(&[i64], &[i64])] = &[
++            (&[], &[]),
++            (&[1], &[0]),
++            (&[7], &[1]),
++            (&[230400], &[1]),
++            (&[0, 5], &[1, 5]),
++            (&[2, 3], &[1, 10]),
++            (&[16, 3, 5], &[1, 16, 48]),
++            (&[1i64 << 62, 2, 2], &[1, 1, 1]),
++        ];
++        for &(extents, strides) in cases {
++            let full = Scatter::Full(build_scatter(extents, strides));
++            let compact = Scatter::from_axes(extents, strides);
++            assert_eq!(compact.len(), full.len());
++            assert_eq!(compact.run_structure(), full.run_structure());
++            for i in 0..full.len() {
++                assert_eq!(compact.at(i), full.at(i), "entry {i}");
++                assert_eq!(compact.slice(i, 1).at(0), full.slice(i, 1).at(0));
++            }
++            for blk in [1usize, 2, 3, 24, 64] {
++                let mut a = Vec::new();
++                let mut b = Vec::new();
++                compact.block_strides(blk, &mut a);
++                full.block_strides(blk, &mut b);
++                assert_eq!(a, b, "blk {blk}");
++            }
++            assert_eq!(compact.get(full.len()), None);
++        }
++    }
++
++    #[test]
++    fn single_axis_roles_need_no_odometer() {
++        // Every block of one axis is that axis's stride, tail included.
++        let mut out = Vec::new();
++        block_strides_from_axes(&[1000], &[3], 24, &mut out);
++        assert_eq!(out, vec![3; 1000usize.div_ceil(24)]);
++        assert_eq!(build_block_scatter(&build_scatter(&[1000], &[3]), 24), out);
++    }
++
+     #[test]
+     fn scatter_column_major() {
+         // extents (2,3) strides (1,2), fastest first -> 0,1,2,3,4,5
+diff --git a/crates/tprims-kernel/src/pack/writeback.rs b/crates/tprims-kernel/src/pack/writeback.rs
+index 49ef897..3a11cfd 100644
+--- a/crates/tprims-kernel/src/pack/writeback.rs
++++ b/crates/tprims-kernel/src/pack/writeback.rs
+@@ -32,7 +32,7 @@
+ //! vectorise.
+ 
+ use crate::element::{Element, Real};
+-use crate::scatter::IRREGULAR;
++use crate::scatter::{ScatSlice, IRREGULAR};
+ use crate::TileFormat;
+ 
+ /// Read complex element `(i, j)` out of an accumulator tile.
+@@ -495,12 +495,12 @@ unsafe fn writeback_rows<T: Element, CR, DR, const MODE: u8>(
+ pub unsafe fn scale_only<T: Element>(
+     beta: T,
+     c_base: *const T,
+-    c_r: &[i64],
+-    c_c: &[i64],
++    c_r: ScatSlice<'_>,
++    c_c: ScatSlice<'_>,
+     conj_c: bool,
+     d_base: *mut T,
+-    d_r: &[i64],
+-    d_c: &[i64],
++    d_r: ScatSlice<'_>,
++    d_c: ScatSlice<'_>,
+     conj_d: bool,
+ ) {
+     // Flags resolved once, outside the element loops (tensor4all-agent-rules#16).
+@@ -528,14 +528,16 @@ pub unsafe fn scale_only<T: Element>(
+ unsafe fn scale_loop<T: Element, const BZ: bool, const CC: bool, const CD: bool>(
+     beta: T,
+     c_base: *const T,
+-    c_r: &[i64],
+-    c_c: &[i64],
++    c_r: ScatSlice<'_>,
++    c_c: ScatSlice<'_>,
+     d_base: *mut T,
+-    d_r: &[i64],
+-    d_c: &[i64],
++    d_r: ScatSlice<'_>,
++    d_c: ScatSlice<'_>,
+ ) {
+-    for (&dcj, &ccj) in d_c.iter().zip(c_c) {
+-        for (&dri, &cri) in d_r.iter().zip(c_r) {
++    for j in 0..d_c.len() {
++        let (dcj, ccj) = (d_c.at(j), c_c.at(j));
++        for i in 0..d_r.len() {
++            let (dri, cri) = (d_r.at(i), c_r.at(i));
+             let mut v = T::zero();
+             if !BZ {
+                 let cv = *c_base.offset((cri + ccj) as isize);
+@@ -752,12 +754,12 @@ mod tests {
+                         scale_only::<C64>(
+                             beta,
+                             c.as_ptr(),
+-                            &rows,
+-                            &cols,
++                            rows.as_slice().into(),
++                            cols.as_slice().into(),
+                             conj_c,
+                             got.as_mut_ptr(),
+-                            &rows,
+-                            &cols,
++                            rows.as_slice().into(),
++                            cols.as_slice().into(),
+                             conj_d,
+                         )
+                     };
+diff --git a/crates/tprims-kernel/src/select/resolve.rs b/crates/tprims-kernel/src/select/resolve.rs
+index 05aa51c..e7916c3 100644
+--- a/crates/tprims-kernel/src/select/resolve.rs
++++ b/crates/tprims-kernel/src/select/resolve.rs
+@@ -226,7 +226,7 @@ impl<R: Real> ResolvedGemm<R> {
+     /// let input = [1., 2., 3., 4.];
+     /// let mut output = [0.; 4];
+     /// // SAFETY: one full 4-row real panel, valid scatters and write capacity.
+-    /// unsafe { pack_a(input.as_ptr(), &[0,1,2,3], &[1], &[0], 4, false, output.as_mut_ptr()); }
++    /// unsafe { pack_a(input.as_ptr(), [0,1,2,3].as_slice().into(), &[1], [0].as_slice().into(), 4, false, output.as_mut_ptr()); }
+     /// assert_eq!(output, input);
+     /// # Ok::<(), tprims_kernel::SelectError>(())
+     /// ```
+diff --git a/crates/tprims-kernel/tests/families.rs b/crates/tprims-kernel/tests/families.rs
+index 142f327..6f60353 100644
+--- a/crates/tprims-kernel/tests/families.rs
++++ b/crates/tprims-kernel/tests/families.rs
+@@ -89,9 +89,9 @@ fn every_available_family_matches_a_packed_product_oracle() {
+                 unsafe {
+                     pack::pack_panel::<T>(
+                         a.as_ptr(),
+-                        &ar,
++                        (&ar[..]).into(),
+                         &abs,
+-                        &ak,
++                        (&ak[..]).into(),
+                         mr,
+                         ca,
+                         u.a_pack,
+@@ -99,9 +99,9 @@ fn every_available_family_matches_a_packed_product_oracle() {
+                     );
+                     pack::pack_panel::<T>(
+                         b.as_ptr(),
+-                        &br,
++                        (&br[..]).into(),
+                         &bbs,
+-                        &bk,
++                        (&bk[..]).into(),
+                         nr,
+                         cb,
+                         u.b_pack,
+diff --git a/crates/tprims-kernel/tests/induced.rs b/crates/tprims-kernel/tests/induced.rs
+index 4f5384c..d2955ab 100644
+--- a/crates/tprims-kernel/tests/induced.rs
++++ b/crates/tprims-kernel/tests/induced.rs
+@@ -119,8 +119,24 @@ fn induced_arithmetic_matches_the_complex_product() {
+         // SAFETY: every scat/offset pair stays inside its source, and the
+         // panels, tile and scratch are fully sized for this family.
+         unsafe {
+-            pack_a(a.as_ptr(), &ar, &abs, &ak, mr, false, pa.as_mut_ptr());
+-            pack_b(b.as_ptr(), &br, &bbs, &bk, nr, false, pb.as_mut_ptr());
++            pack_a(
++                a.as_ptr(),
++                (&ar[..]).into(),
++                &abs,
++                (&ak[..]).into(),
++                mr,
++                false,
++                pa.as_mut_ptr(),
++            );
++            pack_b(
++                b.as_ptr(),
++                (&br[..]).into(),
++                &bbs,
++                (&bk[..]).into(),
++                nr,
++                false,
++                pb.as_mut_ptr(),
++            );
+             let ukr = f.driver_family().unwrap();
+             induced::tile_call(
+                 &ukr,
+diff --git a/crates/tprims-kernel/tests/portable.rs b/crates/tprims-kernel/tests/portable.rs
+index 2ab2495..46a65bf 100644
+--- a/crates/tprims-kernel/tests/portable.rs
++++ b/crates/tprims-kernel/tests/portable.rs
+@@ -123,9 +123,9 @@ fn interleaved_pack_roundtrip() {
+         unsafe {
+             pack::pack_panel::<Complex<f64>>(
+                 src.as_ptr(),
+-                &vscat,
++                vscat.as_slice().into(),
+                 &vbs,
+-                &kscat,
++                kscat.as_slice().into(),
+                 4,
+                 conj,
+                 PackFormat::Interleaved,
