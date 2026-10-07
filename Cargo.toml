@@ -17,13 +17,13 @@ edition = "2021"
 rust-version = "1.89"
 
 [workspace.dependencies]
-# strided-rs v0.4.5 plus #290's terminal-pointer safety correction. Keep all
+# strided-rs published v0.4.6, including #290's terminal-pointer safety correction. Keep all
 # strided crates on one source; downstream consumers must coordinate this pin
 # to share `StridedView` types.
-strided-basic = { git = "https://github.com/tensor4all/strided-rs.git", rev = "722dc6bece0c845ee612fa21242521c2e5ea83ac", version = "0.4.5", default-features = false }
-strided-view = { git = "https://github.com/tensor4all/strided-rs.git", rev = "722dc6bece0c845ee612fa21242521c2e5ea83ac", version = "0.4.5" }
-strided-perm = { git = "https://github.com/tensor4all/strided-rs.git", rev = "722dc6bece0c845ee612fa21242521c2e5ea83ac", version = "0.4.5" }
-strided-kernel = { git = "https://github.com/tensor4all/strided-rs.git", rev = "722dc6bece0c845ee612fa21242521c2e5ea83ac", version = "0.4.5" }
+strided-basic = { git = "https://github.com/tensor4all/strided-rs.git", rev = "12ff2de906f4d894a4329f7dbf195b0f874f846e", version = "=0.4.6", default-features = false }
+strided-view = { git = "https://github.com/tensor4all/strided-rs.git", rev = "12ff2de906f4d894a4329f7dbf195b0f874f846e", version = "=0.4.6" }
+strided-perm = { git = "https://github.com/tensor4all/strided-rs.git", rev = "12ff2de906f4d894a4329f7dbf195b0f874f846e", version = "=0.4.6" }
+strided-kernel = { git = "https://github.com/tensor4all/strided-rs.git", rev = "12ff2de906f4d894a4329f7dbf195b0f874f846e", version = "=0.4.6" }
 tprims-kernel = { version = "0.1.0", path = "crates/tprims-kernel", default-features = false }
 tprims-exec = { version = "0.1.0", path = "crates/tprims-exec" }
 tprims-capi = { version = "0.1.0", path = "crates/tprims-capi" }

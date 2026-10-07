@@ -32,8 +32,9 @@ This is a research repository, not a production tensor-algebra library. Read `RE
   in `.claude/skills/`, with OpenCode commands in `.opencode/commands/`;
   `python3 scripts/check-agent-skills.py` checks the mirrors. Run benchmarks
   with the `tprims-benchmark` skill.
-- strided-rs is an external git dependency pinned to a post-v0.4.4 main commit
-  (strided-rs#283 and #285; tenferro-rs still pins v0.4.4) with all four crates at one rev (`Cargo.toml`); strided changes and
+- strided-rs is an external git dependency pinned to published v0.4.6 with
+  all four crates at one rev (`Cargo.toml`); consumers coordinate that source
+  to share view types. strided changes and
   strided benchmarks go to tensor4all/strided-rs and
   tensor4all/strided-rs-benchmark-suite.
 
