@@ -125,3 +125,29 @@ source revision and record the Release/native configuration. System BLIS
 being installed does **not** mean TBLIS is installed, or that TBLIS is using
 that BLIS. Record which BLIS it actually builds/links; do not add a second
 wrapper just to replace an existing working adapter.
+
+## Where a campaign result is published
+
+This skill owns the **library-level** protocol and the host preparation that
+external projects also rely on: `benchmarks/scripts/idle_cpus.py` and
+`benchmarks/scripts/pinned.sh` (tenferro-benchmark's `docs/tprims-provider.md`
+names both, so keep their paths and behaviour stable), the 1T/4T rows of this
+package, and the harness in `benchmarks/benchmarks/tcbench`.
+
+The **campaign** — which commits were measured on which machines, the run
+manifests that carry each measured revision, the published per-cell reports and
+their staleness — lives in
+[tensor4all/tprims-benchmark](https://github.com/tensor4all/tprims-benchmark).
+Record campaign runs there with `scripts/record_run.py`, which builds `tcbench`
+from a pinned checkout of this repository, verifies before timing, validates the
+manifest and regenerates `result/INDEX.md`.
+
+Two consequences for work here:
+
+* `benchmarks/benchmarks/tcbench/results/` is historical evidence for the PRs
+  that produced it and is frozen. Adding a new result directory here does not
+  publish anything: no index, no staleness, no revision binding.
+* A campaign number is quoted only with the commit it was measured at, the
+  hardware profile and its coverage. `result/INDEX.md` in that repository is the
+  place to see what exists and how current it is; a report there is a claim about
+  one cell, not about a population the run did not contain.

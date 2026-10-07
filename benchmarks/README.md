@@ -28,6 +28,24 @@ scripts/pinned.sh "$cpus"       -- ../target/release/contract --threads 4
 The full procedure is the `tprims-benchmark` skill
 (`../.agents/skills/tprims-benchmark/SKILL.md`).
 
+## This package and the campaign repository
+
+This package is the **library-level harness**: the binaries, their per-operation
+rows at 1T and 4T, the protocol scripts under `scripts/`, and the skill. It stays
+here because the harness must be built out of the same checkout as the library it
+measures, so that a result's recorded commit describes both.
+
+The **campaign** — which commits were measured on which machines, the run
+manifests, the published reports and their staleness — lives in
+[tensor4all/tprims-benchmark](https://github.com/tensor4all/tprims-benchmark).
+Its `scripts/build_for_tprims_rev.sh` builds `tcbench` from a pinned checkout of
+this repository with `--manifest-path benchmarks/Cargo.toml`, keyed by revision.
+Publish campaign results there, not here.
+
+`benchmarks/benchmarks/tcbench/results/` is **historical**: it holds the raw runs
+cited as evidence by the PRs that produced them. It is frozen — do not add to it,
+and do not treat the newest file in it as the current state of anything.
+
 ## Rules
 
 Measure every tensor-sized case at 1 and 4 threads in the same run, verify the
