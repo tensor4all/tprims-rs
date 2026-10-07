@@ -29,8 +29,9 @@ AI-assisted contributions are welcome; see [AGENTS.md](AGENTS.md) and
 | `tprims-testkit` | Test support: an independent label oracle, seeded fixtures, a naive second backend, downstream-kernel fixtures. Not a production fallback. |
 | `tprims-bench` (`benchmarks/`) | Benchmark harness (`tcbench`, C and Rust ABI rows); not part of the library. |
 
-strided-rs (`strided-view`, `strided-basic`) is an external dependency pinned to
-a post-v0.4.4 main commit (strided-rs#283 in-place update ops, #285 blocked transposed mul); tenferro-rs still pins v0.4.4 and must follow.
+strided-rs is an external dependency pinned to its published v0.4.6 release,
+including #290's terminal-pointer correction. Consumers must use the same source
+revision to share `StridedView` types.
 
 Arrows mean "depends on" and are drawn from `cargo tree` (normal and build
 dependencies; `tprims-testkit` is a dev-dependency of `tprims-contract` and

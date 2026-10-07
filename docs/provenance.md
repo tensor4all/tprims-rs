@@ -12,7 +12,7 @@ history and authorship are preserved:
 
 On 2026-09-30 `strided/` and the strided and einsum benchmarks under
 `benchmarks/` were removed: strided-rs is again an external dependency
-(pinned to a post-v0.4.4 main commit, strided-rs#283 and #285; tenferro-rs still pins v0.4.4), and its benchmarks live in
+(now pinned to its published v0.4.6 release), and its benchmarks live in
 strided-rs-benchmark-suite. The only tprims addition to strided,
 `run_with_exec`, moved to `tprims_exec::strided`. Their history stays
 reachable through the import merges.
