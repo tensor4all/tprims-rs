@@ -1,0 +1,2 @@
+pinned.sh: cpus 0-11 busy before run (attempt 1); waiting
+pinned.sh: cpus 0-11 idle before and after (attempt 2)

@@ -1,0 +1,10 @@
+threads=8 kc=64
+  thread 0:  466.907 ns/call  52.6 GFLOP/s
+  thread 1:  467.089 ns/call  52.6 GFLOP/s
+  thread 2:  466.907 ns/call  52.6 GFLOP/s
+  thread 3:  466.900 ns/call  52.6 GFLOP/s
+  thread 4:  466.924 ns/call  52.6 GFLOP/s
+  thread 5:  466.927 ns/call  52.6 GFLOP/s
+  thread 6:  466.910 ns/call  52.6 GFLOP/s
+  thread 7:  466.935 ns/call  52.6 GFLOP/s
+best-per-core=52.6 GFLOP/s  worst-per-core=52.6 GFLOP/s  aggregate=421.1 GFLOP/s

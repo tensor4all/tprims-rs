@@ -1,0 +1,5 @@
+2026-10-08T06:40:31+09:00
+Model name:                              AMD Ryzen AI 9 HX 470 w/ Radeon 890M
+b1a41bceea1081ee9b57d31b8951cf977c7d1e39
+protocol: tcbench run, engine=packed, case=ij-ik-kj, size 16 MiB, dtype f64, 8T CPU4-11, reps 5, under pinned.sh
+knobs: abl-default=none, abl-wb_gather=TCBENCH_WRITEBACK=gather, abl-nc256=TCBENCH_NC=256, abl-nc512=TCBENCH_NC=512, kc-N=TCBENCH_KC=N

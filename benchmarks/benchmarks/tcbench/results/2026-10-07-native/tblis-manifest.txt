@@ -1,0 +1,21 @@
+20cc0bcdb13ddf9fbf619138b6081a16e9e48b7f
+358e689cadd6757f564a2992cf46a2f7d6fa6bb0
+gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+b82ab3eb98ba833e41a5ca3a09a74f06d86a072acc6b06d6d34b40a11fa9124d  /tmp/tprims-tblis-install/lib/libtblis.so
+	linux-vdso.so.1 (0x000076389c951000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x000076389c847000)
+	libatomic.so.1 => /lib/x86_64-linux-gnu/libatomic.so.1 (0x000076389c83c000)
+	libgomp.so.1 => /lib/x86_64-linux-gnu/libgomp.so.1 (0x000076389c7e6000)
+	libstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x000076389c000000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x000076389c7b8000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x000076389bc00000)
+	/lib64/ld-linux-x86-64.so.2 (0x000076389c953000)
+CONFIG_NAME       := zen3
+# The list of sub-configurations associated with CONFIG_NAME. Each
+# specifies which configuration's compilation flags (CFLAGS) should be
+CC_VENDOR         := gcc
+# Preset (required) CFLAGS, CXXFLAGS, and LDFLAGS. These variables capture the value
+# of the CFLAGS, CXXFLAGS, and LDFLAGS environment variables at configure-time (and/or
+# the value of CFLAGS/CXXFLAGS/LDFLAGS if any was specified on the command line).
+CFLAGS_PRESET     := 

@@ -1,0 +1,2 @@
+threads,kc,a_bytes,b_bytes,a_panels,b_panels,ns_per_call,gflops,per_core
+8,256,268435456,33554432,5461,2048,4319.287,182.1,22.8

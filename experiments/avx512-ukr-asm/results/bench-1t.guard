@@ -1,0 +1,10 @@
+CHECK kc=16 intrinsic_vs_frozen rel_frob=1.436e-16
+TIMED intrinsic kc=16 iters=1250000 reps=7 best=117.04ns mean=133.00ns 52.49 GF/s
+TIMED frozen kc=16 iters=1250000 reps=7 best=116.89ns mean=116.93ns 52.56 GF/s
+CHECK kc=64 intrinsic_vs_frozen rel_frob=2.160e-16
+TIMED intrinsic kc=64 iters=312500 reps=7 best=466.41ns mean=467.12ns 52.69 GF/s
+TIMED frozen kc=64 iters=312500 reps=7 best=466.31ns mean=466.65ns 52.70 GF/s
+CHECK kc=256 intrinsic_vs_frozen rel_frob=3.523e-16
+TIMED intrinsic kc=256 iters=78125 reps=7 best=1865.18ns mean=1865.85ns 52.70 GF/s
+TIMED frozen kc=256 iters=78125 reps=7 best=1865.34ns mean=1867.96ns 52.70 GF/s
+pinned.sh: cpus 4 idle before and after (attempt 1)

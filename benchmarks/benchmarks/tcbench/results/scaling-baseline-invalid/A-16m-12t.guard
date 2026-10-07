@@ -1,0 +1,4 @@
+pinned.sh: cpus 0-11 busy before run (attempt 1); waiting
+pinned.sh: cpus 0-11 busy before run (attempt 2); waiting
+pinned.sh: cpus 0-11 busy before run (attempt 3); waiting
+pinned.sh: no valid run on cpus 0-11

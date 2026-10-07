@@ -1,0 +1,4 @@
+2026-10-07T19:50:00+09:00
+1e1a265b28e8fef15b646c3774adcf92a169815cd5d5152e326632e2a87765c7  /tmp/contract-scaling-baseline
+7621b4243ddc31bd54b77b36ab30d21f1a82ffdcc44da7f6b532337442df8598  /tmp/contract-layout-candidate
+native/release; median20; warmup3; CPUs4/4-7; corpus=benchmarks/tprims/corpus/hadamard.json

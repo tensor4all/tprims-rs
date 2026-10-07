@@ -1,0 +1,7 @@
+case,group,dtype,engine,threads,m,n,k,macs,seconds,gflops,regular_a,regular_b,notes
+ajb-kba-jk,intensli,f64,packed,1,3744,72,72,19408896,0.001215138,31.9452,1.0000,1.0000,avx512.f64.real.24x8 24x8 AB 264x256x1536
+ajb-kba-jk,intensli,c64,packed,1,3744,72,72,19408896,0.004828439,32.1576,0.8889,1.0000,avx512.c64.planar.16x6 16x6 AB 128x256x768
+ajbc-ckba-jk,intensli,f64,packed,1,11520,24,20,5529600,0.000638511,17.3203,1.0000,1.0000,avx512.f64.real.24x8 24x8 AB 264x256x1536
+ajbc-ckba-jk,intensli,c64,packed,1,11520,24,20,5529600,0.001998950,22.1300,1.0000,1.0000,avx512.c64.planar.24x3 24x3 AB 144x256x768
+ajbdc-ckbad-jk,intensli,f64,packed,1,82944,24,12,23887872,0.003794570,12.5906,1.0000,1.0000,avx512.f64.real.24x8 24x8 AB 264x256x1536
+ajbdc-ckbad-jk,intensli,c64,packed,1,82944,24,12,23887872,0.009496930,20.1226,1.0000,1.0000,avx512.c64.planar.24x3 24x3 AB 144x256x768

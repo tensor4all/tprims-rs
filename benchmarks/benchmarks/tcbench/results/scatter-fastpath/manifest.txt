@@ -1,0 +1,4 @@
+2026-10-08T06:40:31+09:00
+bb32f3df0c6315e3e963a007386569b75385f787acc2ab03514936ac8c6766d9  target/release/contract
+b1a41bceea1081ee9b57d31b8951cf977c7d1e39
+protocol: BENCH_RUNS=5 BENCH_WARMUP=1, 1T CPU4, corpus=hadamard.json, under pinned.sh; value is the packed_plan row (plan construction) in ns

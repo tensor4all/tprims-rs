@@ -1,0 +1,23 @@
+[package]
+name = "openblas-kernel"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "(MIT OR Apache-2.0) AND BSD-3-Clause"
+default-run = "selfcheck"
+description = "Isolated f64 OpenBLAS dgemm_kernel_16x2_skylakex kernel-import experiment"
+
+[dependencies]
+tprims-kernel = { path = "../../crates/tprims-kernel" }
+tprims-contract = { path = "../../crates/tprims-contract" }
+tprims-exec = { path = "../../crates/tprims-exec" }
+tprims-bench = { path = "../../benchmarks" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
+# Standalone: this directory is excluded from the parent workspace (root
+# Cargo.toml `exclude = ["experiments"]`), so it is its own workspace root.
+[workspace]

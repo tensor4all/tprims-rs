@@ -1,0 +1,12 @@
+# pinned.sh: cpus 4 (1T, L3 domain 1); 2026-10-07T19:27:15Z
+# commit d726474701dce6ac571758755a8d60d6600df546
+# rustc rustc 1.99.0 (b940084d7 2026-09-28)
+# CPU AMD Ryzen AI 9 HX 470 w/ Radeon 890M
+# threads: requested=1 (pin with benchmarks/scripts/pinned.sh 4)
+kc,kernel,best_ns,mean_ns,gflops
+16,intrinsic,117.043,132.997,52.493
+16,frozen,116.889,116.928,52.563
+64,intrinsic,466.411,467.123,52.692
+64,frozen,466.315,466.653,52.703
+256,intrinsic,1865.182,1865.854,52.705
+256,frozen,1865.335,1867.956,52.700

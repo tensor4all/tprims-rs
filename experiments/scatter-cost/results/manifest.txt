@@ -1,0 +1,9 @@
+2026-10-08T06:55:16+09:00
+rustc 1.99.0 (b940084d7 2026-09-28)
+binary: rustc
+Model name:                              AMD Ryzen AI 9 HX 470 w/ Radeon 890M
+bccaf259e84f51acda85c777e6fd744073d69ab6
+protocol: pinned CPU4, 1T, best of 7, equality asserted in-run
+warm-up: 1 s time-based per arm, applied before the 7 timed calls (both arms)
+note: measures the axis-driven primitive of the REVERTED wiring; the primitive is inlined in src/main.rs
+files: reverted-primitive.csv = current, warmed protocol; reverted-primitive-no-warmup.csv = the earlier run, kept as historical output and malformed CSV (unquoted commas in case labels)

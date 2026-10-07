@@ -1,0 +1,3 @@
+threads=1 kc=64
+  thread 0:  467.310 ns/call  52.6 GFLOP/s
+best-per-core=52.6 GFLOP/s  worst-per-core=52.6 GFLOP/s  aggregate=52.6 GFLOP/s

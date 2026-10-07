@@ -1,0 +1,6 @@
+case,role_len,old_plan_ms,new_plan_ms,speedup,equal
+2^24 one axis, blk=24,16777216,40.4833,0.5296,76.44,true
+2^20 one axis, blk=24,1048576,0.5449,0.0334,16.30,true
+256x256 folded, blk=24,65536,0.1098,0.1115,0.98,true
+230400 folded, blk=24,230400,0.1056,0.0074,14.21,true
+16x8x4 mixed, blk=24,512,0.0011,0.0009,1.22,true

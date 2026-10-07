@@ -12,10 +12,16 @@ Protocol`, `CPU Threading Contract`); read those sections first.
 1. **Quiet host.** Never run two benchmarks at once, and do not build or test
    while measuring. Look for other users' load:
    `ps -eo pid,user,psr,%cpu,comm --sort=-%cpu | head`.
-2. **Build once, release profile.** The build job count depends on the host:
+2. **Build once, native release profile.** Use the identical
+   `RUSTFLAGS="-C target-cpu=native"` for every Rust provider and harness.
+   (`--target-cpu=native` is not a Cargo flag.) Record the complete effective
+   flags; do not reuse a baseline built without them. Native binaries are
+   host-specific and must not be moved to a different CPU for measurement.
+   Build C/C++ baselines in Release with `-O3 -march=native`, recording their
+   actual configuration and ISA selection. The build job count depends on the host:
    set `CARGO_BUILD_JOBS` for it (for example 16 on the shared 64-core EPYC)
    instead of hardcoding `-j`; cargo and the runners read it.
-   `cargo build --release -p tprims-bench --bins`
+   `RUSTFLAGS="-C target-cpu=native" cargo build --release -p tprims-bench --bins`
    (the C benchmark builds itself in `benchmarks/c/run.sh`). Build
    parallelism does not change the measured thread count.
 3. **Choose idle cores in one L3 domain:**
@@ -35,23 +41,87 @@ Protocol`, `CPU Threading Contract`); read those sections first.
    with `CORPUS=file` (`contract --corpus`, `blas --corpus`; format in
    `benchmarks/src/corpus.rs`). For a single binary:
    `BENCH_CASE=<case> benchmarks/scripts/pinned.sh 8 -- target/release/blas --threads 1`.
-5. **Thread counts:** every tensor-sized case at 1T and 4T in the same run;
-   add 8T (one full L3 domain) where the experiment calls for it. The binary
+5. **Thread counts:** the default comparison is **1T, 4T, 8T, 12T**, in
+   that order; no 16T arm. Use one logical CPU per physical core, not SMT.
+   Inspect `lscpu -e=CPU,CORE,SOCKET,CACHE` first: requested threads are not
+   proof of the physical-core count. Keep 1T/4T/8T within one L3 domain,
+   with prefix core sets; 12T may span L3 domains only as an explicitly
+   requested full-physical-core scaling arm. This is an exception to the
+   single-L3 selection in step 3: choose and check the 12 distinct physical
+   cores explicitly, do not use `idle_cpus.py pick 12` when no domain holds 12.
+   Label its domain count, and do not interpret 8T-to-12T as pure thread
+   scaling. On the Ryzen AI 9 HX 470 host, use 1T=`4`, 4T=`4-7`, 8T=`4-11`,
+   12T=`0-11`, **only if idle**; the last arm spans both L3 domains. The binary
    asserts its effective width at startup and rejects conflicting
    `RAYON_NUM_THREADS` / `OMP_NUM_THREADS` / `OPENBLAS_NUM_THREADS` and any
    variable of the removed library knobs (the `tcbench` harness knobs are `TCBENCH_*`); do not set them.
-6. **Noise floor:** run the same binary twice on the same cores minutes apart
+6. **Correctness before timing:** run exact known-value examples and the
+   corpus's `verify` command at every requested thread count before timed
+   runs. Compare full outputs and record relative Frobenius residuals; reject
+   non-finite residuals and out-of-tolerance results. Use the same case list,
+   shapes, strides, dtype, input seed, alpha/beta and output semantics across
+   providers. In particular a tprims `packed` row is not an upstream
+   tensorprimitives-rs measurement: pin and run upstream separately.
+7. **Noise floor:** run the same binary twice on the same cores minutes apart
    (A/A) and report the spread; differences below it are not findings.
-7. **Record** beside every published table: tprims-rs commit (and tenferro-rs /
+8. **Record** beside every published table: tprims-rs commit (and tenferro-rs /
    tenferro-benchmark commits for tenferro runs), CPU model, core set, profile,
    thread counts, `pinned.sh` attempts, and the A/A spread. Raw CSVs go under
    the benchmark's `results/`, summaries in its `README.md`. Report negative
    and inconclusive results as such.
-8. **tenferro-benchmark runs** (tprims provider vs default backend) use the
+9. **tenferro-benchmark runs** (tprims provider vs default backend) use the
    same core choice and `pinned.sh`, with tenferro's paired ABBA runner
    (`scripts/run_paired_timing.sh`) as the command and its idle-host guard
    left enabled. tenferro-benchmark's devcontainer suites do not pin by
    default; these runs do, and say so in the result.
-9. **CPU affinity exists only on Linux.** On other hosts (macOS, Windows)
+10. **CPU affinity exists only on Linux.** On other hosts (macOS, Windows)
    `idle_cpus.py` exits 3 and `pinned.sh` runs the command unpinned with a
    note; state in the result that pinning was unavailable.
+
+## Three-provider contraction comparison
+
+Reuse `tcbench`'s full TCCG corpus (49 rows including GEMM), not a new
+hand-picked suite. Pin upstream tensorprimitives-rs to a full git SHA and
+build it into the same harness behind an optional feature, so all engines
+receive identical buffers. Compare tprims `plan` (default API strategy),
+upstream tensorprimitives and actual C++ `tblis`; retain `packed` as a
+separate diagnostic, never call it the external TBLIS baseline.
+
+Before the first timed run, record this protocol in a work log:
+- all 49 cases; `f64,c64`; nominal tensor sizes **1 and 16 MiB**;
+- all four thread counts **1,4,8,12** and exact core sets;
+- contiguous TCCG layouts first; `--stress padded` as a separately labelled
+  follow-up, not silently mixed into the primary result;
+- one warm-up then **5 repetitions**, best wall time per engine/case (the
+  existing `tcbench` statistic); complete suite repeated twice (A/A);
+- timing includes execution, packing, call/FFI and provider-owned allocation;
+  excludes input generation, plan/descriptor construction and tprims pool
+  construction; document scratch/pool reuse differences between providers;
+- correctness: known values first, `verify` at each size/thread count;
+  relative Frobenius error <= `1e-10` for `f64,c64`, finite outputs;
+- idle checks: the existing 3-second window and <=5% busy per selected CPU,
+  3 attempts maximum; no compilation or other benchmarks during timing;
+- **clock ramp**: this host drops about a quarter of its throughput for the
+  first ~1-2 s of sustained AVX-512 work after an idle gate. A microbenchmark
+  whose whole timed window is that short measures the ramp, not the hardware,
+  and the error is large enough to look like a kernel defect (measured:
+  39.8 GFLOP/s for a kernel that reads 52.7 once warm). `tcbench` is safe
+  because it always runs a warm-up before its repetitions, but any new
+  micro-probe or ablation must warm up for **0.5-2 s of wall time**, not a
+  fixed call count, and must use the *same* warm-up on every arm: if one arm
+  is much shorter than the other, a call-count warm-up biases the ratio.
+  Never quote an absolute rate without its warm-up and its run order.
+- report per-case latency, GFLOP/s, speedup vs each provider and 1T scaling;
+  geometric-mean ratios are summaries, not substitutes for all rows;
+- report A/A spread for every case, and treat changes below that spread as
+  inconclusive. Do not choose new cases, repetitions or exclusions after
+  inspecting the results. A failed validity gate makes the paired comparison
+  inconclusive; retain failed observations and rerun the entire pair.
+
+Use the existing optional TBLIS FFI adapter and its startup ABI check.
+TBLIS can be installed using the [RESTGroup tblis-src build-from-source
+procedure](https://github.com/RESTGroup/tblis-rs#installation); pin its TBLIS
+source revision and record the Release/native configuration. System BLIS
+being installed does **not** mean TBLIS is installed, or that TBLIS is using
+that BLIS. Record which BLIS it actually builds/links; do not add a second
+wrapper just to replace an existing working adapter.

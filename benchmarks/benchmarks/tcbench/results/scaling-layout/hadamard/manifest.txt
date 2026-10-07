@@ -1,0 +1,5 @@
+2026-10-07T21:32:55+09:00
+1e1a265b28e8fef15b646c3774adcf92a169815cd5d5152e326632e2a87765c7  /tmp/contract-scaling-baseline
+2da0348ea15e5f84f58ad656c1fde8150b400bd021ed5e065e363d394f955a5e  /tmp/contract-layout-default-candidate
+3da3e9ceff960702acc87efab54c2f3ff99a5db6eff166ae0915bf68b91df97c  /home/shinaoka/projects/tensor4all/tprims-rs/benchmarks/benchmarks/tprims/corpus/hadamard.json
+native/release; median20 (10 at work>=2^24); warmup3; CPUs4/4-7

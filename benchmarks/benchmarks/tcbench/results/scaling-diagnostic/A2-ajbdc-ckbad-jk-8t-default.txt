@@ -1,0 +1,18 @@
+# threads: requested=8 pool=8 budget=8
+host        : shinaoka-EVO-X1Pro
+target      : x86_64 / linux
+cpu features: avx2 fma avx512f avx512dq 
+caches      : L1=48KiB/12-way/2sh L2=1024KiB/16-way/2sh L3=16384KiB/16-way/8sh (via sysfs), blocking=legacy
+l3 domains  : t1=1 t4=1 t8=2 t16=4
+baselines   : tblis=true blas=false
+tblis       : abi 2.x, 8 thread(s)
+
+running 1 cases at 16 MiB nominal tensor size, 5 reps, stress=none
+
+
+=== c64 ===
+           case |      m |  n |  k | regA | regB | plan GF/s | packed GF/s 
+----------------+--------+----+----+------+------+-----------+-------------
+ ajbdc-ckbad-jk | 230400 | 24 | 20 | 1.00 | 1.00 |      25.2 |        26.5 
+
+wrote benchmarks/benchmarks/tcbench/results/scaling-diagnostic/A2-ajbdc-ckbad-jk-8t-default.csv

@@ -93,13 +93,16 @@ const BANDWIDTH_BOUND_K: usize = 64;
 /// threads (`panels >= p`, which the caller has already established), should the
 /// column axis take them instead?
 ///
-/// All three conditions were put here by measurement:
+/// The original multi-domain arm has three measured conditions:
 ///
 /// 1. **`domains > 1`** — the thread set spans more than one L3. This is the
 ///    mechanism, and the only quantity A36 separates from thread count: Ice Lake
 ///    runs 32 threads over one domain and reads 1.014, Zen2 runs 4 over one and
 ///    reads 1.031, while three multi-domain points rise monotonically to 2.38x.
-///    Passing `1` is also how [`Plan::partition`] expresses the legacy default.
+///    Passing `1` is how [`Plan::partition`] expresses "no multi-domain
+///    argument" — which is the legacy decision only while the local exception
+///    below is false (unknown geometry, or a thread set that does not saturate
+///    the detected L3).
 /// 2. **`blocks >= p`** — the column axis can fill the threads by itself, so the
 ///    swap costs no parallelism. Without it the corpus's narrow cases lose 2–5x
 ///    by running on a fraction of their cores.
@@ -110,10 +113,28 @@ const BANDWIDTH_BOUND_K: usize = 64;
 ///    measured *losing* 25% in the complex methods from the same swap. The guard
 ///    confines the rule to the population the evidence covers.
 ///
-/// A pure function of four numbers so that the whole truth table can be pinned
-/// by a test on any machine, rather than only on a chiplet one.
-fn columns_beat_rows(blocks: usize, k: usize, p: usize, domains: usize) -> bool {
-    domains > 1 && blocks >= p && k <= BANDWIDTH_BOUND_K
+/// The local-column exception also requires a saturated known L3 and a long
+/// contiguous output run; see `local_columns` and the scaling worklog.
+/// Pure inputs let both gates be tested without depending on the host CPU.
+fn columns_beat_rows(blocks: usize, k: usize, p: usize, domains: usize, local: bool) -> bool {
+    (domains > 1 || local) && blocks >= p && k <= BANDWIDTH_BOUND_K
+}
+
+fn local_columns(
+    rows: usize,
+    cols: usize,
+    mr: usize,
+    p: usize,
+    run: (usize, i64),
+    cores: Option<usize>,
+) -> bool {
+    // ponytail: measured layout heuristic, not a full cost model; calibrate on
+    // other CPUs before claiming architecture-independent optimality.
+    //
+    // INVARIANT: `cores` is `Some` only when the cache probe succeeded from a
+    // real source, so an unknown or built-in geometry keeps the legacy rule
+    // rather than guessing; `mr.max(1)` keeps the panel division total.
+    cores == Some(p) && p > 1 && cols >= rows && run.1 == 1 && run.0 / mr.max(1) > p
 }
 
 impl PackedPlan {
@@ -128,10 +149,10 @@ impl PackedPlan {
         /// See [`Plan::partition`]; deliberately at the conservative end.
         const PACK_WEIGHT: usize = 8;
 
-        let (rows, cols) = if self.transposes_gemm(mr) {
-            (self.b_n.len(), self.a_m.len())
+        let (rows, cols, run) = if self.transposes_gemm(mr) {
+            (self.b_n.len(), self.a_m.len(), self.d_n_run)
         } else {
-            (self.a_m.len(), self.b_n.len())
+            (self.a_m.len(), self.b_n.len(), self.d_m_run)
         };
         let panels = rows.div_ceil(mr.max(1)).max(1);
         let blocks = cols.div_ceil(nr.max(1)).max(1);
@@ -139,7 +160,16 @@ impl PackedPlan {
 
         if panels >= p {
             let domains = tprims_kernel::blocking::l3_domains(p, self.l3_domains);
-            if columns_beat_rows(blocks, self.a_k.len(), p, domains) {
+            let local = if domains == 1 {
+                let h = tprims_kernel::blocking::hierarchy();
+                let cores = (h.source != tprims_kernel::blocking::CacheSource::Builtin)
+                    .then(|| h.l3.map(|l3| h.cores_sharing(&l3)))
+                    .flatten();
+                local_columns(rows, cols, mr, p, run, cores)
+            } else {
+                false
+            };
+            if columns_beat_rows(blocks, self.a_k.len(), p, domains, local) {
                 return (1, p.min(blocks));
             }
             return (p, 1);
@@ -357,6 +387,10 @@ impl PackedPlan {
 }
 
 #[cfg(test)]
+#[path = "tests/local_columns.rs"]
+mod local_column_tests;
+
+#[cfg(test)]
 mod tests {
     use super::super::test_support::{build, lay, laying};
     use super::*;
@@ -371,25 +405,31 @@ mod tests {
     fn domain_gate_needs_all_three_conditions() {
         // The measured population: 64 threads over 16 L3 domains, 1024 column
         // blocks against 768 row panels, `k = 24`. Worth up to 4.3x (A36).
-        assert!(columns_beat_rows(1024, 24, 64, 16));
+        assert!(columns_beat_rows(1024, 24, 64, 16, false));
         // One L3 domain: the early return is *correct* here, at any thread count.
         // Ice Lake reaches 32 threads on one domain and reads 1.014 — the point
         // that separates domain count from thread count — so it is pinned at both
         // ends of the thread range.
-        assert!(!columns_beat_rows(1024, 24, 32, 1));
-        assert!(!columns_beat_rows(1024, 24, 4, 1));
+        assert!(!columns_beat_rows(1024, 24, 32, 1, false));
+        assert!(!columns_beat_rows(1024, 24, 4, 1, false));
         // Too few column blocks to feed the threads: swapping would run the case
         // on a fraction of its cores, which the corpus's narrow half pays 2-5x for.
-        assert!(!columns_beat_rows(63, 24, 64, 16));
-        assert!(columns_beat_rows(64, 24, 64, 16));
+        assert!(!columns_beat_rows(63, 24, 64, 16, false));
+        assert!(columns_beat_rows(64, 24, 64, 16, false));
         // Deep enough to be compute-bound: the cross-domain penalty is a
         // bandwidth cost and cannot dominate here. `ijkl-*` and `ij-ik-kj` sit on
         // this side and were measured *losing* 25% in the complex methods.
-        assert!(!columns_beat_rows(1024, 2704, 64, 16));
-        assert!(columns_beat_rows(1024, BANDWIDTH_BOUND_K, 64, 16));
-        assert!(!columns_beat_rows(1024, BANDWIDTH_BOUND_K + 1, 64, 16));
+        assert!(!columns_beat_rows(1024, 2704, 64, 16, false));
+        assert!(columns_beat_rows(1024, BANDWIDTH_BOUND_K, 64, 16, false));
+        assert!(!columns_beat_rows(
+            1024,
+            BANDWIDTH_BOUND_K + 1,
+            64,
+            16,
+            false
+        ));
         // Serial is never a partition question.
-        assert!(!columns_beat_rows(1024, 24, 1, 1));
+        assert!(!columns_beat_rows(1024, 24, 1, 1, false));
     }
 
     /// `D[i,j] = A[i,k] B[k,j]` with `D` stored in the given strides.

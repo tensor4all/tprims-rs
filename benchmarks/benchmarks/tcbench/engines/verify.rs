@@ -19,13 +19,12 @@ use tprims_kernel::Element;
 
 #[cfg(any(feature = "blas", feature = "tblis"))]
 use super::rel_error;
-use super::{pin_single_threaded, BenchElem};
+use super::BenchElem;
 use crate::corpus::{self, Sized};
 use crate::report::Table;
 use crate::Options;
 
-pub fn run(opts: &Options) -> ExitCode {
-    pin_single_threaded();
+pub fn run(opts: &Options, exec: &Exec<'_>) -> ExitCode {
     crate::report::print_environment();
 
     let cases: Vec<_> = corpus::corpus()
@@ -47,23 +46,37 @@ pub fn run(opts: &Options) -> ExitCode {
     );
 
     let mut t = Table::new(&[
-        "case", "dtype", "m", "n", "k", "plan", "packed", "vs ttgt", "vs tblis", "status",
+        "case",
+        "dtype",
+        "m",
+        "n",
+        "k",
+        "plan",
+        "packed",
+        "vs ttgt",
+        "vs tblis",
+        "vs upstream",
+        "status",
     ]);
     let mut failures = 0usize;
+    // Known-value GEMM: A=B=1 implies every D element is exactly K.
+    let known = corpus::size_case(&corpus::corpus()[0], 256.0);
+    failures += check::<f64>(&known, exec, &mut t, true);
+    failures += check::<Complex<f64>>(&known, exec, &mut t, true);
 
     for case in &cases {
         let s = corpus::size_case_stressed(case, opts.tensor_bytes(), opts.stress);
         if opts.wants("f32") {
-            failures += check::<f32>(&s, &mut t);
+            failures += check::<f32>(&s, exec, &mut t, false);
         }
         if opts.wants("f64") {
-            failures += check::<f64>(&s, &mut t);
+            failures += check::<f64>(&s, exec, &mut t, false);
         }
         if opts.wants("c32") {
-            failures += check::<Complex<f32>>(&s, &mut t);
+            failures += check::<Complex<f32>>(&s, exec, &mut t, false);
         }
         if opts.wants("c64") {
-            failures += check::<Complex<f64>>(&s, &mut t);
+            failures += check::<Complex<f64>>(&s, exec, &mut t, false);
         }
     }
 
@@ -86,13 +99,12 @@ fn tol<T: Element>() -> f64 {
 }
 
 /// Run `plan` once on fresh data, overwriting `d`.
-fn run_plan<T: BenchElem>(plan: &Plan<T>, s: &Sized, a: &[T], b: &[T], d: &mut [T]) {
-    let _ = s;
+fn run_plan<T: BenchElem>(plan: &Plan<T>, exec: &Exec<'_>, a: &[T], b: &[T], d: &mut [T]) {
     // SAFETY: the buffers are sized by the layouts (`elems_*`), `D` is exclusive,
     // and `beta = 0` so no previous value is read.
     unsafe {
         plan.execute_raw(
-            &Exec::serial(),
+            exec,
             <T as Element>::one(),
             a.as_ptr(),
             b.as_ptr(),
@@ -104,7 +116,7 @@ fn run_plan<T: BenchElem>(plan: &Plan<T>, s: &Sized, a: &[T], b: &[T], d: &mut [
     .expect("a validated plan runs");
 }
 
-fn check<T>(s: &Sized, t: &mut Table) -> usize
+fn check<T>(s: &Sized, exec: &Exec<'_>, t: &mut Table, known: bool) -> usize
 where
     T: BenchElem,
 {
@@ -126,6 +138,7 @@ where
                 "-".into(),
                 "-".into(),
                 "-".into(),
+                "-".into(),
                 format!("PLAN ERROR: {e}"),
             ]);
             return 1;
@@ -134,16 +147,23 @@ where
     let (m, n, k) = s.mnk();
 
     let mut rng = ChaCha8Rng::seed_from_u64(0xA11CE);
-    let a: Vec<T> = (0..s.elems_a()).map(|_| T::sample(&mut rng)).collect();
-    let b: Vec<T> = (0..s.elems_b()).map(|_| T::sample(&mut rng)).collect();
+    let mut sample = || {
+        if known {
+            <T as Element>::one()
+        } else {
+            T::sample(&mut rng)
+        }
+    };
+    let a: Vec<T> = (0..s.elems_a()).map(|_| sample()).collect();
+    let b: Vec<T> = (0..s.elems_b()).map(|_| sample()).collect();
     let mut d: Vec<T> = vec![<T as Element>::zero(); s.elems_c()];
-    run_plan(&plan, s, &a, &b, &mut d);
+    run_plan(&plan, exec, &a, &b, &mut d);
     // The packed driver, forced, against the planner's own choice.
     let mut dp: Vec<T> = vec![<T as Element>::zero(); s.elems_c()];
-    run_plan(&packed, s, &a, &b, &mut dp);
+    run_plan(&packed, exec, &a, &b, &mut dp);
     let packed_err = super::rel_error(&dp, &d);
 
-    let mut fails = 0usize;
+    let mut fails = usize::from(known && d.iter().any(|&v| v != T::from_f64(k as f64)));
 
     let ttgt_err: Option<f64> = {
         #[cfg(feature = "blas")]
@@ -213,15 +233,29 @@ where
         }
     };
 
+    let upstream_err: Option<f64> = {
+        #[cfg(feature = "upstream")]
+        {
+            let mut du = vec![<T as Element>::zero(); s.elems_c()];
+            T::upstream(s, exec.budget(), &a, &b, &mut du, 0);
+            Some(super::rel_error(&du, &d))
+        }
+        #[cfg(not(feature = "upstream"))]
+        {
+            None
+        }
+    };
+
     let fmt = |e: Option<f64>| e.map(|v| format!("{v:.1e}")).unwrap_or_else(|| "-".into());
     let limit = tol::<T>();
-    let bad = [Some(packed_err), ttgt_err, tblis_err]
+    let bad = [Some(packed_err), ttgt_err, tblis_err, upstream_err]
         .iter()
         .flatten()
-        .any(|&e| e.is_nan() || e > limit);
+        .any(|&e| !e.is_finite() || e > limit);
     if bad {
         fails += 1;
     }
+    let bad = fails != 0;
     t.row(vec![
         s.case.name.into(),
         T::NAME.into(),
@@ -232,6 +266,7 @@ where
         fmt(Some(packed_err)),
         fmt(ttgt_err),
         fmt(tblis_err),
+        fmt(upstream_err),
         if bad { "FAIL".into() } else { "ok".into() },
     ]);
     fails

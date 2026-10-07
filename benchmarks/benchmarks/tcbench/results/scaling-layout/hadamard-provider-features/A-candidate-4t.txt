@@ -1,0 +1,170 @@
+# threads: requested=4 pool=4 budget=4
+case,variant,threads,median_ns,samples
+hadamard_vec_2e10_f64,plan_plan,4,361,20
+# selected hadamard_vec_2e10_f64 plan: elementwise
+hadamard_vec_2e10_f64,plan_exec,4,611,20
+hadamard_vec_2e10_f64,packed_plan,4,10440,20
+# selected hadamard_vec_2e10_f64 packed: packed avx512.f64.real.24x8
+hadamard_vec_2e10_f64,packed_exec,4,102951,20
+CHECK hadamard_vec_2e10_f64 threads=4 plan_vs_packed_rel=0e0 ok
+hadamard_vec_2e14_f64,plan_plan,4,361,20
+# selected hadamard_vec_2e14_f64 plan: elementwise
+hadamard_vec_2e14_f64,plan_exec,4,4028,20
+hadamard_vec_2e14_f64,packed_plan,4,206175,20
+# selected hadamard_vec_2e14_f64 packed: packed avx512.f64.real.24x8
+hadamard_vec_2e14_f64,packed_exec,4,1641970,20
+CHECK hadamard_vec_2e14_f64 threads=4 plan_vs_packed_rel=0e0 ok
+hadamard_vec_2e18_f64,plan_plan,4,371,20
+# selected hadamard_vec_2e18_f64 plan: elementwise
+hadamard_vec_2e18_f64,plan_exec,4,38452,20
+hadamard_vec_2e18_f64,packed_plan,4,3814762,20
+# selected hadamard_vec_2e18_f64 packed: packed avx512.f64.real.24x8
+hadamard_vec_2e18_f64,packed_exec,4,18815184,20
+CHECK hadamard_vec_2e18_f64 threads=4 plan_vs_packed_rel=0e0 ok
+hadamard_vec_2e22_f64,plan_plan,4,270,20
+# selected hadamard_vec_2e22_f64 plan: elementwise
+hadamard_vec_2e22_f64,plan_exec,4,2168122,20
+hadamard_vec_2e22_f64,packed_plan,4,59233781,20
+# selected hadamard_vec_2e22_f64 packed: packed avx512.f64.real.24x8
+hadamard_vec_2e22_f64,packed_exec,4,77058810,20
+CHECK hadamard_vec_2e22_f64 threads=4 plan_vs_packed_rel=0e0 ok
+hadamard_vec_2e24_f64,plan_plan,4,261,10
+# selected hadamard_vec_2e24_f64 plan: elementwise
+hadamard_vec_2e24_f64,plan_exec,4,9039591,10
+hadamard_vec_2e24_f64,packed_plan,4,218689803,10
+# selected hadamard_vec_2e24_f64 packed: packed avx512.f64.real.24x8
+hadamard_vec_2e24_f64,packed_exec,4,306101021,10
+CHECK hadamard_vec_2e24_f64 threads=4 plan_vs_packed_rel=0e0 ok
+hadamard_mat_256_f64,plan_plan,4,291,20
+# selected hadamard_mat_256_f64 plan: elementwise
+hadamard_mat_256_f64,plan_exec,4,14657,20
+hadamard_mat_256_f64,packed_plan,4,322381,20
+# selected hadamard_mat_256_f64 packed: packed avx512.f64.real.24x8
+hadamard_mat_256_f64,packed_exec,4,4678852,20
+CHECK hadamard_mat_256_f64 threads=4 plan_vs_packed_rel=0e0 ok
+hadamard_mat_2048_f64,plan_plan,4,270,20
+# selected hadamard_mat_2048_f64 plan: elementwise
+hadamard_mat_2048_f64,plan_exec,4,2167159,20
+hadamard_mat_2048_f64,packed_plan,4,53701979,20
+# selected hadamard_mat_2048_f64 packed: packed avx512.f64.real.24x8
+hadamard_mat_2048_f64,packed_exec,4,76645088,20
+CHECK hadamard_mat_2048_f64 threads=4 plan_vs_packed_rel=0e0 ok
+hadamard_mat_2048_bT_f64,plan_plan,4,291,20
+# selected hadamard_mat_2048_bT_f64 plan: elementwise
+hadamard_mat_2048_bT_f64,plan_exec,4,4311397,20
+hadamard_mat_2048_bT_f64,packed_plan,4,53718270,20
+# selected hadamard_mat_2048_bT_f64 packed: packed avx512.f64.real.24x8
+hadamard_mat_2048_bT_f64,packed_exec,4,90981795,20
+CHECK hadamard_mat_2048_bT_f64 threads=4 plan_vs_packed_rel=0e0 ok
+hadamard_rank4_16_f64,plan_plan,4,301,20
+# selected hadamard_rank4_16_f64 plan: elementwise
+hadamard_rank4_16_f64,plan_exec,4,14848,20
+hadamard_rank4_16_f64,packed_plan,4,328312,20
+# selected hadamard_rank4_16_f64 packed: packed avx512.f64.real.24x8
+hadamard_rank4_16_f64,packed_exec,4,4663814,20
+CHECK hadamard_rank4_16_f64 threads=4 plan_vs_packed_rel=0e0 ok
+hadamard_rank4_32_f64,plan_plan,4,311,20
+# selected hadamard_rank4_32_f64 plan: elementwise
+hadamard_rank4_32_f64,plan_exec,4,520200,20
+hadamard_rank4_32_f64,packed_plan,4,12421976,20
+# selected hadamard_rank4_32_f64 packed: packed avx512.f64.real.24x8
+hadamard_rank4_32_f64,packed_exec,4,19056414,20
+CHECK hadamard_rank4_32_f64 threads=4 plan_vs_packed_rel=0e0 ok
+hadamard_rank4_32_bT_f64,plan_plan,4,310,20
+# selected hadamard_rank4_32_bT_f64 plan: elementwise
+hadamard_rank4_32_bT_f64,plan_exec,4,1305083,20
+hadamard_rank4_32_bT_f64,packed_plan,4,14521871,20
+# selected hadamard_rank4_32_bT_f64 packed: packed avx512.f64.real.24x8
+hadamard_rank4_32_bT_f64,packed_exec,4,25898680,20
+CHECK hadamard_rank4_32_bT_f64 threads=4 plan_vs_packed_rel=0e0 ok
+hadamard_rank12_3_f64,plan_plan,4,411,20
+# selected hadamard_rank12_3_f64 plan: elementwise
+hadamard_rank12_3_f64,plan_exec,4,157383,20
+hadamard_rank12_3_f64,packed_plan,4,6475070,20
+# selected hadamard_rank12_3_f64 packed: packed avx512.f64.real.24x8
+hadamard_rank12_3_f64,packed_exec,4,13591748,20
+CHECK hadamard_rank12_3_f64 threads=4 plan_vs_packed_rel=0e0 ok
+hadamard_vec_2e10_c64,plan_plan,4,261,20
+# selected hadamard_vec_2e10_c64 plan: elementwise
+hadamard_vec_2e10_c64,plan_exec,4,752,20
+hadamard_vec_2e10_c64,packed_plan,4,9989,20
+# selected hadamard_vec_2e10_c64 packed: packed avx512.c64.planar.16x6
+hadamard_vec_2e10_c64,packed_exec,4,84298,20
+CHECK hadamard_vec_2e10_c64 threads=4 plan_vs_packed_rel=5.721958498152797e-17 ok
+hadamard_vec_2e14_c64,plan_plan,4,320,20
+# selected hadamard_vec_2e14_c64 plan: elementwise
+hadamard_vec_2e14_c64,plan_exec,4,7364,20
+hadamard_vec_2e14_c64,packed_plan,4,84217,20
+# selected hadamard_vec_2e14_c64 packed: packed avx512.c64.planar.16x6
+hadamard_vec_2e14_c64,packed_exec,4,1349175,20
+CHECK hadamard_vec_2e14_c64 threads=4 plan_vs_packed_rel=6.206335383118183e-17 ok
+hadamard_vec_2e18_c64,plan_plan,4,291,20
+# selected hadamard_vec_2e18_c64 plan: elementwise
+hadamard_vec_2e18_c64,plan_exec,4,135933,20
+hadamard_vec_2e18_c64,packed_plan,4,1359655,20
+# selected hadamard_vec_2e18_c64 packed: packed avx512.c64.planar.16x6
+hadamard_vec_2e18_c64,packed_exec,4,5601292,20
+CHECK hadamard_vec_2e18_c64 threads=4 plan_vs_packed_rel=6.206335383118183e-17 ok
+hadamard_vec_2e22_c64,plan_plan,4,270,20
+# selected hadamard_vec_2e22_c64 plan: elementwise
+hadamard_vec_2e22_c64,plan_exec,4,4512021,20
+hadamard_vec_2e22_c64,packed_plan,4,53983193,20
+# selected hadamard_vec_2e22_c64 packed: packed avx512.c64.planar.16x6
+hadamard_vec_2e22_c64,packed_exec,4,88701164,20
+CHECK hadamard_vec_2e22_c64 threads=4 plan_vs_packed_rel=6.206335383118183e-17 ok
+hadamard_vec_2e24_c64,plan_plan,4,291,10
+# selected hadamard_vec_2e24_c64 plan: elementwise
+hadamard_vec_2e24_c64,plan_exec,4,17754727,10
+hadamard_vec_2e24_c64,packed_plan,4,214841199,10
+# selected hadamard_vec_2e24_c64 packed: packed avx512.c64.planar.16x6
+hadamard_vec_2e24_c64,packed_exec,4,352795557,10
+CHECK hadamard_vec_2e24_c64 threads=4 plan_vs_packed_rel=6.206335383118183e-17 ok
+hadamard_mat_256_c64,plan_plan,4,291,20
+# selected hadamard_mat_256_c64 plan: elementwise
+hadamard_mat_256_c64,plan_exec,4,25066,20
+hadamard_mat_256_c64,packed_plan,4,325126,20
+# selected hadamard_mat_256_c64 packed: packed avx512.c64.planar.16x6
+hadamard_mat_256_c64,packed_exec,4,5382504,20
+CHECK hadamard_mat_256_c64 threads=4 plan_vs_packed_rel=6.206335383118183e-17 ok
+hadamard_mat_2048_c64,plan_plan,4,300,20
+# selected hadamard_mat_2048_c64 plan: elementwise
+hadamard_mat_2048_c64,plan_exec,4,4511650,20
+hadamard_mat_2048_c64,packed_plan,4,53548714,20
+# selected hadamard_mat_2048_c64 packed: packed avx512.c64.planar.16x6
+hadamard_mat_2048_c64,packed_exec,4,88018380,20
+CHECK hadamard_mat_2048_c64 threads=4 plan_vs_packed_rel=6.206335383118183e-17 ok
+hadamard_mat_2048_bT_c64,plan_plan,4,301,20
+# selected hadamard_mat_2048_bT_c64 plan: elementwise
+hadamard_mat_2048_bT_c64,plan_exec,4,7702890,20
+hadamard_mat_2048_bT_c64,packed_plan,4,54143201,20
+# selected hadamard_mat_2048_bT_c64 packed: packed avx512.c64.planar.16x6
+hadamard_mat_2048_bT_c64,packed_exec,4,89818015,20
+CHECK hadamard_mat_2048_bT_c64 threads=4 plan_vs_packed_rel=6.206335383118183e-17 ok
+hadamard_rank4_16_c64,plan_plan,4,311,20
+# selected hadamard_rank4_16_c64 plan: elementwise
+hadamard_rank4_16_c64,plan_exec,4,25718,20
+hadamard_rank4_16_c64,packed_plan,4,325226,20
+# selected hadamard_rank4_16_c64 packed: packed avx512.c64.planar.16x6
+hadamard_rank4_16_c64,packed_exec,4,5399896,20
+CHECK hadamard_rank4_16_c64 threads=4 plan_vs_packed_rel=6.206335383118183e-17 ok
+hadamard_rank4_32_c64,plan_plan,4,330,20
+# selected hadamard_rank4_32_c64 plan: elementwise
+hadamard_rank4_32_c64,plan_exec,4,989985,20
+hadamard_rank4_32_c64,packed_plan,4,10303928,20
+# selected hadamard_rank4_32_c64 packed: packed avx512.c64.planar.16x6
+hadamard_rank4_32_c64,packed_exec,4,21945179,20
+CHECK hadamard_rank4_32_c64 threads=4 plan_vs_packed_rel=6.206335383118183e-17 ok
+hadamard_rank4_32_bT_c64,plan_plan,4,331,20
+# selected hadamard_rank4_32_bT_c64 plan: elementwise
+hadamard_rank4_32_bT_c64,plan_exec,4,2309135,20
+hadamard_rank4_32_bT_c64,packed_plan,4,7187128,20
+# selected hadamard_rank4_32_bT_c64 packed: packed avx512.c64.planar.16x6
+hadamard_rank4_32_bT_c64,packed_exec,4,25500306,20
+CHECK hadamard_rank4_32_bT_c64 threads=4 plan_vs_packed_rel=6.206335383118183e-17 ok
+hadamard_rank12_3_c64,plan_plan,4,411,20
+# selected hadamard_rank12_3_c64 plan: elementwise
+hadamard_rank12_3_c64,plan_exec,4,484513,20
+hadamard_rank12_3_c64,packed_plan,4,2600768,20
+# selected hadamard_rank12_3_c64 packed: packed avx512.c64.planar.16x6
+hadamard_rank12_3_c64,packed_exec,4,11238170,20
+CHECK hadamard_rank12_3_c64 threads=4 plan_vs_packed_rel=6.206335383118183e-17 ok

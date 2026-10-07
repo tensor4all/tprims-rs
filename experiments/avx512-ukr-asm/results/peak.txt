@@ -1,0 +1,8 @@
+AVX-512 FMA ceiling, 8 f64 lanes, 2 flop per FMA
+accs= 1  best=   0.846 ms      9.5 GFLOP/s
+accs= 4  best=   0.859 ms     37.2 GFLOP/s
+accs= 6  best=   1.273 ms     37.7 GFLOP/s
+accs= 8  best=   1.702 ms     37.6 GFLOP/s
+accs=12  best=   2.552 ms     37.6 GFLOP/s
+accs=16  best=   3.399 ms     37.7 GFLOP/s
+accs=24  best=   2.552 ms     37.6 GFLOP/s

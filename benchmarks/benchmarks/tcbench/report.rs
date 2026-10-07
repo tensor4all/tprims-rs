@@ -10,6 +10,7 @@ pub struct Row {
     pub group: String,
     pub dtype: String,
     pub engine: String,
+    pub threads: usize,
     pub m: u64,
     pub n: u64,
     pub k: u64,
@@ -40,16 +41,17 @@ impl Results {
 
     pub fn write_csv(&self, path: &str) -> std::io::Result<()> {
         let mut s = String::from(
-            "case,group,dtype,engine,m,n,k,macs,seconds,gflops,regular_a,regular_b,notes\n",
+            "case,group,dtype,engine,threads,m,n,k,macs,seconds,gflops,regular_a,regular_b,notes\n",
         );
         for r in &self.rows {
             let _ = writeln!(
                 s,
-                "{},{},{},{},{},{},{},{},{:.9},{:.4},{:.4},{:.4},{}",
+                "{},{},{},{},{},{},{},{},{},{:.9},{:.4},{:.4},{:.4},{}",
                 r.case,
                 r.group,
                 r.dtype,
                 r.engine,
+                r.threads,
                 r.m,
                 r.n,
                 r.k,

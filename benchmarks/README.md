@@ -9,7 +9,7 @@ package now holds only the tprims benchmarks.
 | Binary | Page |
 | --- | --- |
 | `exec_entry` | [exec_entry](benchmarks/tprims/exec_entry/README.md) |
-| `tcbench` | the TCCG corpus: `run`, `verify`, `info`, `--stress` (optional TBLIS and BLAS baselines behind the `tblis` and `blas` features) |
+| `tcbench` | [49-case TCCG comparison](benchmarks/tcbench/README.md): `run`, `verify`, `info`, `--threads`, `--stress`; optional `upstream`, `tblis`, `blas` baselines |
 | `contract` | [contract](benchmarks/tprims/contract/README.md) |
 | `capi_rust` | [C ABI comparison](c/README.md) |
 
@@ -19,7 +19,7 @@ The package is a member of the root workspace, so binaries land in the
 repository's `target/`:
 
 ```bash
-cargo build --release -p tprims-bench --bins   # jobs from CARGO_BUILD_JOBS
+RUSTFLAGS="-C target-cpu=native" cargo build --release -p tprims-bench --bins   # jobs from CARGO_BUILD_JOBS
 cpus=$(python3 scripts/idle_cpus.py pick 4)          # idle CPUs of one L3 domain
 scripts/pinned.sh "${cpus%%,*}" -- ../target/release/contract --threads 1
 scripts/pinned.sh "$cpus"       -- ../target/release/contract --threads 4
@@ -33,5 +33,7 @@ The full procedure is the `tprims-benchmark` skill
 Measure every tensor-sized case at 1 and 4 threads in the same run, verify the
 effective thread count at startup, pin with `taskset` inside one L3 domain,
 never run two benchmarks at once, and record the tprims-rs commit, CPU, core
-set and profile beside every published table. See the root
+set and profile beside every published table. The fixed 1T/4T/8T/12T
+three-provider procedure is in the skill; its explicitly requested 12T arm
+may span L3 domains and is labelled separately (no SMT). See the root
 [`PERFORMANCE_TIPS.md`](../PERFORMANCE_TIPS.md) and [`AGENTS.md`](AGENTS.md).
