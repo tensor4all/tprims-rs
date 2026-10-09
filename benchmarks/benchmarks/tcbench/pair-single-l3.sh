@@ -39,7 +39,7 @@ for sample in A A2; do
             cpus=${!i}; i=$((i+1))
             for arm in $arms; do
                 bin=${!arm}; stem="$out/$arm/${sample}-${size}m-${t}t"
-                bash benchmarks/scripts/pinned.sh "$cpus" -- "$bin" run --threads "$t" --size "$size" --dtype f64,c64 --reps 5 --engines plan,packed,upstream --csv "$stem.pending.csv" > "$stem.txt" 2> "$stem.guard"
+                bash benchmarks/scripts/pinned.sh "$cpus" -- "$bin" run --threads "$t" --size "$size" --dtype f64,c64 --reps 5 --engines plan,packed --csv "$stem.pending.csv" > "$stem.txt" 2> "$stem.guard"
                 mv "$stem.pending.csv" "$stem.csv"
             done
         done

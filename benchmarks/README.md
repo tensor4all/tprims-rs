@@ -9,8 +9,8 @@ package now holds only the tprims benchmarks.
 | Binary | Page |
 | --- | --- |
 | `exec_entry` | [exec_entry](benchmarks/tprims/exec_entry/README.md) |
-| `tcbench` | [49-case TCCG comparison](benchmarks/tcbench/README.md): `run`, `verify`, `info`, `--threads`, `--stress`; optional `upstream`, `blas` baselines |
-| `lukbench` | [per-shape corpus of tprims-rs#61](benchmarks/lukbench/README.md): the same `run`/`verify`/`info` shape over fixed extents; optional `upstream`, `tblis` baselines |
+| `tcbench` | [49-case TCCG comparison](benchmarks/tcbench/README.md): `run`, `verify`, `info`, `--threads`, `--stress`; optional `blas` baseline |
+| `lukbench` | [per-shape corpus of tprims-rs#61](benchmarks/lukbench/README.md): the same `run`/`verify`/`info` shape over fixed extents; optional `tblis` baseline |
 | `contract` | [contract](benchmarks/tprims/contract/README.md) |
 | `capi_rust` | [C ABI comparison](c/README.md) |
 

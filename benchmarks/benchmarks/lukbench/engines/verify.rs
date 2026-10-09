@@ -97,11 +97,6 @@ fn check<T: BenchElem>(p: &Program, opts: &Options, exec: &Exec<'_>, t: &mut Tab
                     Err(e) => emit(engine, Err(format!("PLAN ERROR: {e}"))),
                 }
             }
-            #[cfg(feature = "upstream")]
-            "upstream" => {
-                T::upstream(p, exec.budget(), &inputs, &mut slots, 0, 0);
-                emit(engine, Ok(max_rel_err(slots.last().unwrap(), &reference)));
-            }
             #[cfg(feature = "tblis")]
             "tblis" => {
                 run::run_tblis(p, &inputs, &mut slots, 0, 0);

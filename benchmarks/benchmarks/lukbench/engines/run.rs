@@ -1,7 +1,7 @@
 //! The #61 corpus run: every case, every requested engine, one dtype per case.
 //!
 //! Engines: `plan` (the planner's own choice), `packed` (the packed driver,
-//! forced), and the external baselines `upstream` and `tblis`. Every arm runs a
+//! forced) and the external baseline `tblis`. Every arm runs a
 //! prebuilt plan into a preallocated output, and one timed call is the whole
 //! program.
 
@@ -23,8 +23,6 @@ use crate::Options;
 pub const ENGINE_ORDER: &[&str] = &[
     "plan",
     "packed",
-    #[cfg(feature = "upstream")]
-    "upstream",
     #[cfg(feature = "tblis")]
     "tblis",
 ];
@@ -139,22 +137,6 @@ fn run_case<T: BenchElem>(p: &Program, opts: &Options, exec: &Exec<'_>, results:
             }
             Err(e) => eprintln!("{} [{}]: planning failed: {e}", p.name, T::NAME),
         }
-    }
-
-    // ---- original tensorprimitives-rs --------------------------------------
-    #[cfg(feature = "upstream")]
-    if opts.engine("upstream") {
-        let mut slots = p.new_slots::<T>();
-        let secs = T::upstream(
-            p,
-            exec.budget(),
-            &inputs,
-            &mut slots,
-            opts.reps,
-            opts.prime_ms,
-        );
-        let notes = check("upstream", slots.last().unwrap());
-        push("upstream", secs, notes, results);
     }
 
     // ---- TBLIS -------------------------------------------------------------

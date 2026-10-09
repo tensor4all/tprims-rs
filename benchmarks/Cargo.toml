@@ -25,12 +25,9 @@ rand_chacha = "0.3"
 rayon = { workspace = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# Lukas Devos's original implementation, called (not ported) as a baseline.
-tensorcontract = { git = "https://github.com/lkdvos/tensorprimitives-rs", rev = "8cda75e11ed26f46c0c22f9629004c84dbabc8e5", optional = true }
 
 [features]
 default = []
-upstream = ["dep:tensorcontract"]
 # Link the C++ TBLIS baseline. Requires TBLIS_ROOT to point at an install
 # prefix containing lib/libtblis.{so,a}.
 tblis = []

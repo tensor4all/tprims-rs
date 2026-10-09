@@ -13,7 +13,7 @@ export RUSTFLAGS='-C target-cpu=native'
 export CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-8}
 # A saved baseline binary avoids rebuilding it from candidate sources.
 if [[ -z ${TCBENCH_BIN:-} ]]; then
-    cargo build --release --locked -p tprims-bench --bin tcbench --features upstream
+    cargo build --release --locked -p tprims-bench --bin tcbench
 fi
 bin="${TCBENCH_BIN:-${CARGO_TARGET_DIR:-$root/target}/release/tcbench}"
 {
@@ -45,7 +45,7 @@ for sample in A A2; do
         for threads in 1 4 8 12; do
             cpus=${!i}; i=$((i+1))
             stem="$out/${sample}-${size}m-${threads}t"
-            bash "$pinned" "$cpus" -- "$bin" run --size "$size" --dtype f64,c64 --threads "$threads" --reps 5 --engines plan,packed,upstream --csv "$stem.pending.csv" > "$stem.txt" 2> "$stem.guard"
+            bash "$pinned" "$cpus" -- "$bin" run --size "$size" --dtype f64,c64 --threads "$threads" --reps 5 --engines plan,packed --csv "$stem.pending.csv" > "$stem.txt" 2> "$stem.guard"
             mv "$stem.pending.csv" "$stem.csv"
         done
     done

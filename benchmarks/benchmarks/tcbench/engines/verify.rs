@@ -4,8 +4,8 @@
 //! indices, conjugation, negative strides, every loop-nest edge case) lives in
 //! `crates/tprims-contract` and runs against a brute-force oracle. This
 //! subcommand does the complementary job: run the *whole TCCG corpus* at
-//! benchmark sizes and confirm that the planner's choice, the packed driver,
-//! TTGT and upstream all agree. That is what catches blocking and packing bugs that only appear once
+//! benchmark sizes and confirm that the planner's choice, the packed driver
+//! and TTGT all agree. That is what catches blocking and packing bugs that only appear once
 //! a problem is bigger than one cache block.
 
 use std::process::ExitCode;
@@ -46,16 +46,7 @@ pub fn run(opts: &Options, exec: &Exec<'_>) -> ExitCode {
     );
 
     let mut t = Table::new(&[
-        "case",
-        "dtype",
-        "m",
-        "n",
-        "k",
-        "plan",
-        "packed",
-        "vs ttgt",
-        "vs upstream",
-        "status",
+        "case", "dtype", "m", "n", "k", "plan", "packed", "vs ttgt", "status",
     ]);
     let mut failures = 0usize;
     // Known-value GEMM: A=B=1 implies every D element is exactly K.
@@ -136,7 +127,6 @@ where
                 "-".into(),
                 "-".into(),
                 "-".into(),
-                "-".into(),
                 format!("PLAN ERROR: {e}"),
             ]);
             return 1;
@@ -188,22 +178,9 @@ where
         }
     };
 
-    let upstream_err: Option<f64> = {
-        #[cfg(feature = "upstream")]
-        {
-            let mut du = vec![<T as Element>::zero(); s.elems_c()];
-            T::upstream(s, exec.budget(), &a, &b, &mut du, 0, 0);
-            Some(super::rel_error(&du, &d))
-        }
-        #[cfg(not(feature = "upstream"))]
-        {
-            None
-        }
-    };
-
     let fmt = |e: Option<f64>| e.map(|v| format!("{v:.1e}")).unwrap_or_else(|| "-".into());
     let limit = tol::<T>();
-    let bad = [Some(packed_err), ttgt_err, upstream_err]
+    let bad = [Some(packed_err), ttgt_err]
         .iter()
         .flatten()
         .any(|&e| !e.is_finite() || e > limit);
@@ -220,7 +197,6 @@ where
         plan.report().algorithm.name().into(),
         fmt(Some(packed_err)),
         fmt(ttgt_err),
-        fmt(upstream_err),
         if bad { "FAIL".into() } else { "ok".into() },
     ]);
     fails

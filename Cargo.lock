@@ -1005,14 +1005,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tensorcontract"
-version = "0.1.0"
-source = "git+https://github.com/lkdvos/tensorprimitives-rs?rev=8cda75e11ed26f46c0c22f9629004c84dbabc8e5#8cda75e11ed26f46c0c22f9629004c84dbabc8e5"
-dependencies = [
- "num-complex",
-]
-
-[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1054,7 +1046,6 @@ dependencies = [
  "serde_json",
  "strided-basic",
  "strided-view",
- "tensorcontract",
  "tprims-capi",
  "tprims-contract",
  "tprims-exec",

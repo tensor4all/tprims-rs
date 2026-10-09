@@ -4,9 +4,9 @@
 //!
 //! * `run` -- the corpus across engines and dtypes, reporting GFLOP/s and the
 //!   per-case complex efficiency ratio. Engines: `plan` (the planner's choice
-//!   under the `TCBENCH_*` knobs), `packed` (the packed driver, forced),
-//!   `upstream` and `ttgt` (external baselines).
-//! * `verify` -- the planner's choice, the packed driver, TTGT and upstream over the
+//!   under the `TCBENCH_*` knobs), `packed` (the packed driver, forced) and
+//!   `ttgt` (the external baseline).
+//! * `verify` -- the planner's choice, the packed driver and TTGT over the
 //!   whole corpus at benchmark sizes, in every dtype and under every
 //!   stride-stress mode.
 //! * `info` -- the machine and the baselines this binary was built with.
@@ -21,8 +21,6 @@ mod engines;
 mod knobs;
 mod report;
 mod ttgt;
-#[cfg(feature = "upstream")]
-mod upstream;
 
 use std::process::ExitCode;
 
@@ -59,7 +57,7 @@ fn main() -> ExitCode {
                  \x20 --case <substr>   only cases whose name contains this\n\
                  \x20 --engines <list>  comma separated, default all of:\n\
                  \x20                   plan,packed   (this library)\n\
-                 \x20                   upstream,ttgt (optional external baselines)\n\
+                 \x20                   ttgt          (optional external baseline)\n\
                  \x20 --csv <path>      also write machine-readable results\n\
                  \x20 --stress <mode>   none|ragged|padded: perturb TCCG extents/layouts\n\
                  \x20                   so the block-scatter gather path is exercised\n"
