@@ -45,8 +45,11 @@ arguments: validate them against `lscpu`, not a guessed core count. 12T across
 L3s is a user-requested full-physical-core exception to single-L3 measurement.
 No SMT or 16T arm.
 
-One warm-up then five repetitions, best wall time, including packing,
-executor/FFI entry and provider-internal allocation. Input generation,
+At least 500 ms of untimed, wall-clock priming per arm (`--prime-ms`, echoed by
+`run`) then five repetitions, best wall time, including packing,
+executor/FFI entry and provider-internal allocation. Priming is time-based, not
+a call count: a fixed number of warm-up calls removes a different share of the
+clock ramp in every arm, most in the fastest one. Input generation,
 planning/descriptor construction and tprims pool construction are excluded.
 tprims retains a caller-owned scratch arena/pool; upstream retains its default
 per-call scoped-thread/allocation policy; TBLIS retains its internal policy.

@@ -2,7 +2,9 @@
 """Tests for idle_cpus.py against a synthetic /proc and /sys tree."""
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import sys
 import tempfile
 from pathlib import Path
@@ -79,6 +81,24 @@ def test_check_reports_busy_cpus() -> None:
         tree(root, 8, 8)
         assert run(root, ["check", "0-3", "--seconds", "0"], {}, 8) == 0
         assert run(root, ["check", "0-3", "--seconds", "0"], {2: 40}, 8) == 1
+
+
+def test_busy_unrequested_sibling_fails_check_and_pick() -> None:
+    """A busy sibling shares the measured core, so it is not invisible (#79)."""
+    with tempfile.TemporaryDirectory() as t:
+        root = Path(t)
+        tree(root, 8, 8, smt=True)  # cores {0,1}, {2,3}, {4,5}, {6,7}
+        # cpu0 itself is idle; its sibling cpu1 is not, and cpu1 is not asked for.
+        assert run(root, ["check", "0", "--seconds", "0"], {1: 50}, 8) == 1
+        # Only three whole cores are left, so four are not available.
+        assert run(root, ["pick", "4", "--seconds", "0"], {1: 50}, 8) == 2
+
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            run(root, ["check", "0", "--seconds", "0"], {1: 50}, 8)
+        report = err.getvalue()
+        assert "cpu1 busy=0.500 (sibling)" in report, report
+        assert "busy CPUs [1]" in report, report
 
 
 def test_missing_proc_stat_means_pinning_unavailable() -> None:

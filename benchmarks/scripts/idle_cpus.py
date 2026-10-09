@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Pick idle CPUs inside one L3 domain, or check that given CPUs are idle.
 
+SMT sibling expansion adapted back from `tensor4all/tlinalg-rs`
+`benchmarks/scripts/idle_cpus.py` at 37d7195d, itself adapted from this
+repository (MIT, Copyright (c) 2026 Lukas Devos and tensor4all contributors).
+The sibling expansion, the `pick`/`check` core test and the `(sibling)` mark
+are that version's; the rest is this repository's original.
+
 PERFORMANCE_TIPS.md (Performance-Sensitive Tests And Benchmarks) requires the
 measured process to be pinned to cores of one L3 domain that are idle
 immediately before and after each measurement; "idle" is a `/proc/stat` busy
@@ -11,8 +17,8 @@ Linux with the standard library only.
     idle_cpus.py check CPUS [--seconds S] [--max-busy F]
 
 `pick` exits 2 when no L3 domain has N idle CPUs; `check` exits 1 when a CPU
-is busy. Both exit 3 off Linux (CPU affinity is Linux-only): record that
-pinning was unavailable instead.
+or one of its SMT siblings is busy. Both exit 3 off Linux (CPU affinity is
+Linux-only): record that pinning was unavailable instead.
 """
 from __future__ import annotations
 
@@ -75,6 +81,20 @@ def l3_domains(root: Path, cpus: list[int]) -> list[list[int]]:
     return sorted((list(d) for d in seen), key=lambda d: d[0])
 
 
+def siblings(root: Path, cpu: int) -> list[int]:
+    """The hardware threads sharing `cpu`'s physical core, `cpu` itself included."""
+    p = root / f"sys/devices/system/cpu/cpu{cpu}/topology/thread_siblings_list"
+    return parse_cpu_list(p.read_text()) if p.exists() else [cpu]
+
+
+def with_siblings(root: Path, cpus: list[int]) -> list[int]:
+    """`cpus` expanded with every sibling, so a busy sibling is not invisible."""
+    out: set[int] = set()
+    for cpu in cpus:
+        out.update(siblings(root, cpu))
+    return sorted(out)
+
+
 def primary_threads(root: Path, cpus: list[int]) -> list[int]:
     """One hardware thread per physical core (the lowest sibling)."""
     keep = []
@@ -87,10 +107,19 @@ def primary_threads(root: Path, cpus: list[int]) -> list[int]:
 
 
 def pick(root: Path, n: int, frac: dict[int, float], max_busy: float) -> list[int] | None:
-    """The first n idle primary CPUs of the L3 domain with the most idle ones."""
+    """The first n primary CPUs whose whole physical core is idle, of the L3
+    domain with the most of them.
+
+    A busy SMT sibling makes the core busy, so the test is on every sibling,
+    not only on the primary thread.
+    """
     best: list[int] | None = None
     for dom in l3_domains(root, sorted(frac)):
-        idle = [c for c in primary_threads(root, dom) if frac.get(c, 1.0) <= max_busy]
+        idle = [
+            c
+            for c in primary_threads(root, dom)
+            if all(frac.get(s, 1.0) <= max_busy for s in siblings(root, c))
+        ]
         if len(idle) >= n and (best is None or len(idle) > len(best)):
             best = idle
     return None if best is None else best[:n]
@@ -116,10 +145,12 @@ def main(argv: list[str] | None = None, root: Path = Path("/"), sleep=time.sleep
             return 2
         print(",".join(map(str, got)))
         return 0
-    cpus = parse_cpu_list(a.arg)
+    requested = parse_cpu_list(a.arg)
+    cpus = with_siblings(root, requested)
     busy = {c: frac.get(c, 1.0) for c in cpus if frac.get(c, 1.0) > a.max_busy}
     for c in cpus:
-        print(f"cpu{c} busy={frac.get(c, 1.0):.3f}", file=sys.stderr)
+        mark = "" if c in requested else " (sibling)"
+        print(f"cpu{c} busy={frac.get(c, 1.0):.3f}{mark}", file=sys.stderr)
     if busy:
         print(f"idle_cpus: busy CPUs {sorted(busy)}", file=sys.stderr)
         return 1
