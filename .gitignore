@@ -5,3 +5,4 @@
 *.profdata
 .codegraph/
 experiments/rayon-entry/omp
+/target-*/

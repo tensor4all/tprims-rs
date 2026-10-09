@@ -55,7 +55,7 @@ fn main() -> ExitCode {
                  \x20 --threads <n>     host/provider thread budget (default 1)\n\
                  \x20 --size <MiB>      accepted and ignored: this corpus has fixed extents\n\
                  \x20 --reps <n>        timed repetitions per measurement (default 5)\n\
-                 \x20 --prime-ms <n>    untimed time-based priming per arm, per engine (default 500)\n\
+                 \x20 --prime-ms <n>    untimed time-based priming per arm, per engine (default 1500)\n\
                  \x20 --dtype <list>    comma separated: f64,c64 (default both; a dtype the\n\
                  \x20                   corpus does not use selects nothing)\n\
                  \x20 --case <substr>   only cases whose name contains this\n\
@@ -85,7 +85,7 @@ impl Options {
     fn parse(args: &[String]) -> Options {
         let mut o = Options {
             reps: 5,
-            prime_ms: 500,
+            prime_ms: 1500,
             dtypes: vec!["f64".into(), "c64".into()],
             case_filter: None,
             engines: engines::run::ENGINE_ORDER
@@ -108,7 +108,7 @@ impl Options {
                     i += 1;
                 }
                 "--prime-ms" => {
-                    o.prime_ms = next(i).parse().unwrap_or(500);
+                    o.prime_ms = next(i).parse().unwrap_or(1500);
                     i += 1;
                 }
                 "--dtype" => {

@@ -192,14 +192,15 @@ fn strategies<T: BenchElem>(plans: &[Plan<T>]) -> String {
         let r = pl.report();
         let s = match &r.packed {
             Some(x) => format!(
-                "{} {}x{} {} {}x{}x{}",
+                "{} {}x{} {} {}x{}x{} {}",
                 x.family_id,
                 x.mr,
                 x.nr,
                 if x.swapped { "BA" } else { "AB" },
                 x.mc,
                 x.kc,
-                x.nc
+                x.nc,
+                tprims_bench::partition::describe(x)
             ),
             None => r.algorithm.name().to_string(),
         };

@@ -31,6 +31,22 @@ pub fn parse(value: &str) -> Option<Option<Partition>> {
     }))
 }
 
+/// The grid a packed plan resolved to, for a row's notes.
+///
+/// Two arms can select the same family, micro-tile, orientation and blocking and
+/// still run at different speeds if the grid or the C-line alignment differs,
+/// and the geometry alone does not say: this does, so a reader can tell two such
+/// rows apart instead of guessing.
+pub fn describe(report: &tprims_contract::PackedReport) -> String {
+    use tprims_kernel::PartitionPolicy;
+    let g = match report.partition {
+        PartitionPolicy::StaticGrid { pm, pn } => format!("static:{pm}x{pn}"),
+        PartitionPolicy::DynamicTiles { job_m, job_n } => format!("dynamic:{job_m}x{job_n}"),
+        _ => "other".into(),
+    };
+    format!("grid={g} align={}", report.align_c_lines)
+}
+
 /// Row-label suffix identifying the policy: empty for static.
 pub fn suffix(policy: Option<Partition>) -> String {
     match policy {

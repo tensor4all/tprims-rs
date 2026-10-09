@@ -269,7 +269,11 @@ Audit hints:
   large enough to be mistaken for a kernel defect. Warm up for **0.5-2 s of
   wall time**, not a fixed call count, and give every arm the same warm-up:
   a count-based warm-up biases the ratio when the arms differ in duration.
-  Quoting an absolute rate without its warm-up and run order is invalid.
+  Quoting an absolute rate without its warm-up and run order is invalid. A short
+  call needs the top of that range: measured on this host with a 2 ms call,
+  500 ms left the first-measured arm reading 40% low while the arm measured after
+  it read as if it were 29% faster, and 1500 ms removed the dependence on
+  position. Two arms that resolve to the same driver and grid are the check.
 - Read the shape of a slowdown before claiming a cause. A constant absolute
   delta across sizes is a per-call or per-entry cost; a uniform multiplicative
   factor across cases the change cannot affect is host contention. A
