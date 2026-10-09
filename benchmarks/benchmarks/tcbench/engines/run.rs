@@ -31,6 +31,13 @@ pub const ENGINE_ORDER: &[&str] = &[
 ];
 
 pub fn run(opts: &Options, exec: &Exec<'_>) -> ExitCode {
+    if opts.reps == 0 {
+        eprintln!(
+            "tcbench: --reps 0 leaves nothing to time and skips priming for every arm; \
+             use `tcbench verify` for a correctness pass without timing"
+        );
+        return ExitCode::from(2);
+    }
     crate::report::print_environment();
     println!();
 
@@ -46,10 +53,11 @@ pub fn run(opts: &Options, exec: &Exec<'_>) -> ExitCode {
         .collect();
 
     println!(
-        "running {} cases at {} MiB nominal tensor size, {} reps, stress={}\n",
+        "running {} cases at {} MiB nominal tensor size, {} reps, {} ms priming, stress={}\n",
         cases.len(),
         opts.size_mib,
         opts.reps,
+        opts.prime_ms,
         opts.stress.name()
     );
 
@@ -177,7 +185,7 @@ where
         if report.packed.is_some() && regularity == (0.0, 0.0) {
             regularity = (reg_a, reg_b);
         }
-        let secs = timed(opts.reps, || {
+        let secs = timed(opts.reps, opts.prime_ms, || {
             // SAFETY: the buffers are sized by the layouts, `D` is exclusive and
             // `beta = 0` reads no previous value.
             unsafe {
@@ -231,7 +239,7 @@ where
     #[cfg(feature = "upstream")]
     if opts.engine("upstream") {
         let mut du = vec![<T as Element>::zero(); s.elems_c()];
-        let secs = T::upstream(s, exec.budget(), &a, &b, &mut du, opts.reps);
+        let secs = T::upstream(s, exec.budget(), &a, &b, &mut du, opts.reps, opts.prime_ms);
         let notes = check("upstream", &du, &mut reference);
         push("upstream", secs, regularity.0, regularity.1, notes, results);
     }
@@ -242,7 +250,7 @@ where
         let tp = TtgtPlan::new(&problem);
         let mut scratch = TtgtScratch::<T>::new(&tp);
         let mut dt: Vec<T> = vec![<T as Element>::zero(); s.elems_c()];
-        let secs = timed(opts.reps, || {
+        let secs = timed(opts.reps, opts.prime_ms, || {
             ttgt(
                 &tp,
                 <T as Element>::one(),
@@ -275,7 +283,7 @@ where
             T::tblis_scalar(1.0),
             b.as_ptr() as *mut std::ffi::c_void,
         );
-        let secs = timed(opts.reps, || {
+        let secs = timed(opts.reps, opts.prime_ms, || {
             let mut tc = oc.tensor(
                 T::TBLIS_TYPE,
                 T::tblis_scalar(0.0),

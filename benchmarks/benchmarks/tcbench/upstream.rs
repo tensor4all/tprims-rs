@@ -5,7 +5,15 @@ use tensorcontract::{kernel::KernelSet, Element, Layout, Operand, Plan};
 
 use crate::corpus::Sized;
 
-pub fn run<T: Element>(s: &Sized, threads: usize, a: &[T], b: &[T], d: &mut [T], reps: usize) -> f64
+pub fn run<T: Element>(
+    s: &Sized,
+    threads: usize,
+    a: &[T],
+    b: &[T],
+    d: &mut [T],
+    reps: usize,
+    prime_ms: u64,
+) -> f64
 where
     T::Real: KernelSet,
 {
@@ -40,6 +48,6 @@ where
         execute();
         0.0
     } else {
-        super::engines::timed(reps, execute)
+        super::engines::timed(reps, prime_ms, execute)
     }
 }

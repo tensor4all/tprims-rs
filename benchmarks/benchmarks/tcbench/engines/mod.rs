@@ -27,8 +27,9 @@ macro_rules! upstream_method {
             b: &[Self],
             d: &mut [Self],
             reps: usize,
+            prime_ms: u64,
         ) -> f64 {
-            crate::upstream::run(s, threads, a, b, d, reps)
+            crate::upstream::run(s, threads, a, b, d, reps, prime_ms)
         }
     };
 }
@@ -52,6 +53,7 @@ pub trait BenchElem: Scalar + GemmScalar {
         b: &[Self],
         d: &mut [Self],
         reps: usize,
+        prime_ms: u64,
     ) -> f64;
 }
 
@@ -138,13 +140,22 @@ pub fn problem_of<T: BenchElem>(s: &Sized) -> Result<Problem, tprims_contract::E
     )
 }
 
-/// Best-of-`reps` wall time in seconds, after one warm-up call.
+/// Best-of-`reps` wall time in seconds, after time-based priming.
+///
+/// Priming is a wall-clock duration, not a call count: after an idle gate this
+/// host reads up to 25% low for the first one to two seconds of sustained
+/// AVX-512 work, and a fixed number of warm-up calls removes a different share
+/// of that bias in every arm (largest in the fastest arm). `prime_ms == 0`
+/// skips priming.
 ///
 /// Minimum rather than mean: these are deterministic compute kernels, so the
 /// spread is machine noise (frequency, interrupts, other tenants) and the
 /// minimum is the least contaminated estimator.
-pub fn timed(reps: usize, mut f: impl FnMut()) -> f64 {
-    f();
+pub fn timed(reps: usize, prime_ms: u64, mut f: impl FnMut()) -> f64 {
+    let until = Instant::now() + std::time::Duration::from_millis(prime_ms);
+    while Instant::now() < until {
+        f();
+    }
     let mut best = f64::INFINITY;
     for _ in 0..reps.max(1) {
         let t = Instant::now();

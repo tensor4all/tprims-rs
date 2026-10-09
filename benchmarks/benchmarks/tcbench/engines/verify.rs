@@ -237,7 +237,7 @@ where
         #[cfg(feature = "upstream")]
         {
             let mut du = vec![<T as Element>::zero(); s.elems_c()];
-            T::upstream(s, exec.budget(), &a, &b, &mut du, 0);
+            T::upstream(s, exec.budget(), &a, &b, &mut du, 0, 0);
             Some(super::rel_error(&du, &d))
         }
         #[cfg(not(feature = "upstream"))]
