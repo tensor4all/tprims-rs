@@ -1,12 +1,20 @@
 //! Where the planner's faer route and the packed driver cross over, per dtype
 //! and per thread count, on copy-free fusable contractions.
 //!
-//! One `Problem` per case is planned twice: with [`PlanConfig::default`] (what
-//! the planner itself chooses, `faer` below the dtype's `FaerLimit` and packed
-//! above it) and with [`PlanConfig::packed`] (the packed driver forced). Only
-//! the execution is timed, on prebuilt plans and a preallocated output, so the
+//! One `Problem` per case is planned three times: with [`PlanConfig::default`]
+//! (what the planner itself chooses, `faer` below the dtype's `FaerLimit` and
+//! packed above it), with [`PlanConfig::packed`] (the packed driver forced) and
+//! with `PlanConfig { faer_limit: FaerLimit::NONE, ..PlanConfig::default() }`
+//! (`faer` forced for every fusable problem, the rule before #63). Only the
+//! execution is timed, on prebuilt plans and a preallocated output, so the
 //! number is the execution of the plan and neither its construction nor any
 //! allocation of `A`/`B`/`D`.
+//!
+//! The three arms share one `packed` statistic row (`batch,m,n,k,mnk`), and
+//! every arm is checked against the same naive label oracle before any timing;
+//! the `faer_forced` arm is the only one that reaches `faer` above the dtype's
+//! `FaerLimit`, so its `ns` is the c64 faer time the `default` route cannot
+//! show.
 //!
 //! Two C modes are recorded per case:
 //!
@@ -49,7 +57,7 @@ use strided_view::{StridedView, StridedViewMut};
 use tprims_contract::api::{
     AccumulationSource, CSpec, DType, Labels, LayoutSpec, Op, OperandSpec, Problem, Scalar,
 };
-use tprims_contract::{Plan, PlanConfig, Reason};
+use tprims_contract::{FaerLimit, Plan, PlanConfig, Reason};
 use tprims_exec::{Exec, Pool};
 use tprims_kernel::{Element, Real};
 
@@ -102,6 +110,13 @@ impl CMode {
 
     const ALL: [CMode; 2] = [CMode::Absent, CMode::Output];
 }
+
+/// Which planner arms a run records. `default` and `packed` are always planned
+/// (the packed `PlanStats` supplies the `batch,m,n,k,mnk` every row shares);
+/// `faer_forced` — `PlanConfig { faer_limit: FaerLimit::NONE, ..default }`, the
+/// rule before #63 — is the arm this sweep adds to reach `faer` above the
+/// dtype's `FaerLimit`.
+const ARMS: [&str; 3] = ["default", "packed", "faer_forced"];
 
 fn cases() -> Vec<Case> {
     let mut v = Vec::new();
@@ -342,6 +357,7 @@ fn one_case<S: Scalar>(
     mode: CMode,
     threads: usize,
     exec: &Exec<'_>,
+    arms: &[&str],
     reps: usize,
     prime_ms: u64,
     timing: bool,
@@ -364,7 +380,27 @@ fn one_case<S: Scalar>(
     )
     .unwrap();
     let plan_default = Plan::<S>::new(&problem, &PlanConfig::default()).unwrap();
-    let plan_packed = Plan::<S>::new(&problem, &PlanConfig::packed()).unwrap();
+    let plan_packed =
+        Plan::<S>::new(&problem, &PlanConfig::packed()).expect("the forced-packed plan builds");
+    let plan_faer = arms.contains(&"faer_forced").then(|| {
+        Plan::<S>::new(
+            &problem,
+            &PlanConfig {
+                faer_limit: FaerLimit::NONE,
+                ..PlanConfig::default()
+            },
+        )
+        .unwrap_or_else(|e| {
+            // The faer route must answer for every problem `default` sent to
+            // packed; a refusal is reported here, not routed around.
+            panic!(
+                "faer_forced refuses {} {} {}: {e}",
+                dtype.name(),
+                case.class,
+                case.params
+            )
+        })
+    });
 
     let stats = plan_packed
         .report()
@@ -377,6 +413,9 @@ fn one_case<S: Scalar>(
     let alg_default = plan_default.report().algorithm.name();
     let reason_default = reason_str(&plan_default.report().reason);
     let alg_packed = plan_packed.report().algorithm.name();
+    let alg_faer = plan_faer
+        .as_ref()
+        .map(|p| (p.report().algorithm.name(), reason_str(&p.report().reason)));
 
     let av = StridedView::new(&a, &case.a, &sa, 0).unwrap();
     let bv = StridedView::new(&b, &case.b, &sb, 0).unwrap();
@@ -416,26 +455,42 @@ fn one_case<S: Scalar>(
         let mut dv = StridedViewMut::new(&mut d, &case.d, &sd, 0).unwrap();
         apply(&plan_packed, mode, exec, alpha, &av, &bv, beta, &mut dv);
     }
-    let rel_packed = rel_err(&d, &want);
-    let rel_arms = rel_err(&d, &got_default);
+    let got_packed = d.clone();
+    let rel_packed = rel_err(&got_packed, &want);
+    let rel_arms = rel_err(&got_packed, &got_default);
+    let rel_faer = plan_faer.as_ref().map(|plan| {
+        d.copy_from_slice(&start);
+        {
+            let mut dv = StridedViewMut::new(&mut d, &case.d, &sd, 0).unwrap();
+            apply(plan, mode, exec, alpha, &av, &bv, beta, &mut dv);
+        }
+        rel_err(&d, &want)
+    });
 
     let tol = if dtype == DType::F64 || dtype == DType::C64 {
         1e-10
     } else {
         1e-5
     };
+    let faer_check = match (&alg_faer, rel_faer) {
+        (Some((alg, reason)), Some(rel)) => {
+            format!(" faer_forced={alg} route_faer={reason} rel_faer={rel:.3e}")
+        }
+        _ => String::new(),
+    };
     checks.push(format!(
-        "CHECK {} {} {} c_mode={} threads={threads} default={alg_default} packed={alg_packed} \
-         rel_default={rel_default:.3e} rel_packed={rel_packed:.3e} rel_arms={rel_arms:.3e} tol={tol:.0e}",
+        "CHECK {} {} {} c_mode={} threads={threads} default={alg_default} packed={alg_packed}\
+         {faer_check} rel_default={rel_default:.3e} rel_packed={rel_packed:.3e} \
+         rel_arms={rel_arms:.3e} tol={tol:.0e}",
         dtype.name(),
         case.class,
         case.params,
         mode.name(),
     ));
     assert!(
-        rel_default < tol && rel_packed < tol && rel_arms < tol,
+        rel_default < tol && rel_packed < tol && rel_arms < tol && rel_faer.is_none_or(|r| r < tol),
         "{} {} {} c_mode={} threads={threads} failed the oracle: default={rel_default:.3e} \
-         packed={rel_packed:.3e} arms={rel_arms:.3e} (tol {tol:.0e})",
+         packed={rel_packed:.3e} arms={rel_arms:.3e} faer_forced={rel_faer:?} (tol {tol:.0e})",
         dtype.name(),
         case.class,
         case.params,
@@ -469,6 +524,11 @@ fn one_case<S: Scalar>(
         reps,
         prime_ms,
     );
+    let ns_faer = plan_faer.as_ref().map(|plan| {
+        time_plan(
+            plan, mode, &mut d, &case.d, &sd, &av, &bv, exec, reps, prime_ms,
+        )
+    });
 
     let base = format!(
         "{},{},{},{},{},{},{},{},{},{threads}",
@@ -486,6 +546,9 @@ fn one_case<S: Scalar>(
         "{base},default,{alg_default},{reason_default},{ns_default:.1}"
     ));
     rows.push(format!("{base},packed,{alg_packed},forced,{ns_packed:.1}"));
+    if let (Some((alg, reason)), Some(ns)) = (alg_faer, ns_faer) {
+        rows.push(format!("{base},faer_forced,{alg},{reason},{ns:.1}"));
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -494,6 +557,7 @@ fn dispatch<S: Scalar>(
     mode: CMode,
     threads: usize,
     exec: &Exec<'_>,
+    arms: &[&str],
     reps: usize,
     prime_ms: u64,
     timing: bool,
@@ -501,7 +565,7 @@ fn dispatch<S: Scalar>(
     checks: &mut Vec<String>,
 ) {
     one_case::<S>(
-        case, mode, threads, exec, reps, prime_ms, timing, rows, checks,
+        case, mode, threads, exec, arms, reps, prime_ms, timing, rows, checks,
     );
 }
 
@@ -554,10 +618,27 @@ fn main() {
     let mut prime_ms = 500u64;
     let mut csv: Option<String> = None;
     let mut check_only = false;
+    // `default` and `packed` are always recorded; `faer_forced` is opt-in so the
+    // earlier two-arm run stays reproducible.
+    let mut arms: Vec<&str> = ARMS.to_vec();
     let mut i = 1;
     while i < args.len() {
         let next = || args.get(i + 1).cloned().unwrap_or_default();
         match args[i].as_str() {
+            "--arms" => {
+                let spec = next();
+                arms.clear();
+                for a in spec.split(',').filter(|a| !a.is_empty()) {
+                    assert!(
+                        ARMS.contains(&a),
+                        "--arms: unknown arm {a} (known: {})",
+                        ARMS.join(",")
+                    );
+                    arms.push(ARMS.iter().find(|&&x| x == a).unwrap());
+                }
+                assert!(arms.contains(&"packed"), "--arms must include packed");
+                i += 1;
+            }
             "--threads" => {
                 threads = next().parse().unwrap_or(1);
                 i += 1;
@@ -591,8 +672,9 @@ fn main() {
 
     let mut checks = vec![format!(
         "# faer-limit-sweep {} threads={threads} reps={reps} prime_ms={prime_ms} \
-         (tprims-contract execution only, prebuilt plans, preallocated output)",
-        env!("CARGO_PKG_VERSION")
+         arms={} (tprims-contract execution only, prebuilt plans, preallocated output)",
+        env!("CARGO_PKG_VERSION"),
+        arms.join(","),
     )];
     let mut rows = vec![HEADER.to_string()];
     let cases = cases();
@@ -604,6 +686,7 @@ fn main() {
             &cases,
             threads,
             &exec,
+            &arms,
             reps,
             prime_ms,
             timing,
@@ -623,6 +706,7 @@ fn main() {
             &cases,
             threads,
             &exec,
+            &arms,
             reps,
             prime_ms,
             timing,
@@ -662,6 +746,7 @@ fn run_all(
     cases: &[Case],
     threads: usize,
     exec: &Exec<'_>,
+    arms: &[&str],
     reps: usize,
     prime_ms: u64,
     timing: bool,
@@ -671,16 +756,16 @@ fn run_all(
     for case in cases {
         for mode in CMode::ALL {
             dispatch::<f32>(
-                case, mode, threads, exec, reps, prime_ms, timing, rows, checks,
+                case, mode, threads, exec, arms, reps, prime_ms, timing, rows, checks,
             );
             dispatch::<f64>(
-                case, mode, threads, exec, reps, prime_ms, timing, rows, checks,
+                case, mode, threads, exec, arms, reps, prime_ms, timing, rows, checks,
             );
             dispatch::<C32>(
-                case, mode, threads, exec, reps, prime_ms, timing, rows, checks,
+                case, mode, threads, exec, arms, reps, prime_ms, timing, rows, checks,
             );
             dispatch::<C64>(
-                case, mode, threads, exec, reps, prime_ms, timing, rows, checks,
+                case, mode, threads, exec, arms, reps, prime_ms, timing, rows, checks,
             );
         }
     }
