@@ -118,9 +118,13 @@ Reading
   (1.46) than on the c64 GEMM (1.03) only because that concrete preparation is
   5.5 us, so the same absolute overhead is a smaller share of it.
   So a consumer that keeps a prepared plan pays nothing measurable for runtime
-  backend selection, and pays it once at preparation. Allocations are not counted
-  here: tests/plan_alloc.rs pins the concrete path's counts and
-  tests/neutral_alloc.rs covers the interface's extra one.
+  backend selection, and pays it once at preparation. Allocation counts are not
+  re-measured here: `tests/plan_alloc.rs` pins the *concrete* planning counts (7
+  for the problem and 2 for the plan on its shapes), and
+  `tests/neutral_alloc.rs` pins that the **execution** boundary adds no
+  allocation and no copy. The preparation-time `Box` this probe measures in time
+  (+139 to +270 ns) is not allocation-counted by either, so that attribution is
+  an inference from the delta, not a measured allocation.
 
 What this does not cover
   - One host, one rustc, one revision; three sessions; the gemm c64 4T exec row

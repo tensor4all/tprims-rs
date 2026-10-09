@@ -72,8 +72,11 @@ everywhere.
 
 So a consumer that keeps a prepared plan pays nothing measurable for runtime
 backend selection, and pays it once at preparation. Allocation counts are not
-re-measured here: `crates/tprims-contract/tests/plan_alloc.rs` pins the concrete
-path's counts and `tests/neutral_alloc.rs` covers the interface's extra one.
+re-measured here: `crates/tprims-contract/tests/plan_alloc.rs` pins the
+*concrete* planning counts and `tests/neutral_alloc.rs` pins that the
+**execution** boundary adds no allocation and no copy. The preparation-time
+`Box` this probe measures in time is not allocation-counted by either, so that
+attribution is an inference from the delta.
 
 ## What this does not cover
 
