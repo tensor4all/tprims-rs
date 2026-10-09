@@ -51,10 +51,19 @@ echo "tblis: $TAG, BLIS config family $FAMILY"
 echo "prefix: $prefix"
 echo "build tree: $work"
 
-git clone --recursive "$URL" "$work/tblis"
+if [[ -d "$work/tblis/.git" ]]; then
+    # Re-running with the same TBLIS_BUILD_DIR reuses the tree: a failed build is
+    # worth retrying in place, and the tree is where the resolved BLIS
+    # configuration is read from.
+    git -C "$work/tblis" fetch --tags --quiet
+    git -C "$work/tblis" checkout "$TAG"
+    git -C "$work/tblis" submodule update --init --recursive
+else
+    git clone --recursive "$URL" "$work/tblis"
+    git -C "$work/tblis" checkout "$TAG"
+    git -C "$work/tblis" submodule update --init --recursive
+fi
 cd "$work/tblis"
-git checkout "$TAG"
-git submodule update --init --recursive
 
 commit="$(git rev-parse HEAD)"
 tag="$(git describe --tags --exact-match)"
@@ -72,8 +81,13 @@ make install
 # options only add search paths. On a host with a system BLIS the pin would be
 # ignored and the PROVENANCE below would name a revision the prefix does not
 # contain, which is worse than not building at all.
-config_mk="$(find "$work/tblis" -maxdepth 4 -name config.mk -path '*blis-build*' -print -quit || true)"
-if [[ -z "$config_mk" ]]; then
+# The directory is looked up by *name*, not by a path glob: a build directory
+# called `tblis-build-<tag>` contains the substring "blis-build" and made a
+# `-path '*blis-build*'` match TBLIS's own `tblis/plugin/config.mk`, whose
+# CONFIG_NAME does not exist.
+blis_build="$(find "$work/tblis" -maxdepth 5 -type d -name blis-build -print -quit || true)"
+config_mk="${blis_build:+$blis_build/config.mk}"
+if [[ -z "$blis_build" || ! -f "$config_mk" ]]; then
     echo "ERROR: no vendored BLIS build under $work/tblis: the build found a BLIS" >&2
     echo "already installed on this host and used that instead of the pinned" >&2
     echo "$blis_commit. Hide it from pkg-config/CMake (or build elsewhere) so" >&2
@@ -83,9 +97,12 @@ fi
 
 # What BLIS resolved inside the requested family; a family may have
 # sub-configurations and `zen3` need not be what its `CONFIG_NAME` ends up as.
-config="$(sed -n 's/^CONFIG_NAME[[:space:]][[:space:]]*\([^[:space:]]*\).*/\1/p' "$config_mk" | head -1)"
+# BLIS writes a make assignment (`CONFIG_NAME := zen3`), so the value is what
+# follows the `=`; taking the first token after the name would record `:=`.
+config="$(sed -n 's/^CONFIG_NAME[[:space:]]*:*=[[:space:]]*\([A-Za-z0-9_.-][A-Za-z0-9_.-]*\).*/\1/p' "$config_mk" | head -1)"
 if [[ -z "$config" ]]; then
-    echo "ERROR: $config_mk has no CONFIG_NAME line; cannot record the BLIS configuration" >&2
+    echo "ERROR: $config_mk has no readable CONFIG_NAME line; cannot record the BLIS configuration" >&2
+    echo "       (looked for a make assignment such as 'CONFIG_NAME := zen3')" >&2
     exit 1
 fi
 
