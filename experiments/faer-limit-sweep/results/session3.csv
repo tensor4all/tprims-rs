@@ -1,0 +1,369 @@
+class,dtype,params,batch,m,n,k,mnk,threads,arm,algorithm,reason,ns
+gemm,f32,n=32,1,32,32,32,32768,1,default,faer,fused,741.0
+gemm,f32,n=32,1,32,32,32,32768,1,packed,packed,forced,2554.0
+gemm,f64,n=32,1,32,32,32,32768,1,default,faer,fused,1402.0
+gemm,f64,n=32,1,32,32,32,32768,1,packed,packed,forced,6442.0
+gemm,c32,n=32,1,32,32,32,32768,1,default,faer,fused,2695.0
+gemm,c32,n=32,1,32,32,32,32768,1,packed,packed,forced,7454.0
+gemm,c64,n=32,1,32,32,32,32768,1,default,faer,fused,5290.0
+gemm,c64,n=32,1,32,32,32,32768,1,packed,packed,forced,7794.0
+gemm,f32,n=64,1,64,64,64,262144,1,default,faer,fused,5179.0
+gemm,f32,n=64,1,64,64,64,262144,1,packed,packed,forced,13475.0
+gemm,f64,n=64,1,64,64,64,262144,1,default,faer,fused,10289.0
+gemm,f64,n=64,1,64,64,64,262144,1,packed,packed,forced,22772.0
+gemm,c32,n=64,1,64,64,64,262144,1,default,faer,fused,20578.0
+gemm,c32,n=64,1,64,64,64,262144,1,packed,packed,forced,33793.0
+gemm,c64,n=64,1,64,64,64,262144,1,default,packed,above_faer_limit(volume=262144 limit=131072),61345.0
+gemm,c64,n=64,1,64,64,64,262144,1,packed,packed,forced,61324.0
+gemm,f32,n=128,1,128,128,128,2097152,1,default,faer,fused,40375.0
+gemm,f32,n=128,1,128,128,128,2097152,1,packed,packed,forced,69389.0
+gemm,f64,n=128,1,128,128,128,2097152,1,default,faer,fused,80450.0
+gemm,f64,n=128,1,128,128,128,2097152,1,packed,packed,forced,128159.0
+gemm,c32,n=128,1,128,128,128,2097152,1,default,faer,fused,160971.0
+gemm,c32,n=128,1,128,128,128,2097152,1,packed,packed,forced,205603.0
+gemm,c64,n=128,1,128,128,128,2097152,1,default,packed,above_faer_limit(volume=2097152 limit=131072),425023.0
+gemm,c64,n=128,1,128,128,128,2097152,1,packed,packed,forced,425654.0
+gemm,f32,n=256,1,256,256,256,16777216,1,default,faer,fused,320668.0
+gemm,f32,n=256,1,256,256,256,16777216,1,packed,packed,forced,397441.0
+gemm,f64,n=256,1,256,256,256,16777216,1,default,faer,fused,642319.0
+gemm,f64,n=256,1,256,256,256,16777216,1,packed,packed,forced,860625.0
+gemm,c32,n=256,1,256,256,256,16777216,1,default,faer,fused,1283244.0
+gemm,c32,n=256,1,256,256,256,16777216,1,packed,packed,forced,1352563.0
+gemm,c64,n=256,1,256,256,256,16777216,1,default,packed,above_faer_limit(volume=16777216 limit=131072),2688675.0
+gemm,c64,n=256,1,256,256,256,16777216,1,packed,packed,forced,2687393.0
+gemm_batched,f32,n=16 batch=16,16,16,16,16,4096,1,default,faer,fused,2044.0
+gemm_batched,f32,n=16 batch=16,16,16,16,16,4096,1,packed,packed,forced,11732.0
+gemm_batched,f64,n=16 batch=16,16,16,16,16,4096,1,default,faer,fused,3616.0
+gemm_batched,f64,n=16 batch=16,16,16,16,16,4096,1,packed,packed,forced,9588.0
+gemm_batched,c32,n=16 batch=16,16,16,16,16,4096,1,default,faer,fused,9658.0
+gemm_batched,c32,n=16 batch=16,16,16,16,16,4096,1,packed,packed,forced,19717.0
+gemm_batched,c64,n=16 batch=16,16,16,16,16,4096,1,default,faer,fused,19376.0
+gemm_batched,c64,n=16 batch=16,16,16,16,16,4096,1,packed,packed,forced,19457.0
+gemm_batched,f32,n=32 batch=16,16,32,32,32,32768,1,default,faer,fused,11412.0
+gemm_batched,f32,n=32 batch=16,16,32,32,32,32768,1,packed,packed,forced,34965.0
+gemm_batched,f64,n=32 batch=16,16,32,32,32,32768,1,default,faer,fused,21870.0
+gemm_batched,f64,n=32 batch=16,16,32,32,32,32768,1,packed,packed,forced,46737.0
+gemm_batched,c32,n=32 batch=16,16,32,32,32,32768,1,default,faer,fused,42600.0
+gemm_batched,c32,n=32 batch=16,16,32,32,32,32768,1,packed,packed,forced,62156.0
+gemm_batched,c64,n=32 batch=16,16,32,32,32,32768,1,default,faer,fused,84568.0
+gemm_batched,c64,n=32 batch=16,16,32,32,32,32768,1,packed,packed,forced,119092.0
+gemm_batched,f32,n=64 batch=16,16,64,64,64,262144,1,default,faer,fused,82313.0
+gemm_batched,f32,n=64 batch=16,16,64,64,64,262144,1,packed,packed,forced,172602.0
+gemm_batched,f64,n=64 batch=16,16,64,64,64,262144,1,default,faer,fused,166431.0
+gemm_batched,f64,n=64 batch=16,16,64,64,64,262144,1,packed,packed,forced,236501.0
+gemm_batched,c32,n=64 batch=16,16,64,64,64,262144,1,default,faer,fused,329054.0
+gemm_batched,c32,n=64 batch=16,16,64,64,64,262144,1,packed,packed,forced,399505.0
+gemm_batched,c64,n=64 batch=16,16,64,64,64,262144,1,default,packed,above_faer_limit(volume=262144 limit=131072),782159.0
+gemm_batched,c64,n=64 batch=16,16,64,64,64,262144,1,packed,packed,forced,781317.0
+gemm_batched,f32,n=32 batch=64,64,32,32,32,32768,1,default,faer,fused,45695.0
+gemm_batched,f32,n=32 batch=64,64,32,32,32,32768,1,packed,packed,forced,121187.0
+gemm_batched,f64,n=32 batch=64,64,32,32,32,32768,1,default,faer,fused,89897.0
+gemm_batched,f64,n=32 batch=64,64,32,32,32,32768,1,packed,packed,forced,183623.0
+gemm_batched,c32,n=32 batch=64,64,32,32,32,32768,1,default,faer,fused,171691.0
+gemm_batched,c32,n=32 batch=64,64,32,32,32,32768,1,packed,packed,forced,251990.0
+gemm_batched,c64,n=32 batch=64,64,32,32,32,32768,1,default,faer,fused,343260.0
+gemm_batched,c64,n=32 batch=64,64,32,32,32,32768,1,packed,packed,forced,484864.0
+gemm_batched,f32,n=64 batch=64,64,64,64,64,262144,1,default,faer,fused,331799.0
+gemm_batched,f32,n=64 batch=64,64,64,64,64,262144,1,packed,packed,forced,693653.0
+gemm_batched,f64,n=64 batch=64,64,64,64,64,262144,1,default,faer,fused,666544.0
+gemm_batched,f64,n=64 batch=64,64,64,64,64,262144,1,packed,packed,forced,983895.0
+gemm_batched,c32,n=64 batch=64,64,64,64,64,262144,1,default,faer,fused,1330722.0
+gemm_batched,c32,n=64 batch=64,64,64,64,64,262144,1,packed,packed,forced,1622797.0
+gemm_batched,c64,n=64 batch=64,64,64,64,64,262144,1,default,packed,above_faer_limit(volume=262144 limit=131072),3702567.0
+gemm_batched,c64,n=64 batch=64,64,64,64,64,262144,1,packed,packed,forced,3700773.0
+mps_env,f32,chi=16,1,16,32,16,8192,1,default,faer,fused,320.0
+mps_env,f32,chi=16,1,16,32,16,8192,1,packed,packed,forced,1452.0
+mps_env,f64,chi=16,1,16,32,16,8192,1,default,faer,fused,461.0
+mps_env,f64,chi=16,1,16,32,16,8192,1,packed,packed,forced,1512.0
+mps_env,c32,chi=16,1,16,32,16,8192,1,default,faer,fused,801.0
+mps_env,c32,chi=16,1,16,32,16,8192,1,packed,packed,forced,1884.0
+mps_env,c64,chi=16,1,16,32,16,8192,1,default,faer,fused,1492.0
+mps_env,c64,chi=16,1,16,32,16,8192,1,packed,packed,forced,2735.0
+mps_env,f32,chi=24,1,24,48,24,27648,1,default,faer,fused,872.0
+mps_env,f32,chi=24,1,24,48,24,27648,1,packed,packed,forced,1773.0
+mps_env,f64,chi=24,1,24,48,24,27648,1,default,faer,fused,1242.0
+mps_env,f64,chi=24,1,24,48,24,27648,1,packed,packed,forced,2355.0
+mps_env,c32,chi=24,1,24,48,24,27648,1,default,faer,fused,2344.0
+mps_env,c32,chi=24,1,24,48,24,27648,1,packed,packed,forced,5089.0
+mps_env,c64,chi=24,1,24,48,24,27648,1,default,faer,fused,4628.0
+mps_env,c64,chi=24,1,24,48,24,27648,1,packed,packed,forced,8085.0
+mps_env,f32,chi=32,1,32,64,32,65536,1,default,faer,fused,1432.0
+mps_env,f32,chi=32,1,32,64,32,65536,1,packed,packed,forced,4378.0
+mps_env,f64,chi=32,1,32,64,32,65536,1,default,faer,fused,2785.0
+mps_env,f64,chi=32,1,32,64,32,65536,1,packed,packed,forced,5971.0
+mps_env,c32,chi=32,1,32,64,32,65536,1,default,faer,fused,5380.0
+mps_env,c32,chi=32,1,32,64,32,65536,1,packed,packed,forced,7865.0
+mps_env,c64,chi=32,1,32,64,32,65536,1,default,faer,fused,10610.0
+mps_env,c64,chi=32,1,32,64,32,65536,1,packed,packed,forced,14156.0
+mps_env,f32,chi=48,1,48,96,48,221184,1,default,faer,fused,4538.0
+mps_env,f32,chi=48,1,48,96,48,221184,1,packed,packed,forced,7213.0
+mps_env,f64,chi=48,1,48,96,48,221184,1,default,faer,fused,8867.0
+mps_env,f64,chi=48,1,48,96,48,221184,1,packed,packed,forced,11923.0
+mps_env,c32,chi=48,1,48,96,48,221184,1,default,faer,fused,17512.0
+mps_env,c32,chi=48,1,48,96,48,221184,1,packed,packed,forced,28223.0
+mps_env,c64,chi=48,1,48,96,48,221184,1,default,packed,above_faer_limit(volume=221184 limit=131072),41607.0
+mps_env,c64,chi=48,1,48,96,48,221184,1,packed,packed,forced,41598.0
+mps_env,f32,chi=64,1,64,128,64,524288,1,default,faer,fused,10339.0
+mps_env,f32,chi=64,1,64,128,64,524288,1,packed,packed,forced,20838.0
+mps_env,f64,chi=64,1,64,128,64,524288,1,default,faer,fused,20838.0
+mps_env,f64,chi=64,1,64,128,64,524288,1,packed,packed,forced,28463.0
+mps_env,c32,chi=64,1,64,128,64,524288,1,default,faer,fused,41237.0
+mps_env,c32,chi=64,1,64,128,64,524288,1,packed,packed,forced,50384.0
+mps_env,c64,chi=64,1,64,128,64,524288,1,default,packed,above_faer_limit(volume=524288 limit=131072),96239.0
+mps_env,c64,chi=64,1,64,128,64,524288,1,packed,packed,forced,96209.0
+mps_env,f32,chi=96,1,96,192,96,1769472,1,default,faer,fused,34625.0
+mps_env,f32,chi=96,1,96,192,96,1769472,1,packed,packed,forced,43771.0
+mps_env,f64,chi=96,1,96,192,96,1769472,1,default,faer,fused,68829.0
+mps_env,f64,chi=96,1,96,192,96,1769472,1,packed,packed,forced,79679.0
+mps_env,c32,chi=96,1,96,192,96,1769472,1,default,faer,fused,137266.0
+mps_env,c32,chi=96,1,96,192,96,1769472,1,packed,packed,forced,153957.0
+mps_env,c64,chi=96,1,96,192,96,1769472,1,default,packed,above_faer_limit(volume=1769472 limit=131072),301462.0
+mps_env,c64,chi=96,1,96,192,96,1769472,1,packed,packed,forced,300611.0
+mps_env,f32,chi=128,1,128,256,128,4194304,1,default,faer,fused,81482.0
+mps_env,f32,chi=128,1,128,256,128,4194304,1,packed,packed,forced,108002.0
+mps_env,f64,chi=128,1,128,256,128,4194304,1,default,faer,fused,162654.0
+mps_env,f64,chi=128,1,128,256,128,4194304,1,packed,packed,forced,202989.0
+mps_env,c32,chi=128,1,128,256,128,4194304,1,default,faer,fused,323984.0
+mps_env,c32,chi=128,1,128,256,128,4194304,1,packed,packed,forced,357547.0
+mps_env,c64,chi=128,1,128,256,128,4194304,1,default,packed,above_faer_limit(volume=4194304 limit=131072),710676.0
+mps_env,c64,chi=128,1,128,256,128,4194304,1,packed,packed,forced,709163.0
+mps_site,f32,chi=16,1,16,16,32,8192,1,default,faer,fused,311.0
+mps_site,f32,chi=16,1,16,16,32,8192,1,packed,packed,forced,1834.0
+mps_site,f64,chi=16,1,16,16,32,8192,1,default,faer,fused,481.0
+mps_site,f64,chi=16,1,16,16,32,8192,1,packed,packed,forced,1443.0
+mps_site,c32,chi=16,1,16,16,32,8192,1,default,faer,fused,801.0
+mps_site,c32,chi=16,1,16,16,32,8192,1,packed,packed,forced,2665.0
+mps_site,c64,chi=16,1,16,16,32,8192,1,default,faer,fused,1473.0
+mps_site,c64,chi=16,1,16,16,32,8192,1,packed,packed,forced,2675.0
+mps_site,f32,chi=24,1,24,24,48,27648,1,default,faer,fused,882.0
+mps_site,f32,chi=24,1,24,24,48,27648,1,packed,packed,forced,2815.0
+mps_site,f64,chi=24,1,24,24,48,27648,1,default,faer,fused,1273.0
+mps_site,f64,chi=24,1,24,24,48,27648,1,packed,packed,forced,2374.0
+mps_site,c32,chi=24,1,24,24,48,27648,1,default,faer,fused,2364.0
+mps_site,c32,chi=24,1,24,24,48,27648,1,packed,packed,forced,4879.0
+mps_site,c64,chi=24,1,24,24,48,27648,1,default,faer,fused,4648.0
+mps_site,c64,chi=24,1,24,24,48,27648,1,packed,packed,forced,8075.0
+mps_site,f32,chi=32,1,32,32,64,65536,1,default,faer,fused,1452.0
+mps_site,f32,chi=32,1,32,32,64,65536,1,packed,packed,forced,4628.0
+mps_site,f64,chi=32,1,32,32,64,65536,1,default,faer,fused,2845.0
+mps_site,f64,chi=32,1,32,32,64,65536,1,packed,packed,forced,6222.0
+mps_site,c32,chi=32,1,32,32,64,65536,1,default,faer,fused,5360.0
+mps_site,c32,chi=32,1,32,32,64,65536,1,packed,packed,forced,8676.0
+mps_site,c64,chi=32,1,32,32,64,65536,1,default,faer,fused,10780.0
+mps_site,c64,chi=32,1,32,32,64,65536,1,packed,packed,forced,15058.0
+mps_site,f32,chi=48,1,48,48,96,221184,1,default,faer,fused,4568.0
+mps_site,f32,chi=48,1,48,48,96,221184,1,packed,packed,forced,7404.0
+mps_site,f64,chi=48,1,48,48,96,221184,1,default,faer,fused,9207.0
+mps_site,f64,chi=48,1,48,48,96,221184,1,packed,packed,forced,12203.0
+mps_site,c32,chi=48,1,48,48,96,221184,1,default,faer,fused,17683.0
+mps_site,c32,chi=48,1,48,48,96,221184,1,packed,packed,forced,29024.0
+mps_site,c64,chi=48,1,48,48,96,221184,1,default,packed,above_faer_limit(volume=221184 limit=131072),41257.0
+mps_site,c64,chi=48,1,48,48,96,221184,1,packed,packed,forced,41207.0
+mps_site,f32,chi=64,1,64,64,128,524288,1,default,faer,fused,10660.0
+mps_site,f32,chi=64,1,64,64,128,524288,1,packed,packed,forced,22362.0
+mps_site,f64,chi=64,1,64,64,128,524288,1,default,faer,fused,21390.0
+mps_site,f64,chi=64,1,64,64,128,524288,1,packed,packed,forced,29074.0
+mps_site,c32,chi=64,1,64,64,128,524288,1,default,faer,fused,41687.0
+mps_site,c32,chi=64,1,64,64,128,524288,1,packed,packed,forced,51486.0
+mps_site,c64,chi=64,1,64,64,128,524288,1,default,packed,above_faer_limit(volume=524288 limit=131072),95558.0
+mps_site,c64,chi=64,1,64,64,128,524288,1,packed,packed,forced,95528.0
+mps_site,f32,chi=96,1,96,96,192,1769472,1,default,faer,fused,35046.0
+mps_site,f32,chi=96,1,96,96,192,1769472,1,packed,packed,forced,44844.0
+mps_site,f64,chi=96,1,96,96,192,1769472,1,default,faer,fused,69620.0
+mps_site,f64,chi=96,1,96,96,192,1769472,1,packed,packed,forced,80601.0
+mps_site,c32,chi=96,1,96,96,192,1769472,1,default,faer,fused,137276.0
+mps_site,c32,chi=96,1,96,96,192,1769472,1,packed,packed,forced,156682.0
+mps_site,c64,chi=96,1,96,96,192,1769472,1,default,packed,above_faer_limit(volume=1769472 limit=131072),302093.0
+mps_site,c64,chi=96,1,96,96,192,1769472,1,packed,packed,forced,302194.0
+mps_site,f32,chi=128,1,128,128,256,4194304,1,default,faer,fused,82494.0
+mps_site,f32,chi=128,1,128,128,256,4194304,1,packed,packed,forced,111989.0
+mps_site,f64,chi=128,1,128,128,256,4194304,1,default,faer,fused,167312.0
+mps_site,f64,chi=128,1,128,128,256,4194304,1,packed,packed,forced,207057.0
+mps_site,c32,chi=128,1,128,128,256,4194304,1,default,faer,fused,326689.0
+mps_site,c32,chi=128,1,128,128,256,4194304,1,packed,packed,forced,379357.0
+mps_site,c64,chi=128,1,128,128,256,4194304,1,default,packed,above_faer_limit(volume=4194304 limit=131072),719492.0
+mps_site,c64,chi=128,1,128,128,256,4194304,1,packed,packed,forced,718199.0
+gemm,f32,n=32,1,32,32,32,32768,4,default,faer,fused,751.0
+gemm,f32,n=32,1,32,32,32,32768,4,packed,packed,forced,2534.0
+gemm,f64,n=32,1,32,32,32,32768,4,default,faer,fused,1412.0
+gemm,f64,n=32,1,32,32,32,32768,4,packed,packed,forced,3266.0
+gemm,c32,n=32,1,32,32,32,32768,4,default,faer,fused,2715.0
+gemm,c32,n=32,1,32,32,32,32768,4,packed,packed,forced,4318.0
+gemm,c64,n=32,1,32,32,32,32768,4,default,faer,fused,5300.0
+gemm,c64,n=32,1,32,32,32,32768,4,packed,packed,forced,7805.0
+gemm,f32,n=64,1,64,64,64,262144,4,default,faer,fused,5180.0
+gemm,f32,n=64,1,64,64,64,262144,4,packed,packed,forced,11181.0
+gemm,f64,n=64,1,64,64,64,262144,4,default,faer,fused,10289.0
+gemm,f64,n=64,1,64,64,64,262144,4,packed,packed,forced,14848.0
+gemm,c32,n=64,1,64,64,64,262144,4,default,faer,fused,15519.0
+gemm,c32,n=64,1,64,64,64,262144,4,packed,packed,forced,13845.0
+gemm,c64,n=64,1,64,64,64,262144,4,default,packed,above_faer_limit(volume=262144 limit=131072),21149.0
+gemm,c64,n=64,1,64,64,64,262144,4,packed,packed,forced,19757.0
+gemm,f32,n=128,1,128,128,128,2097152,4,default,faer,fused,38672.0
+gemm,f32,n=128,1,128,128,128,2097152,4,packed,packed,forced,20248.0
+gemm,f64,n=128,1,128,128,128,2097152,4,default,faer,fused,32100.0
+gemm,f64,n=128,1,128,128,128,2097152,4,packed,packed,forced,44773.0
+gemm,c32,n=128,1,128,128,128,2097152,4,default,faer,fused,57307.0
+gemm,c32,n=128,1,128,128,128,2097152,4,packed,packed,forced,54822.0
+gemm,c64,n=128,1,128,128,128,2097152,4,default,packed,above_faer_limit(volume=2097152 limit=131072),97953.0
+gemm,c64,n=128,1,128,128,128,2097152,4,packed,packed,forced,98935.0
+gemm,f32,n=256,1,256,256,256,16777216,4,default,faer,fused,152774.0
+gemm,f32,n=256,1,256,256,256,16777216,4,packed,packed,forced,143077.0
+gemm,f64,n=256,1,256,256,256,16777216,4,default,faer,fused,177701.0
+gemm,f64,n=256,1,256,256,256,16777216,4,packed,packed,forced,203640.0
+gemm,c32,n=256,1,256,256,256,16777216,4,default,faer,fused,353079.0
+gemm,c32,n=256,1,256,256,256,16777216,4,packed,packed,forced,349261.0
+gemm,c64,n=256,1,256,256,256,16777216,4,default,packed,above_faer_limit(volume=16777216 limit=131072),689095.0
+gemm,c64,n=256,1,256,256,256,16777216,4,packed,packed,forced,689055.0
+gemm_batched,f32,n=16 batch=16,16,16,16,16,4096,4,default,faer,fused,2023.0
+gemm_batched,f32,n=16 batch=16,16,16,16,16,4096,4,packed,packed,forced,11732.0
+gemm_batched,f64,n=16 batch=16,16,16,16,16,4096,4,default,faer,fused,3477.0
+gemm_batched,f64,n=16 batch=16,16,16,16,16,4096,4,packed,packed,forced,9968.0
+gemm_batched,c32,n=16 batch=16,16,16,16,16,4096,4,default,faer,fused,9558.0
+gemm_batched,c32,n=16 batch=16,16,16,16,16,4096,4,packed,packed,forced,19717.0
+gemm_batched,c64,n=16 batch=16,16,16,16,16,4096,4,default,faer,fused,19316.0
+gemm_batched,c64,n=16 batch=16,16,16,16,16,4096,4,packed,packed,forced,19065.0
+gemm_batched,f32,n=32 batch=16,16,32,32,32,32768,4,default,faer,fused,7093.0
+gemm_batched,f32,n=32 batch=16,16,32,32,32,32768,4,packed,packed,forced,15318.0
+gemm_batched,f64,n=32 batch=16,16,32,32,32,32768,4,default,faer,fused,11462.0
+gemm_batched,f64,n=32 batch=16,16,32,32,32,32768,4,packed,packed,forced,20688.0
+gemm_batched,c32,n=32 batch=16,16,32,32,32,32768,4,default,faer,fused,14246.0
+gemm_batched,c32,n=32 batch=16,16,32,32,32,32768,4,packed,packed,forced,19657.0
+gemm_batched,c64,n=32 batch=16,16,32,32,32,32768,4,default,faer,fused,24606.0
+gemm_batched,c64,n=32 batch=16,16,32,32,32,32768,4,packed,packed,forced,33472.0
+gemm_batched,f32,n=64 batch=16,16,64,64,64,262144,4,default,faer,fused,24135.0
+gemm_batched,f32,n=64 batch=16,16,64,64,64,262144,4,packed,packed,forced,47378.0
+gemm_batched,f64,n=64 batch=16,16,64,64,64,262144,4,default,faer,fused,44823.0
+gemm_batched,f64,n=64 batch=16,16,64,64,64,262144,4,packed,packed,forced,63368.0
+gemm_batched,c32,n=64 batch=16,16,64,64,64,262144,4,default,faer,fused,234016.0
+gemm_batched,c32,n=64 batch=16,16,64,64,64,262144,4,packed,packed,forced,102190.0
+gemm_batched,c64,n=64 batch=16,16,64,64,64,262144,4,default,packed,above_faer_limit(volume=262144 limit=131072),197458.0
+gemm_batched,c64,n=64 batch=16,16,64,64,64,262144,4,packed,packed,forced,196446.0
+gemm_batched,f32,n=32 batch=64,64,32,32,32,32768,4,default,faer,fused,14948.0
+gemm_batched,f32,n=32 batch=64,64,32,32,32,32768,4,packed,packed,forced,39523.0
+gemm_batched,f64,n=32 batch=64,64,32,32,32,32768,4,default,faer,fused,24997.0
+gemm_batched,f64,n=32 batch=64,64,32,32,32,32768,4,packed,packed,forced,49853.0
+gemm_batched,c32,n=32 batch=64,64,32,32,32,32768,4,default,faer,fused,46396.0
+gemm_batched,c32,n=32 batch=64,64,32,32,32,32768,4,packed,packed,forced,65853.0
+gemm_batched,c64,n=32 batch=64,64,32,32,32,32768,4,default,faer,fused,88195.0
+gemm_batched,c64,n=32 batch=64,64,32,32,32,32768,4,packed,packed,forced,122498.0
+gemm_batched,f32,n=64 batch=64,64,64,64,64,262144,4,default,faer,fused,86071.0
+gemm_batched,f32,n=64 batch=64,64,64,64,64,262144,4,packed,packed,forced,177270.0
+gemm_batched,f64,n=64 batch=64,64,64,64,64,262144,4,default,faer,fused,171199.0
+gemm_batched,f64,n=64 batch=64,64,64,64,64,262144,4,packed,packed,forced,244285.0
+gemm_batched,c32,n=64 batch=64,64,64,64,64,262144,4,default,faer,fused,1019411.0
+gemm_batched,c32,n=64 batch=64,64,64,64,64,262144,4,packed,packed,forced,403483.0
+gemm_batched,c64,n=64 batch=64,64,64,64,64,262144,4,default,packed,above_faer_limit(volume=262144 limit=131072),932409.0
+gemm_batched,c64,n=64 batch=64,64,64,64,64,262144,4,packed,packed,forced,930856.0
+mps_env,f32,chi=16,1,16,32,16,8192,4,default,faer,fused,320.0
+mps_env,f32,chi=16,1,16,32,16,8192,4,packed,packed,forced,1433.0
+mps_env,f64,chi=16,1,16,32,16,8192,4,default,faer,fused,461.0
+mps_env,f64,chi=16,1,16,32,16,8192,4,packed,packed,forced,1432.0
+mps_env,c32,chi=16,1,16,32,16,8192,4,default,faer,fused,791.0
+mps_env,c32,chi=16,1,16,32,16,8192,4,packed,packed,forced,1833.0
+mps_env,c64,chi=16,1,16,32,16,8192,4,default,faer,fused,1483.0
+mps_env,c64,chi=16,1,16,32,16,8192,4,packed,packed,forced,2695.0
+mps_env,f32,chi=24,1,24,48,24,27648,4,default,faer,fused,861.0
+mps_env,f32,chi=24,1,24,48,24,27648,4,packed,packed,forced,1733.0
+mps_env,f64,chi=24,1,24,48,24,27648,4,default,faer,fused,1252.0
+mps_env,f64,chi=24,1,24,48,24,27648,4,packed,packed,forced,2234.0
+mps_env,c32,chi=24,1,24,48,24,27648,4,default,faer,fused,2364.0
+mps_env,c32,chi=24,1,24,48,24,27648,4,packed,packed,forced,5050.0
+mps_env,c64,chi=24,1,24,48,24,27648,4,default,faer,fused,4628.0
+mps_env,c64,chi=24,1,24,48,24,27648,4,packed,packed,forced,8075.0
+mps_env,f32,chi=32,1,32,64,32,65536,4,default,faer,fused,1433.0
+mps_env,f32,chi=32,1,32,64,32,65536,4,packed,packed,forced,4308.0
+mps_env,f64,chi=32,1,32,64,32,65536,4,default,faer,fused,2795.0
+mps_env,f64,chi=32,1,32,64,32,65536,4,packed,packed,forced,5881.0
+mps_env,c32,chi=32,1,32,64,32,65536,4,default,faer,fused,5370.0
+mps_env,c32,chi=32,1,32,64,32,65536,4,packed,packed,forced,7824.0
+mps_env,c64,chi=32,1,32,64,32,65536,4,default,faer,fused,10630.0
+mps_env,c64,chi=32,1,32,64,32,65536,4,packed,packed,forced,14086.0
+mps_env,f32,chi=48,1,48,96,48,221184,4,default,faer,fused,4519.0
+mps_env,f32,chi=48,1,48,96,48,221184,4,packed,packed,forced,7123.0
+mps_env,f64,chi=48,1,48,96,48,221184,4,default,faer,fused,8906.0
+mps_env,f64,chi=48,1,48,96,48,221184,4,packed,packed,forced,11872.0
+mps_env,c32,chi=48,1,48,96,48,221184,4,default,faer,fused,11151.0
+mps_env,c32,chi=48,1,48,96,48,221184,4,packed,packed,forced,15989.0
+mps_env,c64,chi=48,1,48,96,48,221184,4,default,packed,above_faer_limit(volume=221184 limit=131072),15669.0
+mps_env,c64,chi=48,1,48,96,48,221184,4,packed,packed,forced,15549.0
+mps_env,f32,chi=64,1,64,128,64,524288,4,default,faer,fused,14146.0
+mps_env,f32,chi=64,1,64,128,64,524288,4,packed,packed,forced,13195.0
+mps_env,f64,chi=64,1,64,128,64,524288,4,default,faer,fused,15058.0
+mps_env,f64,chi=64,1,64,128,64,524288,4,packed,packed,forced,18063.0
+mps_env,c32,chi=64,1,64,128,64,524288,4,default,faer,fused,22542.0
+mps_env,c32,chi=64,1,64,128,64,524288,4,packed,packed,forced,19847.0
+mps_env,c64,chi=64,1,64,128,64,524288,4,default,packed,above_faer_limit(volume=524288 limit=131072),35356.0
+mps_env,c64,chi=64,1,64,128,64,524288,4,packed,packed,forced,33442.0
+mps_env,f32,chi=96,1,96,192,96,1769472,4,default,faer,fused,24425.0
+mps_env,f32,chi=96,1,96,192,96,1769472,4,packed,packed,forced,19005.0
+mps_env,f64,chi=96,1,96,192,96,1769472,4,default,faer,fused,38020.0
+mps_env,f64,chi=96,1,96,192,96,1769472,4,packed,packed,forced,30497.0
+mps_env,c32,chi=96,1,96,192,96,1769472,4,default,faer,fused,63097.0
+mps_env,c32,chi=96,1,96,192,96,1769472,4,packed,packed,forced,45505.0
+mps_env,c64,chi=96,1,96,192,96,1769472,4,default,packed,above_faer_limit(volume=1769472 limit=131072),110596.0
+mps_env,c64,chi=96,1,96,192,96,1769472,4,packed,packed,forced,110496.0
+mps_env,f32,chi=128,1,128,256,128,4194304,4,default,faer,fused,27742.0
+mps_env,f32,chi=128,1,128,256,128,4194304,4,packed,packed,forced,35386.0
+mps_env,f64,chi=128,1,128,256,128,4194304,4,default,faer,fused,53780.0
+mps_env,f64,chi=128,1,128,256,128,4194304,4,packed,packed,forced,74780.0
+mps_env,c32,chi=128,1,128,256,128,4194304,4,default,faer,fused,98364.0
+mps_env,c32,chi=128,1,128,256,128,4194304,4,packed,packed,forced,97963.0
+mps_env,c64,chi=128,1,128,256,128,4194304,4,default,packed,above_faer_limit(volume=4194304 limit=131072),185827.0
+mps_env,c64,chi=128,1,128,256,128,4194304,4,packed,packed,forced,186337.0
+mps_site,f32,chi=16,1,16,16,32,8192,4,default,faer,fused,310.0
+mps_site,f32,chi=16,1,16,16,32,8192,4,packed,packed,forced,1613.0
+mps_site,f64,chi=16,1,16,16,32,8192,4,default,faer,fused,491.0
+mps_site,f64,chi=16,1,16,16,32,8192,4,packed,packed,forced,1343.0
+mps_site,c32,chi=16,1,16,16,32,8192,4,default,faer,fused,792.0
+mps_site,c32,chi=16,1,16,16,32,8192,4,packed,packed,forced,2645.0
+mps_site,c64,chi=16,1,16,16,32,8192,4,default,faer,fused,1472.0
+mps_site,c64,chi=16,1,16,16,32,8192,4,packed,packed,forced,2635.0
+mps_site,f32,chi=24,1,24,24,48,27648,4,default,faer,fused,891.0
+mps_site,f32,chi=24,1,24,24,48,27648,4,packed,packed,forced,2926.0
+mps_site,f64,chi=24,1,24,24,48,27648,4,default,faer,fused,1262.0
+mps_site,f64,chi=24,1,24,24,48,27648,4,packed,packed,forced,2284.0
+mps_site,c32,chi=24,1,24,24,48,27648,4,default,faer,fused,2344.0
+mps_site,c32,chi=24,1,24,24,48,27648,4,packed,packed,forced,4909.0
+mps_site,c64,chi=24,1,24,24,48,27648,4,default,faer,fused,4618.0
+mps_site,c64,chi=24,1,24,24,48,27648,4,packed,packed,forced,8025.0
+mps_site,f32,chi=32,1,32,32,64,65536,4,default,faer,fused,1452.0
+mps_site,f32,chi=32,1,32,32,64,65536,4,packed,packed,forced,4579.0
+mps_site,f64,chi=32,1,32,32,64,65536,4,default,faer,fused,2805.0
+mps_site,f64,chi=32,1,32,32,64,65536,4,packed,packed,forced,6172.0
+mps_site,c32,chi=32,1,32,32,64,65536,4,default,faer,fused,5350.0
+mps_site,c32,chi=32,1,32,32,64,65536,4,packed,packed,forced,8626.0
+mps_site,c64,chi=32,1,32,32,64,65536,4,default,faer,fused,10700.0
+mps_site,c64,chi=32,1,32,32,64,65536,4,packed,packed,forced,15008.0
+mps_site,f32,chi=48,1,48,48,96,221184,4,default,faer,fused,4538.0
+mps_site,f32,chi=48,1,48,48,96,221184,4,packed,packed,forced,7323.0
+mps_site,f64,chi=48,1,48,48,96,221184,4,default,faer,fused,9217.0
+mps_site,f64,chi=48,1,48,48,96,221184,4,packed,packed,forced,12102.0
+mps_site,c32,chi=48,1,48,48,96,221184,4,default,faer,fused,21671.0
+mps_site,c32,chi=48,1,48,48,96,221184,4,packed,packed,forced,14036.0
+mps_site,c64,chi=48,1,48,48,96,221184,4,default,packed,above_faer_limit(volume=221184 limit=131072),23103.0
+mps_site,c64,chi=48,1,48,48,96,221184,4,packed,packed,forced,21250.0
+mps_site,f32,chi=64,1,64,64,128,524288,4,default,faer,fused,12403.0
+mps_site,f32,chi=64,1,64,64,128,524288,4,packed,packed,forced,15659.0
+mps_site,f64,chi=64,1,64,64,128,524288,4,default,faer,fused,17803.0
+mps_site,f64,chi=64,1,64,64,128,524288,4,packed,packed,forced,18034.0
+mps_site,c32,chi=64,1,64,64,128,524288,4,default,faer,fused,32540.0
+mps_site,c32,chi=64,1,64,64,128,524288,4,packed,packed,forced,22051.0
+mps_site,c64,chi=64,1,64,64,128,524288,4,default,packed,above_faer_limit(volume=524288 limit=131072),33572.0
+mps_site,c64,chi=64,1,64,64,128,524288,4,packed,packed,forced,33903.0
+mps_site,f32,chi=96,1,96,96,192,1769472,4,default,faer,fused,20549.0
+mps_site,f32,chi=96,1,96,96,192,1769472,4,packed,packed,forced,19006.0
+mps_site,f64,chi=96,1,96,96,192,1769472,4,default,faer,fused,78637.0
+mps_site,f64,chi=96,1,96,96,192,1769472,4,packed,packed,forced,28824.0
+mps_site,c32,chi=96,1,96,96,192,1769472,4,default,faer,fused,99305.0
+mps_site,c32,chi=96,1,96,96,192,1769472,4,packed,packed,forced,50294.0
+mps_site,c64,chi=96,1,96,96,192,1769472,4,default,packed,above_faer_limit(volume=1769472 limit=131072),109915.0
+mps_site,c64,chi=96,1,96,96,192,1769472,4,packed,packed,forced,109425.0
+mps_site,f32,chi=128,1,128,128,256,4194304,4,default,faer,fused,61505.0
+mps_site,f32,chi=128,1,128,128,256,4194304,4,packed,packed,forced,40425.0
+mps_site,f64,chi=128,1,128,128,256,4194304,4,default,faer,fused,57667.0
+mps_site,f64,chi=128,1,128,128,256,4194304,4,packed,packed,forced,77815.0
+mps_site,c32,chi=128,1,128,128,256,4194304,4,default,faer,fused,112179.0
+mps_site,c32,chi=128,1,128,128,256,4194304,4,packed,packed,forced,103493.0
+mps_site,c64,chi=128,1,128,128,256,4194304,4,default,packed,above_faer_limit(volume=4194304 limit=131072),192278.0
+mps_site,c64,chi=128,1,128,128,256,4194304,4,packed,packed,forced,192128.0

@@ -29,7 +29,12 @@ use crate::api::{ConfigError, DType, Error, Result};
 /// is provisional until the crossover sweep of
 /// [#63](https://github.com/tensor4all/tprims-rs/issues/63) fixes the
 /// predicate and the per-dtype values; the other dtypes are unbounded until
-/// measured.
+/// measured. The 2026-10-09 sweep of
+/// [#69](https://github.com/tensor4all/tprims-rs/issues/69) did not contradict
+/// these defaults — faer wins every f32/f64/c32 case it measured at one thread,
+/// and the c64 bound sits above the largest c64 volume where faer was measured
+/// to win — but that sweep measured the overwrite form only, so the value stays
+/// provisional. See `docs/decision-log.md`.
 ///
 /// # Examples
 ///

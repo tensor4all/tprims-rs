@@ -1,0 +1,98 @@
+faer-limit-sweep: the planner's faer route against the packed driver on
+copy-free fusable contractions, per dtype and per thread count
+
+Measured library revision
+  tprims-rs 4e02ba0 (branch exp/faer-limit-sweep, based on main 4e02ba0). The
+  probe measures crates/tprims-contract's planner: PlanConfig::default() (faer
+  below the dtype's FaerLimit, packed above it) and PlanConfig::packed(), the
+  subject of tprims-rs#63 / #69. strided-view 12ff2de9 (=0.4.6), the revision
+  main pins; faer 0.24.4; rayon 1.12.0. No file in crates/, benchmarks/ or
+  docs/ changed.
+  The three sessions were recorded before the probe source had a final
+  `rustfmt` pass and one `#[allow(clippy::too_many_arguments)]` attribute;
+  both are formatting/lint only, no token or code path changed.
+Probe
+  experiments/faer-limit-sweep, own workspace, excluded from the root
+  workspace.
+
+Command
+  bash experiments/faer-limit-sweep/run.sh 3
+
+Timed boundary
+  Per call, `Plan::execute_into` only: `D = alpha * A * B` with alpha = 1, a
+  prebuilt Plan (planner default, or packed forced) and a preallocated output.
+  Problem construction, planning, view construction and buffer allocation are
+  outside the clock. One arm is measured at a time.
+    1T  Exec::serial(); the process is pinned to one CPU.
+    4T  a host-owned rayon::ThreadPool of 4 workers, built once before the
+        timed region, borrowed through tprims_exec::Pool::borrow and handed to
+        Exec::rayon. The binary asserts the pool width, the Exec budget and
+        that Cpus_allowed_list holds exactly the requested CPUs, and refuses
+        RAYON_NUM_THREADS / OMP_NUM_THREADS / OPENBLAS_NUM_THREADS /
+        MKL_NUM_THREADS / VECLIB_MAXIMUM_THREADS that contradict --threads.
+  Correctness: every case is checked against a naive label oracle and the two
+  arms against each other before any timing (rel < 1e-10 for f64/c64, < 1e-5
+  for f32/c32); a mismatch aborts the run. The CHECK lines are in each
+  session*.txt (184 per session: 23 shapes x 4 dtypes, both arms per line).
+
+Shapes (column-major contiguous; labels as in experiments/three-engine-contract)
+  gemm         D[i,k] = sum_j A[i,j] B[j,k], n in {32, 64, 128, 256}
+  gemm_batched D[i,k,b] = sum_j A[i,j,b] B[j,k,b], (n,batch) in
+               {(16,16),(32,16),(64,16),(32,64),(64,64)}
+  mps_env      ab,asc->bsc: A = chi x chi, B = chi x 2 x chi, D = chi x 2 x chi
+  mps_site     bsc,bsd->cd: A = B = chi x 2 x chi, D = chi x chi
+               chi in {16, 24, 32, 48, 64, 96, 128}
+  Every class is measured in DType::{F32, F64, C32, C64}. `mnk` is the fused
+  `m * n * k` per batch item, the quantity the planner's FaerLimit compares; it
+  is read from the packed plan's PlanStats for both rows.
+
+Statistic
+  Best of 5 calls per arm per session, after 500 ms of untimed wall-clock
+  priming per arm (the same wall-clock warm-up on both arms, so the shorter one
+  is not biased by a call count). The table reports the median over the 3
+  sessions, and spread = (max-min)/median of the 3 per-session values, the
+  larger of the two arms' spreads.
+
+Host
+  AMD Ryzen AI 9 HX 470 (Zen5 APU), 12 physical / 24 logical cores. Two L3
+  domains: cpus 0-3,12-15 share 16 MiB; cpus 4-11,16-23 share 8 MiB. Every
+  measured set was in the latter. cpufreq governor powersave. rustc 1.99.0
+  (b940084d7 2026-09-28), release profile opt-level 3 + thin LTO +
+  codegen-units 1, default target CPU. Linux.
+
+Guard
+  benchmarks/scripts/pinned.sh of the measured checkout, one guarded, pinned
+  process per (session, thread count). 1T picks its CPU with
+  `idle_cpus.py pick 1 --seconds 3`; 4T picks with `idle_cpus.py pick 4`. The
+  guard log records the window (3 s), the threshold (busy <= 0.05) and the SMT
+  siblings it checked. All six sub-runs passed at attempt 1 ("idle before and
+  after"); see results/session*.guard. Nothing else was built or measured while
+  a session ran; the cargo build precedes the sessions.
+  CPU sets: session 1 - 1T cpu4, 4T cpu4,5,6,7; session 2 - 1T cpu4, 4T
+  cpu5,6,7,8; session 3 - 1T cpu5, 4T cpu4,5,6,7.
+
+Result
+  results/session{1,2,3}.csv hold 368 rows each (23 shapes x 4 dtypes x 2 arms
+  x 2 thread counts, one ns per row). README.md carries the summary table and
+  the per-class ratios.
+
+What this does not cover
+  - One host, one rustc, one library revision, one session order. The 1T rows
+    repeat within a median 0.4% / p90 1.9% / max 12.3% spread across the three
+    sessions; the 4T rows are much noisier (median 1.2%, p90 13.8%, max 89.1%),
+    so 4T differences below that band are not findings.
+  - A laptop APU under `powersave`: no fixed frequency, no isolated cores.
+  - Only `execute_into` (the overwrite form). `execute_into_accum` with a
+    separate or in-place C is not measured.
+  - The problem is built with CSpec::Absent, so the faer strategy's
+    separate-C / in-place-beta paths are not exercised.
+  - The `mps_env` output shape follows the label order of the equation
+    (`bsc` -> chi x 2 x chi), not the "2 x chi x chi" written in the task text.
+  - For c64 above the provisional limit both arms are the packed driver: the
+    default route already switches at mnk = 262144, so those rows are an A/A of
+    one engine, not a faer/packed comparison. The c64 crossover is observable
+    here only below that volume.
+  - Routing observed: default = faer/`fused` for all f32/f64/c32 and c64 below
+    the limit; packed/`above_faer_limit` above it. `NotFusable`, `AllBatch` and
+    elementwise never appeared; no case failed a CHECK line.
+  - No FaerLimit value is chosen or recommended here.

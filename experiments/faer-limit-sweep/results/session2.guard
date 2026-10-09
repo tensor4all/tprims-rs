@@ -1,0 +1,28 @@
+=== session 2, 1T, cpus=4 ===
+pinned.sh: cpus=4 idle_window=3s max_busy=0.05 retries=3
+cpu4 busy=0.000
+cpu16 busy=0.003 (sibling)
+appended 184 rows to /home/shinaoka/projects/tensor4all/tprims-rs-sweep/experiments/faer-limit-sweep/results/.tmp.2.1.csv
+cpu4 busy=0.000
+cpu16 busy=0.000 (sibling)
+pinned.sh: cpus 4 idle before and after (attempt 1)
+=== session 2, 4T, cpus=5,6,7,8 ===
+pinned.sh: cpus=5,6,7,8 idle_window=3s max_busy=0.05 retries=3
+cpu5 busy=0.023
+cpu6 busy=0.007
+cpu7 busy=0.000
+cpu8 busy=0.000
+cpu17 busy=0.000 (sibling)
+cpu18 busy=0.000 (sibling)
+cpu19 busy=0.000 (sibling)
+cpu20 busy=0.000 (sibling)
+appended 184 rows to /home/shinaoka/projects/tensor4all/tprims-rs-sweep/experiments/faer-limit-sweep/results/.tmp.2.4.csv
+cpu5 busy=0.000
+cpu6 busy=0.003
+cpu7 busy=0.000
+cpu8 busy=0.000
+cpu17 busy=0.000 (sibling)
+cpu18 busy=0.000 (sibling)
+cpu19 busy=0.003 (sibling)
+cpu20 busy=0.003 (sibling)
+pinned.sh: cpus 5,6,7,8 idle before and after (attempt 1)
