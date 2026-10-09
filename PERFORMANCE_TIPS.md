@@ -270,10 +270,13 @@ Audit hints:
   wall time**, not a fixed call count, and give every arm the same warm-up:
   a count-based warm-up biases the ratio when the arms differ in duration.
   Quoting an absolute rate without its warm-up and run order is invalid. A short
-  call needs the top of that range: measured on this host with a 2 ms call,
-  500 ms left the first-measured arm reading 40% low while the arm measured after
-  it read as if it were 29% faster, and 1500 ms removed the dependence on
-  position. Two arms that resolve to the same driver and grid are the check.
+  call needs the top of that range: measured on this host with a 2 ms call, 500 ms
+  of warm-up left the first-measured arm at 2.89 ms against 2.06 ms settled (40%
+  higher latency, a 29% lower rate) while the arm measured after it read as if it
+  were 29% faster; 1500 ms removed the dependence on position for those cases.
+  Keep the scatter across repetitions, not only the best: a slow first repetition
+  is how an unsettled arm shows up. The check to apply by hand is that two arms
+  whose rows carry the same driver, blocking and partition policy must agree.
 - Read the shape of a slowdown before claiming a cause. A constant absolute
   delta across sizes is a per-call or per-entry cost; a uniform multiplicative
   factor across cases the change cannot affect is host contention. A

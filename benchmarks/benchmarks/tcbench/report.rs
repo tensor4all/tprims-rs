@@ -16,6 +16,10 @@ pub struct Row {
     pub k: u64,
     pub macs: u64,
     pub secs: f64,
+    /// Scatter across the timed repetitions, `(max - min) / best`. One slow first
+    /// repetition — an arm measured before the machine settles — shows up here,
+    /// where `secs` alone would hide it. 0 for a single repetition.
+    pub spread: f64,
     pub gflops: f64,
     /// Fraction of A's row blocks and B's column blocks that are regular.
     pub reg_a: f64,
@@ -41,12 +45,12 @@ impl Results {
 
     pub fn write_csv(&self, path: &str) -> std::io::Result<()> {
         let mut s = String::from(
-            "case,group,dtype,engine,threads,m,n,k,macs,seconds,gflops,regular_a,regular_b,notes\n",
+            "case,group,dtype,engine,threads,m,n,k,macs,seconds,spread,gflops,regular_a,regular_b,notes\n",
         );
         for r in &self.rows {
             let _ = writeln!(
                 s,
-                "{},{},{},{},{},{},{},{},{},{:.9},{:.4},{:.4},{:.4},{}",
+                "{},{},{},{},{},{},{},{},{},{:.9},{:.4},{:.4},{:.4},{:.4},{}",
                 r.case,
                 r.group,
                 r.dtype,
@@ -57,6 +61,7 @@ impl Results {
                 r.k,
                 r.macs,
                 r.secs,
+                r.spread,
                 r.gflops,
                 r.reg_a,
                 r.reg_b,

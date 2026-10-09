@@ -31,20 +31,27 @@ pub fn parse(value: &str) -> Option<Option<Partition>> {
     }))
 }
 
-/// The grid a packed plan resolved to, for a row's notes.
+/// The partition policy a packed plan froze, for a row's notes.
 ///
-/// Two arms can select the same family, micro-tile, orientation and blocking and
-/// still run at different speeds if the grid or the C-line alignment differs,
-/// and the geometry alone does not say: this does, so a reader can tell two such
-/// rows apart instead of guessing.
+/// This is the *policy*, not the geometry a call ends up using. A plan is built
+/// before an executor is chosen, and `driver::route` resolves the policy against
+/// the problem and the executor's budget at call time: `auto` becomes a concrete
+/// grid there, a pinned grid can be clamped down to the budget, a grid can be
+/// reshaped for direct-B execution, and a batch axis can take the parallelism
+/// instead. Two rows that carry the same policy, family and blocking therefore
+/// execute the same geometry for the same problem at the same width; two rows
+/// that differ here need not, and a row that says `auto` still says which grid
+/// that was only together with the width it ran at.
 pub fn describe(report: &tprims_contract::PackedReport) -> String {
     use tprims_kernel::PartitionPolicy;
     let g = match report.partition {
-        PartitionPolicy::StaticGrid { pm, pn } => format!("static:{pm}x{pn}"),
+        // `pm == 0` is the automatic policy's sentinel, not a 0x0 grid.
+        PartitionPolicy::StaticGrid { pm: 0, pn: 0 } => "auto".into(),
+        PartitionPolicy::StaticGrid { pm, pn } => format!("pin:{pm}x{pn}"),
         PartitionPolicy::DynamicTiles { job_m, job_n } => format!("dynamic:{job_m}x{job_n}"),
         _ => "other".into(),
     };
-    format!("grid={g} align={}", report.align_c_lines)
+    format!("policy={g} align={}", report.align_c_lines)
 }
 
 /// Row-label suffix identifying the policy: empty for static.

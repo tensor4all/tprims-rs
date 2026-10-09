@@ -94,7 +94,7 @@ fn run_case<T: BenchElem>(p: &Program, opts: &Options, exec: &Exec<'_>, results:
         format!("{flag}rel_err={err:.2e}")
     };
 
-    let push = |engine: &str, secs: f64, notes: String, results: &mut Results| {
+    let push = |engine: &str, secs: f64, spread: f64, notes: String, results: &mut Results| {
         results.push(Row {
             case: p.name.clone(),
             group: p.group.to_string(),
@@ -106,6 +106,7 @@ fn run_case<T: BenchElem>(p: &Program, opts: &Options, exec: &Exec<'_>, results:
             k,
             macs,
             secs,
+            spread,
             gflops: gflops::<T>(macs, secs),
             reg_a: 0.0,
             reg_b: 0.0,
@@ -131,9 +132,9 @@ fn run_case<T: BenchElem>(p: &Program, opts: &Options, exec: &Exec<'_>, results:
             opts.reps,
             opts.prime_ms,
         ) {
-            Ok((secs, strategy)) => {
+            Ok((secs, scatter, strategy)) => {
                 let notes = format!("{strategy} {}", check(name, slots.last().unwrap()));
-                push(name, secs, notes, results);
+                push(name, secs, scatter, notes, results);
             }
             Err(e) => eprintln!("{} [{}]: planning failed: {e}", p.name, T::NAME),
         }
@@ -143,15 +144,15 @@ fn run_case<T: BenchElem>(p: &Program, opts: &Options, exec: &Exec<'_>, results:
     #[cfg(feature = "tblis")]
     if opts.engine("tblis") {
         let mut slots = p.new_slots::<T>();
-        let secs = run_tblis(p, &inputs, &mut slots, opts.reps, opts.prime_ms);
+        let (secs, scatter) = run_tblis(p, &inputs, &mut slots, opts.reps, opts.prime_ms);
         let notes = check("tblis", slots.last().unwrap());
-        push("tblis", secs, notes, results);
+        push("tblis", secs, scatter, notes, results);
     }
 }
 
 /// Build a plan per step, run the whole program into `slots` best-of-`reps`
-/// after `prime_ms` of priming, and return the time and the per-step strategy
-/// description.
+/// after `prime_ms` of priming, and return the time, the scatter across the
+/// repetitions, and the per-step strategy description.
 ///
 /// `reps == 0` with `prime_ms == 0` is one untimed pass, which is what `verify`
 /// wants: it then exercises exactly the code path `run` times.
@@ -163,14 +164,14 @@ pub fn run_plans<T: BenchElem>(
     exec: &Exec<'_>,
     reps: usize,
     prime_ms: u64,
-) -> Result<(f64, String), tprims_contract::Error> {
+) -> Result<(f64, f64, String), tprims_contract::Error> {
     let plans: Vec<Plan<T>> = (0..p.steps.len())
         .map(|k| Plan::<T>::new(&problem_of::<T>(p, k)?, config))
         .collect::<Result<_, _>>()?;
     let strategy = strategies(&plans);
     let strides: Vec<Vec<isize>> = p.shapes.iter().map(|d| col_major_strides(d)).collect();
     let n_in = p.n_in();
-    let secs = timed(reps, prime_ms, || {
+    let (secs, scatter) = timed(reps, prime_ms, || {
         steps_with(p, inputs, slots, |k, st, a, b, d| {
             let av = StridedView::new(a, &p.shapes[st.lhs], &strides[st.lhs], 0).expect("view");
             let bv = StridedView::new(b, &p.shapes[st.rhs], &strides[st.rhs], 0).expect("view");
@@ -182,7 +183,7 @@ pub fn run_plans<T: BenchElem>(
                 .expect("a validated plan runs");
         });
     });
-    Ok((secs, strategy))
+    Ok((secs, scatter, strategy))
 }
 
 /// The distinct per-step strategy descriptions of a program's plans.
@@ -226,7 +227,7 @@ pub fn run_tblis<T: BenchElem>(
     slots: &mut [Vec<T>],
     reps: usize,
     prime_ms: u64,
-) -> f64 {
+) -> (f64, f64) {
     use crate::tblis as tb;
     let n_in = p.n_in();
     let mut ops: Vec<(tb::Operand, tb::Operand, tb::Operand)> = p
