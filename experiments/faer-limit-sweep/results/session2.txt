@@ -1,0 +1,556 @@
+# faer-limit-sweep 0.0.0 threads=1 reps=5 prime_ms=500 (tprims-contract execution only, prebuilt plans, preallocated output)
+CHECK f32 gemm n=32 threads=1 default=faer packed=packed rel_default=1.694e-7 rel_packed=1.694e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm n=32 threads=1 default=faer packed=packed rel_default=3.154e-16 rel_packed=3.154e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm n=32 threads=1 default=faer packed=packed rel_default=3.976e-7 rel_packed=3.985e-7 rel_arms=1.969e-7 tol=1e-5
+CHECK c64 gemm n=32 threads=1 default=faer packed=packed rel_default=7.348e-16 rel_packed=7.461e-16 rel_arms=2.750e-16 tol=1e-10
+CHECK f32 gemm n=64 threads=1 default=faer packed=packed rel_default=2.095e-7 rel_packed=2.095e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm n=64 threads=1 default=faer packed=packed rel_default=4.335e-16 rel_packed=4.335e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm n=64 threads=1 default=faer packed=packed rel_default=4.740e-7 rel_packed=4.740e-7 rel_arms=2.666e-7 tol=1e-5
+CHECK c64 gemm n=64 threads=1 default=packed packed=packed rel_default=8.276e-16 rel_packed=8.276e-16 rel_arms=0.000e0 tol=1e-10
+CHECK f32 gemm n=128 threads=1 default=faer packed=packed rel_default=3.267e-7 rel_packed=3.267e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm n=128 threads=1 default=faer packed=packed rel_default=6.762e-16 rel_packed=6.762e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm n=128 threads=1 default=faer packed=packed rel_default=8.846e-7 rel_packed=8.471e-7 rel_arms=3.527e-7 tol=1e-5
+CHECK c64 gemm n=128 threads=1 default=packed packed=packed rel_default=1.451e-15 rel_packed=1.451e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 gemm n=256 threads=1 default=faer packed=packed rel_default=5.141e-7 rel_packed=5.141e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm n=256 threads=1 default=faer packed=packed rel_default=7.661e-16 rel_packed=7.661e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm n=256 threads=1 default=faer packed=packed rel_default=1.073e-6 rel_packed=9.893e-7 rel_arms=4.561e-7 tol=1e-5
+CHECK c64 gemm n=256 threads=1 default=packed packed=packed rel_default=1.899e-15 rel_packed=1.899e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 gemm_batched n=16 batch=16 threads=1 default=faer packed=packed rel_default=1.895e-7 rel_packed=1.895e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm_batched n=16 batch=16 threads=1 default=faer packed=packed rel_default=3.529e-16 rel_packed=3.529e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm_batched n=16 batch=16 threads=1 default=faer packed=packed rel_default=2.538e-7 rel_packed=2.560e-7 rel_arms=1.683e-7 tol=1e-5
+CHECK c64 gemm_batched n=16 batch=16 threads=1 default=faer packed=packed rel_default=5.969e-16 rel_packed=4.899e-16 rel_arms=2.351e-16 tol=1e-10
+CHECK f32 gemm_batched n=32 batch=16 threads=1 default=faer packed=packed rel_default=1.662e-7 rel_packed=1.662e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm_batched n=32 batch=16 threads=1 default=faer packed=packed rel_default=4.644e-16 rel_packed=4.644e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm_batched n=32 batch=16 threads=1 default=faer packed=packed rel_default=3.904e-7 rel_packed=3.933e-7 rel_arms=1.933e-7 tol=1e-5
+CHECK c64 gemm_batched n=32 batch=16 threads=1 default=faer packed=packed rel_default=7.271e-16 rel_packed=7.326e-16 rel_arms=3.600e-16 tol=1e-10
+CHECK f32 gemm_batched n=64 batch=16 threads=1 default=faer packed=packed rel_default=2.304e-7 rel_packed=2.304e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm_batched n=64 batch=16 threads=1 default=faer packed=packed rel_default=4.291e-16 rel_packed=4.291e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm_batched n=64 batch=16 threads=1 default=faer packed=packed rel_default=4.847e-7 rel_packed=4.847e-7 rel_arms=3.211e-7 tol=1e-5
+CHECK c64 gemm_batched n=64 batch=16 threads=1 default=packed packed=packed rel_default=9.970e-16 rel_packed=9.970e-16 rel_arms=0.000e0 tol=1e-10
+CHECK f32 gemm_batched n=32 batch=64 threads=1 default=faer packed=packed rel_default=1.662e-7 rel_packed=1.662e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm_batched n=32 batch=64 threads=1 default=faer packed=packed rel_default=4.644e-16 rel_packed=4.644e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm_batched n=32 batch=64 threads=1 default=faer packed=packed rel_default=3.889e-7 rel_packed=3.880e-7 rel_arms=2.154e-7 tol=1e-5
+CHECK c64 gemm_batched n=32 batch=64 threads=1 default=faer packed=packed rel_default=8.115e-16 rel_packed=8.379e-16 rel_arms=3.210e-16 tol=1e-10
+CHECK f32 gemm_batched n=64 batch=64 threads=1 default=faer packed=packed rel_default=2.304e-7 rel_packed=2.304e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm_batched n=64 batch=64 threads=1 default=faer packed=packed rel_default=4.291e-16 rel_packed=4.291e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm_batched n=64 batch=64 threads=1 default=faer packed=packed rel_default=5.363e-7 rel_packed=6.161e-7 rel_arms=3.211e-7 tol=1e-5
+CHECK c64 gemm_batched n=64 batch=64 threads=1 default=packed packed=packed rel_default=1.296e-15 rel_packed=1.296e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 mps_env chi=16 threads=1 default=faer packed=packed rel_default=1.701e-7 rel_packed=1.701e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_env chi=16 threads=1 default=faer packed=packed rel_default=3.168e-16 rel_packed=3.168e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_env chi=16 threads=1 default=faer packed=packed rel_default=1.642e-7 rel_packed=1.642e-7 rel_arms=0.000e0 tol=1e-5
+CHECK c64 mps_env chi=16 threads=1 default=faer packed=packed rel_default=4.040e-16 rel_packed=4.054e-16 rel_arms=1.006e-16 tol=1e-10
+CHECK f32 mps_env chi=24 threads=1 default=faer packed=packed rel_default=1.714e-7 rel_packed=1.714e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_env chi=24 threads=1 default=faer packed=packed rel_default=2.129e-16 rel_packed=2.129e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_env chi=24 threads=1 default=faer packed=packed rel_default=3.073e-7 rel_packed=3.073e-7 rel_arms=0.000e0 tol=1e-5
+CHECK c64 mps_env chi=24 threads=1 default=faer packed=packed rel_default=5.720e-16 rel_packed=5.720e-16 rel_arms=1.607e-16 tol=1e-10
+CHECK f32 mps_env chi=32 threads=1 default=faer packed=packed rel_default=1.725e-7 rel_packed=1.725e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_env chi=32 threads=1 default=faer packed=packed rel_default=3.213e-16 rel_packed=3.213e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_env chi=32 threads=1 default=faer packed=packed rel_default=2.986e-7 rel_packed=2.986e-7 rel_arms=8.579e-8 tol=1e-5
+CHECK c64 mps_env chi=32 threads=1 default=faer packed=packed rel_default=6.414e-16 rel_packed=6.414e-16 rel_arms=1.598e-16 tol=1e-10
+CHECK f32 mps_env chi=48 threads=1 default=faer packed=packed rel_default=1.159e-7 rel_packed=1.159e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_env chi=48 threads=1 default=faer packed=packed rel_default=2.159e-16 rel_packed=2.159e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_env chi=48 threads=1 default=faer packed=packed rel_default=4.695e-7 rel_packed=4.696e-7 rel_arms=1.174e-7 tol=1e-5
+CHECK c64 mps_env chi=48 threads=1 default=packed packed=packed rel_default=7.369e-16 rel_packed=7.369e-16 rel_arms=0.000e0 tol=1e-10
+CHECK f32 mps_env chi=64 threads=1 default=faer packed=packed rel_default=1.739e-7 rel_packed=1.739e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_env chi=64 threads=1 default=faer packed=packed rel_default=3.239e-16 rel_packed=3.239e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_env chi=64 threads=1 default=faer packed=packed rel_default=5.329e-7 rel_packed=5.335e-7 rel_arms=8.861e-8 tol=1e-5
+CHECK c64 mps_env chi=64 threads=1 default=packed packed=packed rel_default=1.211e-15 rel_packed=1.211e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 mps_env chi=96 threads=1 default=faer packed=packed rel_default=1.772e-7 rel_packed=1.772e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_env chi=96 threads=1 default=faer packed=packed rel_default=3.300e-16 rel_packed=3.300e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_env chi=96 threads=1 default=faer packed=packed rel_default=1.035e-6 rel_packed=1.034e-6 rel_arms=7.950e-8 tol=1e-5
+CHECK c64 mps_env chi=96 threads=1 default=packed packed=packed rel_default=1.925e-15 rel_packed=1.925e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 mps_env chi=128 threads=1 default=faer packed=packed rel_default=1.778e-7 rel_packed=1.778e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_env chi=128 threads=1 default=faer packed=packed rel_default=3.313e-16 rel_packed=3.313e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_env chi=128 threads=1 default=faer packed=packed rel_default=9.542e-7 rel_packed=9.542e-7 rel_arms=1.034e-7 tol=1e-5
+CHECK c64 mps_env chi=128 threads=1 default=packed packed=packed rel_default=1.652e-15 rel_packed=1.652e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 mps_site chi=16 threads=1 default=faer packed=packed rel_default=1.725e-7 rel_packed=1.725e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_site chi=16 threads=1 default=faer packed=packed rel_default=3.213e-16 rel_packed=3.213e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_site chi=16 threads=1 default=faer packed=packed rel_default=2.986e-7 rel_packed=2.986e-7 rel_arms=8.579e-8 tol=1e-5
+CHECK c64 mps_site chi=16 threads=1 default=faer packed=packed rel_default=5.333e-16 rel_packed=5.333e-16 rel_arms=1.065e-16 tol=1e-10
+CHECK f32 mps_site chi=24 threads=1 default=faer packed=packed rel_default=1.164e-7 rel_packed=1.164e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_site chi=24 threads=1 default=faer packed=packed rel_default=2.167e-16 rel_packed=2.167e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_site chi=24 threads=1 default=faer packed=packed rel_default=3.293e-7 rel_packed=3.293e-7 rel_arms=7.171e-8 tol=1e-5
+CHECK c64 mps_site chi=24 threads=1 default=faer packed=packed rel_default=7.643e-16 rel_packed=7.643e-16 rel_arms=1.336e-16 tol=1e-10
+CHECK f32 mps_site chi=32 threads=1 default=faer packed=packed rel_default=8.702e-8 rel_packed=8.702e-8 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_site chi=32 threads=1 default=faer packed=packed rel_default=3.242e-16 rel_packed=3.242e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_site chi=32 threads=1 default=faer packed=packed rel_default=5.384e-7 rel_packed=5.384e-7 rel_arms=5.968e-8 tol=1e-5
+CHECK c64 mps_site chi=32 threads=1 default=faer packed=packed rel_default=7.786e-16 rel_packed=7.786e-16 rel_arms=1.667e-16 tol=1e-10
+CHECK f32 mps_site chi=48 threads=1 default=faer packed=packed rel_default=1.181e-7 rel_packed=1.181e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_site chi=48 threads=1 default=faer packed=packed rel_default=2.200e-16 rel_packed=2.200e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_site chi=48 threads=1 default=faer packed=packed rel_default=5.435e-7 rel_packed=5.435e-7 rel_arms=6.264e-8 tol=1e-5
+CHECK c64 mps_site chi=48 threads=1 default=packed packed=packed rel_default=1.106e-15 rel_packed=1.106e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 mps_site chi=64 threads=1 default=faer packed=packed rel_default=1.778e-7 rel_packed=1.778e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_site chi=64 threads=1 default=faer packed=packed rel_default=3.313e-16 rel_packed=3.313e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_site chi=64 threads=1 default=faer packed=packed rel_default=7.493e-7 rel_packed=7.493e-7 rel_arms=6.627e-8 tol=1e-5
+CHECK c64 mps_site chi=64 threads=1 default=packed packed=packed rel_default=1.627e-15 rel_packed=1.627e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 mps_site chi=96 threads=1 default=faer packed=packed rel_default=1.181e-7 rel_packed=1.181e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_site chi=96 threads=1 default=faer packed=packed rel_default=4.401e-16 rel_packed=4.401e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_site chi=96 threads=1 default=faer packed=packed rel_default=9.798e-7 rel_packed=9.798e-7 rel_arms=7.644e-8 tol=1e-5
+CHECK c64 mps_site chi=96 threads=1 default=packed packed=packed rel_default=1.976e-15 rel_packed=1.976e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 mps_site chi=128 threads=1 default=faer packed=packed rel_default=1.780e-7 rel_packed=1.780e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_site chi=128 threads=1 default=faer packed=packed rel_default=3.316e-16 rel_packed=3.316e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_site chi=128 threads=1 default=faer packed=packed rel_default=1.128e-6 rel_packed=1.128e-6 rel_arms=5.935e-8 tol=1e-5
+CHECK c64 mps_site chi=128 threads=1 default=packed packed=packed rel_default=2.543e-15 rel_packed=2.543e-15 rel_arms=0.000e0 tol=1e-10
+class,dtype,params,batch,m,n,k,mnk,threads,arm,algorithm,reason,ns
+gemm,f32,n=32,1,32,32,32,32768,1,default,faer,fused,742.0
+gemm,f32,n=32,1,32,32,32,32768,1,packed,packed,forced,2575.0
+gemm,f64,n=32,1,32,32,32,32768,1,default,faer,fused,1402.0
+gemm,f64,n=32,1,32,32,32,32768,1,packed,packed,forced,6321.0
+gemm,c32,n=32,1,32,32,32,32768,1,default,faer,fused,2705.0
+gemm,c32,n=32,1,32,32,32,32768,1,packed,packed,forced,7323.0
+gemm,c64,n=32,1,32,32,32,32768,1,default,faer,fused,5310.0
+gemm,c64,n=32,1,32,32,32,32768,1,packed,packed,forced,7764.0
+gemm,f32,n=64,1,64,64,64,262144,1,default,faer,fused,5179.0
+gemm,f32,n=64,1,64,64,64,262144,1,packed,packed,forced,13405.0
+gemm,f64,n=64,1,64,64,64,262144,1,default,faer,fused,10309.0
+gemm,f64,n=64,1,64,64,64,262144,1,packed,packed,forced,22823.0
+gemm,c32,n=64,1,64,64,64,262144,1,default,faer,fused,20508.0
+gemm,c32,n=64,1,64,64,64,262144,1,packed,packed,forced,33783.0
+gemm,c64,n=64,1,64,64,64,262144,1,default,packed,above_faer_limit(volume=262144 limit=131072),60914.0
+gemm,c64,n=64,1,64,64,64,262144,1,packed,packed,forced,60903.0
+gemm,f32,n=128,1,128,128,128,2097152,1,default,faer,fused,40375.0
+gemm,f32,n=128,1,128,128,128,2097152,1,packed,packed,forced,69389.0
+gemm,f64,n=128,1,128,128,128,2097152,1,default,faer,fused,80460.0
+gemm,f64,n=128,1,128,128,128,2097152,1,packed,packed,forced,128469.0
+gemm,c32,n=128,1,128,128,128,2097152,1,default,faer,fused,160920.0
+gemm,c32,n=128,1,128,128,128,2097152,1,packed,packed,forced,205905.0
+gemm,c64,n=128,1,128,128,128,2097152,1,default,packed,above_faer_limit(volume=2097152 limit=131072),427688.0
+gemm,c64,n=128,1,128,128,128,2097152,1,packed,packed,forced,427658.0
+gemm,f32,n=256,1,256,256,256,16777216,1,default,faer,fused,321319.0
+gemm,f32,n=256,1,256,256,256,16777216,1,packed,packed,forced,398994.0
+gemm,f64,n=256,1,256,256,256,16777216,1,default,faer,fused,646937.0
+gemm,f64,n=256,1,256,256,256,16777216,1,packed,packed,forced,863060.0
+gemm,c32,n=256,1,256,256,256,16777216,1,default,faer,fused,1284768.0
+gemm,c32,n=256,1,256,256,256,16777216,1,packed,packed,forced,1353035.0
+gemm,c64,n=256,1,256,256,256,16777216,1,default,packed,above_faer_limit(volume=16777216 limit=131072),2694577.0
+gemm,c64,n=256,1,256,256,256,16777216,1,packed,packed,forced,2696541.0
+gemm_batched,f32,n=16 batch=16,16,16,16,16,4096,1,default,faer,fused,2043.0
+gemm_batched,f32,n=16 batch=16,16,16,16,16,4096,1,packed,packed,forced,11772.0
+gemm_batched,f64,n=16 batch=16,16,16,16,16,4096,1,default,faer,fused,3637.0
+gemm_batched,f64,n=16 batch=16,16,16,16,16,4096,1,packed,packed,forced,10038.0
+gemm_batched,c32,n=16 batch=16,16,16,16,16,4096,1,default,faer,fused,9658.0
+gemm_batched,c32,n=16 batch=16,16,16,16,16,4096,1,packed,packed,forced,19817.0
+gemm_batched,c64,n=16 batch=16,16,16,16,16,4096,1,default,faer,fused,19316.0
+gemm_batched,c64,n=16 batch=16,16,16,16,16,4096,1,packed,packed,forced,19266.0
+gemm_batched,f32,n=32 batch=16,16,32,32,32,32768,1,default,faer,fused,11381.0
+gemm_batched,f32,n=32 batch=16,16,32,32,32,32768,1,packed,packed,forced,30697.0
+gemm_batched,f64,n=32 batch=16,16,32,32,32,32768,1,default,faer,fused,21961.0
+gemm_batched,f64,n=32 batch=16,16,32,32,32,32768,1,packed,packed,forced,46276.0
+gemm_batched,c32,n=32 batch=16,16,32,32,32,32768,1,default,faer,fused,42639.0
+gemm_batched,c32,n=32 batch=16,16,32,32,32,32768,1,packed,packed,forced,62156.0
+gemm_batched,c64,n=32 batch=16,16,32,32,32,32768,1,default,faer,fused,84618.0
+gemm_batched,c64,n=32 batch=16,16,32,32,32,32768,1,packed,packed,forced,119483.0
+gemm_batched,f32,n=64 batch=16,16,64,64,64,262144,1,default,faer,fused,82504.0
+gemm_batched,f32,n=64 batch=16,16,64,64,64,262144,1,packed,packed,forced,168975.0
+gemm_batched,f64,n=64 batch=16,16,64,64,64,262144,1,default,faer,fused,166661.0
+gemm_batched,f64,n=64 batch=16,16,64,64,64,262144,1,packed,packed,forced,237002.0
+gemm_batched,c32,n=64 batch=16,16,64,64,64,262144,1,default,faer,fused,329565.0
+gemm_batched,c32,n=64 batch=16,16,64,64,64,262144,1,packed,packed,forced,398994.0
+gemm_batched,c64,n=64 batch=16,16,64,64,64,262144,1,default,packed,above_faer_limit(volume=262144 limit=131072),775457.0
+gemm_batched,c64,n=64 batch=16,16,64,64,64,262144,1,packed,packed,forced,774305.0
+gemm_batched,f32,n=32 batch=64,64,32,32,32,32768,1,default,faer,fused,45665.0
+gemm_batched,f32,n=32 batch=64,64,32,32,32,32768,1,packed,packed,forced,121576.0
+gemm_batched,f64,n=32 batch=64,64,32,32,32,32768,1,default,faer,fused,88646.0
+gemm_batched,f64,n=32 batch=64,64,32,32,32,32768,1,packed,packed,forced,184013.0
+gemm_batched,c32,n=32 batch=64,64,32,32,32,32768,1,default,faer,fused,171620.0
+gemm_batched,c32,n=32 batch=64,64,32,32,32,32768,1,packed,packed,forced,249786.0
+gemm_batched,c64,n=32 batch=64,64,32,32,32,32768,1,default,faer,fused,342790.0
+gemm_batched,c64,n=32 batch=64,64,32,32,32,32768,1,packed,packed,forced,486458.0
+gemm_batched,f32,n=64 batch=64,64,64,64,64,262144,1,default,faer,fused,332831.0
+gemm_batched,f32,n=64 batch=64,64,64,64,64,262144,1,packed,packed,forced,692101.0
+gemm_batched,f64,n=64 batch=64,64,64,64,64,262144,1,default,faer,fused,669970.0
+gemm_batched,f64,n=64 batch=64,64,64,64,64,262144,1,packed,packed,forced,985188.0
+gemm_batched,c32,n=64 batch=64,64,64,64,64,262144,1,default,faer,fused,1328108.0
+gemm_batched,c32,n=64 batch=64,64,64,64,64,262144,1,packed,packed,forced,1623630.0
+gemm_batched,c64,n=64 batch=64,64,64,64,64,262144,1,default,packed,above_faer_limit(volume=262144 limit=131072),3733505.0
+gemm_batched,c64,n=64 batch=64,64,64,64,64,262144,1,packed,packed,forced,3704311.0
+mps_env,f32,chi=16,1,16,32,16,8192,1,default,faer,fused,320.0
+mps_env,f32,chi=16,1,16,32,16,8192,1,packed,packed,forced,1483.0
+mps_env,f64,chi=16,1,16,32,16,8192,1,default,faer,fused,461.0
+mps_env,f64,chi=16,1,16,32,16,8192,1,packed,packed,forced,1503.0
+mps_env,c32,chi=16,1,16,32,16,8192,1,default,faer,fused,801.0
+mps_env,c32,chi=16,1,16,32,16,8192,1,packed,packed,forced,1863.0
+mps_env,c64,chi=16,1,16,32,16,8192,1,default,faer,fused,1492.0
+mps_env,c64,chi=16,1,16,32,16,8192,1,packed,packed,forced,2745.0
+mps_env,f32,chi=24,1,24,48,24,27648,1,default,faer,fused,881.0
+mps_env,f32,chi=24,1,24,48,24,27648,1,packed,packed,forced,1773.0
+mps_env,f64,chi=24,1,24,48,24,27648,1,default,faer,fused,1242.0
+mps_env,f64,chi=24,1,24,48,24,27648,1,packed,packed,forced,2324.0
+mps_env,c32,chi=24,1,24,48,24,27648,1,default,faer,fused,2364.0
+mps_env,c32,chi=24,1,24,48,24,27648,1,packed,packed,forced,5120.0
+mps_env,c64,chi=24,1,24,48,24,27648,1,default,faer,fused,4648.0
+mps_env,c64,chi=24,1,24,48,24,27648,1,packed,packed,forced,8115.0
+mps_env,f32,chi=32,1,32,64,32,65536,1,default,faer,fused,1442.0
+mps_env,f32,chi=32,1,32,64,32,65536,1,packed,packed,forced,4408.0
+mps_env,f64,chi=32,1,32,64,32,65536,1,default,faer,fused,2795.0
+mps_env,f64,chi=32,1,32,64,32,65536,1,packed,packed,forced,5901.0
+mps_env,c32,chi=32,1,32,64,32,65536,1,default,faer,fused,5390.0
+mps_env,c32,chi=32,1,32,64,32,65536,1,packed,packed,forced,7855.0
+mps_env,c64,chi=32,1,32,64,32,65536,1,default,faer,fused,10699.0
+mps_env,c64,chi=32,1,32,64,32,65536,1,packed,packed,forced,14117.0
+mps_env,f32,chi=48,1,48,96,48,221184,1,default,faer,fused,4518.0
+mps_env,f32,chi=48,1,48,96,48,221184,1,packed,packed,forced,7153.0
+mps_env,f64,chi=48,1,48,96,48,221184,1,default,faer,fused,8866.0
+mps_env,f64,chi=48,1,48,96,48,221184,1,packed,packed,forced,11902.0
+mps_env,c32,chi=48,1,48,96,48,221184,1,default,faer,fused,17513.0
+mps_env,c32,chi=48,1,48,96,48,221184,1,packed,packed,forced,28233.0
+mps_env,c64,chi=48,1,48,96,48,221184,1,default,packed,above_faer_limit(volume=221184 limit=131072),41548.0
+mps_env,c64,chi=48,1,48,96,48,221184,1,packed,packed,forced,41528.0
+mps_env,f32,chi=64,1,64,128,64,524288,1,default,faer,fused,10360.0
+mps_env,f32,chi=64,1,64,128,64,524288,1,packed,packed,forced,20949.0
+mps_env,f64,chi=64,1,64,128,64,524288,1,default,faer,fused,20869.0
+mps_env,f64,chi=64,1,64,128,64,524288,1,packed,packed,forced,28603.0
+mps_env,c32,chi=64,1,64,128,64,524288,1,default,faer,fused,41167.0
+mps_env,c32,chi=64,1,64,128,64,524288,1,packed,packed,forced,50133.0
+mps_env,c64,chi=64,1,64,128,64,524288,1,default,packed,above_faer_limit(volume=524288 limit=131072),95879.0
+mps_env,c64,chi=64,1,64,128,64,524288,1,packed,packed,forced,95939.0
+mps_env,f32,chi=96,1,96,192,96,1769472,1,default,faer,fused,34584.0
+mps_env,f32,chi=96,1,96,192,96,1769472,1,packed,packed,forced,43852.0
+mps_env,f64,chi=96,1,96,192,96,1769472,1,default,faer,fused,68899.0
+mps_env,f64,chi=96,1,96,192,96,1769472,1,packed,packed,forced,79428.0
+mps_env,c32,chi=96,1,96,192,96,1769472,1,default,faer,fused,136945.0
+mps_env,c32,chi=96,1,96,192,96,1769472,1,packed,packed,forced,153757.0
+mps_env,c64,chi=96,1,96,192,96,1769472,1,default,packed,above_faer_limit(volume=1769472 limit=131072),300611.0
+mps_env,c64,chi=96,1,96,192,96,1769472,1,packed,packed,forced,300501.0
+mps_env,f32,chi=128,1,128,256,128,4194304,1,default,faer,fused,81592.0
+mps_env,f32,chi=128,1,128,256,128,4194304,1,packed,packed,forced,108713.0
+mps_env,f64,chi=128,1,128,256,128,4194304,1,default,faer,fused,162704.0
+mps_env,f64,chi=128,1,128,256,128,4194304,1,packed,packed,forced,203700.0
+mps_env,c32,chi=128,1,128,256,128,4194304,1,default,faer,fused,323924.0
+mps_env,c32,chi=128,1,128,256,128,4194304,1,packed,packed,forced,358689.0
+mps_env,c64,chi=128,1,128,256,128,4194304,1,default,packed,above_faer_limit(volume=4194304 limit=131072),704134.0
+mps_env,c64,chi=128,1,128,256,128,4194304,1,packed,packed,forced,702912.0
+mps_site,f32,chi=16,1,16,16,32,8192,1,default,faer,fused,311.0
+mps_site,f32,chi=16,1,16,16,32,8192,1,packed,packed,forced,1723.0
+mps_site,f64,chi=16,1,16,16,32,8192,1,default,faer,fused,471.0
+mps_site,f64,chi=16,1,16,16,32,8192,1,packed,packed,forced,1453.0
+mps_site,c32,chi=16,1,16,16,32,8192,1,default,faer,fused,801.0
+mps_site,c32,chi=16,1,16,16,32,8192,1,packed,packed,forced,2675.0
+mps_site,c64,chi=16,1,16,16,32,8192,1,default,faer,fused,1462.0
+mps_site,c64,chi=16,1,16,16,32,8192,1,packed,packed,forced,2705.0
+mps_site,f32,chi=24,1,24,24,48,27648,1,default,faer,fused,882.0
+mps_site,f32,chi=24,1,24,24,48,27648,1,packed,packed,forced,2995.0
+mps_site,f64,chi=24,1,24,24,48,27648,1,default,faer,fused,1302.0
+mps_site,f64,chi=24,1,24,24,48,27648,1,packed,packed,forced,2374.0
+mps_site,c32,chi=24,1,24,24,48,27648,1,default,faer,fused,2364.0
+mps_site,c32,chi=24,1,24,24,48,27648,1,packed,packed,forced,4869.0
+mps_site,c64,chi=24,1,24,24,48,27648,1,default,faer,fused,4659.0
+mps_site,c64,chi=24,1,24,24,48,27648,1,packed,packed,forced,8105.0
+mps_site,f32,chi=32,1,32,32,64,65536,1,default,faer,fused,1462.0
+mps_site,f32,chi=32,1,32,32,64,65536,1,packed,packed,forced,4208.0
+mps_site,f64,chi=32,1,32,32,64,65536,1,default,faer,fused,2845.0
+mps_site,f64,chi=32,1,32,32,64,65536,1,packed,packed,forced,6212.0
+mps_site,c32,chi=32,1,32,32,64,65536,1,default,faer,fused,5380.0
+mps_site,c32,chi=32,1,32,32,64,65536,1,packed,packed,forced,8656.0
+mps_site,c64,chi=32,1,32,32,64,65536,1,default,faer,fused,10820.0
+mps_site,c64,chi=32,1,32,32,64,65536,1,packed,packed,forced,15108.0
+mps_site,f32,chi=48,1,48,48,96,221184,1,default,faer,fused,4608.0
+mps_site,f32,chi=48,1,48,48,96,221184,1,packed,packed,forced,7404.0
+mps_site,f64,chi=48,1,48,48,96,221184,1,default,faer,fused,9217.0
+mps_site,f64,chi=48,1,48,48,96,221184,1,packed,packed,forced,12193.0
+mps_site,c32,chi=48,1,48,48,96,221184,1,default,faer,fused,17673.0
+mps_site,c32,chi=48,1,48,48,96,221184,1,packed,packed,forced,29035.0
+mps_site,c64,chi=48,1,48,48,96,221184,1,default,packed,above_faer_limit(volume=221184 limit=131072),41197.0
+mps_site,c64,chi=48,1,48,48,96,221184,1,packed,packed,forced,41187.0
+mps_site,f32,chi=64,1,64,64,128,524288,1,default,faer,fused,10669.0
+mps_site,f32,chi=64,1,64,64,128,524288,1,packed,packed,forced,22442.0
+mps_site,f64,chi=64,1,64,64,128,524288,1,default,faer,fused,21430.0
+mps_site,f64,chi=64,1,64,64,128,524288,1,packed,packed,forced,29575.0
+mps_site,c32,chi=64,1,64,64,128,524288,1,default,faer,fused,41657.0
+mps_site,c32,chi=64,1,64,64,128,524288,1,packed,packed,forced,51596.0
+mps_site,c64,chi=64,1,64,64,128,524288,1,default,packed,above_faer_limit(volume=524288 limit=131072),95418.0
+mps_site,c64,chi=64,1,64,64,128,524288,1,packed,packed,forced,95508.0
+mps_site,f32,chi=96,1,96,96,192,1769472,1,default,faer,fused,35065.0
+mps_site,f32,chi=96,1,96,96,192,1769472,1,packed,packed,forced,44734.0
+mps_site,f64,chi=96,1,96,96,192,1769472,1,default,faer,fused,69700.0
+mps_site,f64,chi=96,1,96,96,192,1769472,1,packed,packed,forced,80320.0
+mps_site,c32,chi=96,1,96,96,192,1769472,1,default,faer,fused,137326.0
+mps_site,c32,chi=96,1,96,96,192,1769472,1,packed,packed,forced,156752.0
+mps_site,c64,chi=96,1,96,96,192,1769472,1,default,packed,above_faer_limit(volume=1769472 limit=131072),304909.0
+mps_site,c64,chi=96,1,96,96,192,1769472,1,packed,packed,forced,304648.0
+mps_site,f32,chi=128,1,128,128,256,4194304,1,default,faer,fused,83216.0
+mps_site,f32,chi=128,1,128,128,256,4194304,1,packed,packed,forced,112139.0
+mps_site,f64,chi=128,1,128,128,256,4194304,1,default,faer,fused,167562.0
+mps_site,f64,chi=128,1,128,128,256,4194304,1,packed,packed,forced,211906.0
+mps_site,c32,chi=128,1,128,128,256,4194304,1,default,faer,fused,327521.0
+mps_site,c32,chi=128,1,128,128,256,4194304,1,packed,packed,forced,379267.0
+mps_site,c64,chi=128,1,128,128,256,4194304,1,default,packed,above_faer_limit(volume=4194304 limit=131072),734620.0
+mps_site,c64,chi=128,1,128,128,256,4194304,1,packed,packed,forced,735623.0
+# faer-limit-sweep 0.0.0 threads=4 reps=5 prime_ms=500 (tprims-contract execution only, prebuilt plans, preallocated output)
+CHECK f32 gemm n=32 threads=4 default=faer packed=packed rel_default=1.694e-7 rel_packed=1.694e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm n=32 threads=4 default=faer packed=packed rel_default=3.154e-16 rel_packed=3.154e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm n=32 threads=4 default=faer packed=packed rel_default=3.976e-7 rel_packed=3.985e-7 rel_arms=1.969e-7 tol=1e-5
+CHECK c64 gemm n=32 threads=4 default=faer packed=packed rel_default=7.348e-16 rel_packed=7.461e-16 rel_arms=2.750e-16 tol=1e-10
+CHECK f32 gemm n=64 threads=4 default=faer packed=packed rel_default=2.095e-7 rel_packed=2.095e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm n=64 threads=4 default=faer packed=packed rel_default=4.335e-16 rel_packed=4.335e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm n=64 threads=4 default=faer packed=packed rel_default=4.740e-7 rel_packed=4.740e-7 rel_arms=2.666e-7 tol=1e-5
+CHECK c64 gemm n=64 threads=4 default=packed packed=packed rel_default=8.276e-16 rel_packed=8.276e-16 rel_arms=0.000e0 tol=1e-10
+CHECK f32 gemm n=128 threads=4 default=faer packed=packed rel_default=3.267e-7 rel_packed=3.267e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm n=128 threads=4 default=faer packed=packed rel_default=6.762e-16 rel_packed=6.762e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm n=128 threads=4 default=faer packed=packed rel_default=8.846e-7 rel_packed=8.471e-7 rel_arms=3.527e-7 tol=1e-5
+CHECK c64 gemm n=128 threads=4 default=packed packed=packed rel_default=1.451e-15 rel_packed=1.451e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 gemm n=256 threads=4 default=faer packed=packed rel_default=5.141e-7 rel_packed=5.141e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm n=256 threads=4 default=faer packed=packed rel_default=7.661e-16 rel_packed=7.661e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm n=256 threads=4 default=faer packed=packed rel_default=1.073e-6 rel_packed=9.893e-7 rel_arms=4.561e-7 tol=1e-5
+CHECK c64 gemm n=256 threads=4 default=packed packed=packed rel_default=1.899e-15 rel_packed=1.899e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 gemm_batched n=16 batch=16 threads=4 default=faer packed=packed rel_default=1.895e-7 rel_packed=1.895e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm_batched n=16 batch=16 threads=4 default=faer packed=packed rel_default=3.529e-16 rel_packed=3.529e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm_batched n=16 batch=16 threads=4 default=faer packed=packed rel_default=2.538e-7 rel_packed=2.560e-7 rel_arms=1.683e-7 tol=1e-5
+CHECK c64 gemm_batched n=16 batch=16 threads=4 default=faer packed=packed rel_default=5.969e-16 rel_packed=4.899e-16 rel_arms=2.351e-16 tol=1e-10
+CHECK f32 gemm_batched n=32 batch=16 threads=4 default=faer packed=packed rel_default=1.662e-7 rel_packed=1.662e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm_batched n=32 batch=16 threads=4 default=faer packed=packed rel_default=4.644e-16 rel_packed=4.644e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm_batched n=32 batch=16 threads=4 default=faer packed=packed rel_default=3.904e-7 rel_packed=3.933e-7 rel_arms=1.933e-7 tol=1e-5
+CHECK c64 gemm_batched n=32 batch=16 threads=4 default=faer packed=packed rel_default=7.271e-16 rel_packed=7.326e-16 rel_arms=3.600e-16 tol=1e-10
+CHECK f32 gemm_batched n=64 batch=16 threads=4 default=faer packed=packed rel_default=2.304e-7 rel_packed=2.304e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm_batched n=64 batch=16 threads=4 default=faer packed=packed rel_default=4.291e-16 rel_packed=4.291e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm_batched n=64 batch=16 threads=4 default=faer packed=packed rel_default=4.847e-7 rel_packed=4.847e-7 rel_arms=3.211e-7 tol=1e-5
+CHECK c64 gemm_batched n=64 batch=16 threads=4 default=packed packed=packed rel_default=9.970e-16 rel_packed=9.970e-16 rel_arms=0.000e0 tol=1e-10
+CHECK f32 gemm_batched n=32 batch=64 threads=4 default=faer packed=packed rel_default=1.662e-7 rel_packed=1.662e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm_batched n=32 batch=64 threads=4 default=faer packed=packed rel_default=4.644e-16 rel_packed=4.644e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm_batched n=32 batch=64 threads=4 default=faer packed=packed rel_default=3.889e-7 rel_packed=3.880e-7 rel_arms=2.154e-7 tol=1e-5
+CHECK c64 gemm_batched n=32 batch=64 threads=4 default=faer packed=packed rel_default=8.115e-16 rel_packed=8.379e-16 rel_arms=3.210e-16 tol=1e-10
+CHECK f32 gemm_batched n=64 batch=64 threads=4 default=faer packed=packed rel_default=2.304e-7 rel_packed=2.304e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 gemm_batched n=64 batch=64 threads=4 default=faer packed=packed rel_default=4.291e-16 rel_packed=4.291e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 gemm_batched n=64 batch=64 threads=4 default=faer packed=packed rel_default=5.363e-7 rel_packed=6.161e-7 rel_arms=3.211e-7 tol=1e-5
+CHECK c64 gemm_batched n=64 batch=64 threads=4 default=packed packed=packed rel_default=1.296e-15 rel_packed=1.296e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 mps_env chi=16 threads=4 default=faer packed=packed rel_default=1.701e-7 rel_packed=1.701e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_env chi=16 threads=4 default=faer packed=packed rel_default=3.168e-16 rel_packed=3.168e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_env chi=16 threads=4 default=faer packed=packed rel_default=1.642e-7 rel_packed=1.642e-7 rel_arms=0.000e0 tol=1e-5
+CHECK c64 mps_env chi=16 threads=4 default=faer packed=packed rel_default=4.040e-16 rel_packed=4.054e-16 rel_arms=1.006e-16 tol=1e-10
+CHECK f32 mps_env chi=24 threads=4 default=faer packed=packed rel_default=1.714e-7 rel_packed=1.714e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_env chi=24 threads=4 default=faer packed=packed rel_default=2.129e-16 rel_packed=2.129e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_env chi=24 threads=4 default=faer packed=packed rel_default=3.073e-7 rel_packed=3.073e-7 rel_arms=0.000e0 tol=1e-5
+CHECK c64 mps_env chi=24 threads=4 default=faer packed=packed rel_default=5.720e-16 rel_packed=5.720e-16 rel_arms=1.607e-16 tol=1e-10
+CHECK f32 mps_env chi=32 threads=4 default=faer packed=packed rel_default=1.725e-7 rel_packed=1.725e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_env chi=32 threads=4 default=faer packed=packed rel_default=3.213e-16 rel_packed=3.213e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_env chi=32 threads=4 default=faer packed=packed rel_default=2.986e-7 rel_packed=2.986e-7 rel_arms=8.579e-8 tol=1e-5
+CHECK c64 mps_env chi=32 threads=4 default=faer packed=packed rel_default=6.414e-16 rel_packed=6.414e-16 rel_arms=1.598e-16 tol=1e-10
+CHECK f32 mps_env chi=48 threads=4 default=faer packed=packed rel_default=1.159e-7 rel_packed=1.159e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_env chi=48 threads=4 default=faer packed=packed rel_default=2.159e-16 rel_packed=2.159e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_env chi=48 threads=4 default=faer packed=packed rel_default=4.695e-7 rel_packed=4.696e-7 rel_arms=1.174e-7 tol=1e-5
+CHECK c64 mps_env chi=48 threads=4 default=packed packed=packed rel_default=7.369e-16 rel_packed=7.369e-16 rel_arms=0.000e0 tol=1e-10
+CHECK f32 mps_env chi=64 threads=4 default=faer packed=packed rel_default=1.739e-7 rel_packed=1.739e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_env chi=64 threads=4 default=faer packed=packed rel_default=3.239e-16 rel_packed=3.239e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_env chi=64 threads=4 default=faer packed=packed rel_default=5.329e-7 rel_packed=5.335e-7 rel_arms=8.861e-8 tol=1e-5
+CHECK c64 mps_env chi=64 threads=4 default=packed packed=packed rel_default=1.211e-15 rel_packed=1.211e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 mps_env chi=96 threads=4 default=faer packed=packed rel_default=1.772e-7 rel_packed=1.772e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_env chi=96 threads=4 default=faer packed=packed rel_default=3.300e-16 rel_packed=3.300e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_env chi=96 threads=4 default=faer packed=packed rel_default=1.035e-6 rel_packed=1.034e-6 rel_arms=7.950e-8 tol=1e-5
+CHECK c64 mps_env chi=96 threads=4 default=packed packed=packed rel_default=1.925e-15 rel_packed=1.925e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 mps_env chi=128 threads=4 default=faer packed=packed rel_default=1.778e-7 rel_packed=1.778e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_env chi=128 threads=4 default=faer packed=packed rel_default=3.313e-16 rel_packed=3.313e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_env chi=128 threads=4 default=faer packed=packed rel_default=9.542e-7 rel_packed=9.542e-7 rel_arms=1.034e-7 tol=1e-5
+CHECK c64 mps_env chi=128 threads=4 default=packed packed=packed rel_default=1.652e-15 rel_packed=1.652e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 mps_site chi=16 threads=4 default=faer packed=packed rel_default=1.725e-7 rel_packed=1.725e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_site chi=16 threads=4 default=faer packed=packed rel_default=3.213e-16 rel_packed=3.213e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_site chi=16 threads=4 default=faer packed=packed rel_default=2.986e-7 rel_packed=2.986e-7 rel_arms=8.579e-8 tol=1e-5
+CHECK c64 mps_site chi=16 threads=4 default=faer packed=packed rel_default=5.333e-16 rel_packed=5.333e-16 rel_arms=1.065e-16 tol=1e-10
+CHECK f32 mps_site chi=24 threads=4 default=faer packed=packed rel_default=1.164e-7 rel_packed=1.164e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_site chi=24 threads=4 default=faer packed=packed rel_default=2.167e-16 rel_packed=2.167e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_site chi=24 threads=4 default=faer packed=packed rel_default=3.293e-7 rel_packed=3.293e-7 rel_arms=7.171e-8 tol=1e-5
+CHECK c64 mps_site chi=24 threads=4 default=faer packed=packed rel_default=7.643e-16 rel_packed=7.643e-16 rel_arms=1.336e-16 tol=1e-10
+CHECK f32 mps_site chi=32 threads=4 default=faer packed=packed rel_default=8.702e-8 rel_packed=8.702e-8 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_site chi=32 threads=4 default=faer packed=packed rel_default=3.242e-16 rel_packed=3.242e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_site chi=32 threads=4 default=faer packed=packed rel_default=5.384e-7 rel_packed=5.384e-7 rel_arms=5.968e-8 tol=1e-5
+CHECK c64 mps_site chi=32 threads=4 default=faer packed=packed rel_default=7.786e-16 rel_packed=7.786e-16 rel_arms=1.667e-16 tol=1e-10
+CHECK f32 mps_site chi=48 threads=4 default=faer packed=packed rel_default=1.181e-7 rel_packed=1.181e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_site chi=48 threads=4 default=faer packed=packed rel_default=2.200e-16 rel_packed=2.200e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_site chi=48 threads=4 default=faer packed=packed rel_default=5.435e-7 rel_packed=5.435e-7 rel_arms=6.264e-8 tol=1e-5
+CHECK c64 mps_site chi=48 threads=4 default=packed packed=packed rel_default=1.106e-15 rel_packed=1.106e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 mps_site chi=64 threads=4 default=faer packed=packed rel_default=1.778e-7 rel_packed=1.778e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_site chi=64 threads=4 default=faer packed=packed rel_default=3.313e-16 rel_packed=3.313e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_site chi=64 threads=4 default=faer packed=packed rel_default=7.493e-7 rel_packed=7.493e-7 rel_arms=6.627e-8 tol=1e-5
+CHECK c64 mps_site chi=64 threads=4 default=packed packed=packed rel_default=1.627e-15 rel_packed=1.627e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 mps_site chi=96 threads=4 default=faer packed=packed rel_default=1.181e-7 rel_packed=1.181e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_site chi=96 threads=4 default=faer packed=packed rel_default=4.401e-16 rel_packed=4.401e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_site chi=96 threads=4 default=faer packed=packed rel_default=9.798e-7 rel_packed=9.798e-7 rel_arms=7.644e-8 tol=1e-5
+CHECK c64 mps_site chi=96 threads=4 default=packed packed=packed rel_default=1.976e-15 rel_packed=1.976e-15 rel_arms=0.000e0 tol=1e-10
+CHECK f32 mps_site chi=128 threads=4 default=faer packed=packed rel_default=1.780e-7 rel_packed=1.780e-7 rel_arms=0.000e0 tol=1e-5
+CHECK f64 mps_site chi=128 threads=4 default=faer packed=packed rel_default=3.316e-16 rel_packed=3.316e-16 rel_arms=0.000e0 tol=1e-10
+CHECK c32 mps_site chi=128 threads=4 default=faer packed=packed rel_default=1.128e-6 rel_packed=1.128e-6 rel_arms=5.935e-8 tol=1e-5
+CHECK c64 mps_site chi=128 threads=4 default=packed packed=packed rel_default=2.543e-15 rel_packed=2.543e-15 rel_arms=0.000e0 tol=1e-10
+class,dtype,params,batch,m,n,k,mnk,threads,arm,algorithm,reason,ns
+gemm,f32,n=32,1,32,32,32,32768,4,default,faer,fused,752.0
+gemm,f32,n=32,1,32,32,32,32768,4,packed,packed,forced,2244.0
+gemm,f64,n=32,1,32,32,32,32768,4,default,faer,fused,1412.0
+gemm,f64,n=32,1,32,32,32,32768,4,packed,packed,forced,3266.0
+gemm,c32,n=32,1,32,32,32,32768,4,default,faer,fused,2705.0
+gemm,c32,n=32,1,32,32,32,32768,4,packed,packed,forced,4278.0
+gemm,c64,n=32,1,32,32,32,32768,4,default,faer,fused,5300.0
+gemm,c64,n=32,1,32,32,32,32768,4,packed,packed,forced,7705.0
+gemm,f32,n=64,1,64,64,64,262144,4,default,faer,fused,5189.0
+gemm,f32,n=64,1,64,64,64,262144,4,packed,packed,forced,11130.0
+gemm,f64,n=64,1,64,64,64,262144,4,default,faer,fused,10299.0
+gemm,f64,n=64,1,64,64,64,262144,4,packed,packed,forced,14948.0
+gemm,c32,n=64,1,64,64,64,262144,4,default,faer,fused,14687.0
+gemm,c32,n=64,1,64,64,64,262144,4,packed,packed,forced,12193.0
+gemm,c64,n=64,1,64,64,64,262144,4,default,packed,above_faer_limit(volume=262144 limit=131072),19015.0
+gemm,c64,n=64,1,64,64,64,262144,4,packed,packed,forced,20809.0
+gemm,f32,n=128,1,128,128,128,2097152,4,default,faer,fused,17553.0
+gemm,f32,n=128,1,128,128,128,2097152,4,packed,packed,forced,20418.0
+gemm,f64,n=128,1,128,128,128,2097152,4,default,faer,fused,31719.0
+gemm,f64,n=128,1,128,128,128,2097152,4,packed,packed,forced,41557.0
+gemm,c32,n=128,1,128,128,128,2097152,4,default,faer,fused,57077.0
+gemm,c32,n=128,1,128,128,128,2097152,4,packed,packed,forced,53350.0
+gemm,c64,n=128,1,128,128,128,2097152,4,default,packed,above_faer_limit(volume=2097152 limit=131072),98614.0
+gemm,c64,n=128,1,128,128,128,2097152,4,packed,packed,forced,98113.0
+gemm,f32,n=256,1,256,256,256,16777216,4,default,faer,fused,98434.0
+gemm,f32,n=256,1,256,256,256,16777216,4,packed,packed,forced,142456.0
+gemm,f64,n=256,1,256,256,256,16777216,4,default,faer,fused,185266.0
+gemm,f64,n=256,1,256,256,256,16777216,4,packed,packed,forced,204431.0
+gemm,c32,n=256,1,256,256,256,16777216,4,default,faer,fused,354532.0
+gemm,c32,n=256,1,256,256,256,16777216,4,packed,packed,forced,348560.0
+gemm,c64,n=256,1,256,256,256,16777216,4,default,packed,above_faer_limit(volume=16777216 limit=131072),685549.0
+gemm,c64,n=256,1,256,256,256,16777216,4,packed,packed,forced,687773.0
+gemm_batched,f32,n=16 batch=16,16,16,16,16,4096,4,default,faer,fused,2024.0
+gemm_batched,f32,n=16 batch=16,16,16,16,16,4096,4,packed,packed,forced,10800.0
+gemm_batched,f64,n=16 batch=16,16,16,16,16,4096,4,default,faer,fused,3487.0
+gemm_batched,f64,n=16 batch=16,16,16,16,16,4096,4,packed,packed,forced,9197.0
+gemm_batched,c32,n=16 batch=16,16,16,16,16,4096,4,default,faer,fused,9568.0
+gemm_batched,c32,n=16 batch=16,16,16,16,16,4096,4,packed,packed,forced,19687.0
+gemm_batched,c64,n=16 batch=16,16,16,16,16,4096,4,default,faer,fused,19326.0
+gemm_batched,c64,n=16 batch=16,16,16,16,16,4096,4,packed,packed,forced,19246.0
+gemm_batched,f32,n=32 batch=16,16,32,32,32,32768,4,default,faer,fused,6422.0
+gemm_batched,f32,n=32 batch=16,16,32,32,32,32768,4,packed,packed,forced,14597.0
+gemm_batched,f64,n=32 batch=16,16,32,32,32,32768,4,default,faer,fused,11482.0
+gemm_batched,f64,n=32 batch=16,16,32,32,32,32768,4,packed,packed,forced,20899.0
+gemm_batched,c32,n=32 batch=16,16,32,32,32,32768,4,default,faer,fused,14236.0
+gemm_batched,c32,n=32 batch=16,16,32,32,32,32768,4,packed,packed,forced,19707.0
+gemm_batched,c64,n=32 batch=16,16,32,32,32,32768,4,default,faer,fused,24586.0
+gemm_batched,c64,n=32 batch=16,16,32,32,32,32768,4,packed,packed,forced,33623.0
+gemm_batched,f32,n=64 batch=16,16,64,64,64,262144,4,default,faer,fused,24085.0
+gemm_batched,f32,n=64 batch=16,16,64,64,64,262144,4,packed,packed,forced,47228.0
+gemm_batched,f64,n=64 batch=16,16,64,64,64,262144,4,default,faer,fused,44563.0
+gemm_batched,f64,n=64 batch=16,16,64,64,64,262144,4,packed,packed,forced,62657.0
+gemm_batched,c32,n=64 batch=16,16,64,64,64,262144,4,default,faer,fused,250568.0
+gemm_batched,c32,n=64 batch=16,16,64,64,64,262144,4,packed,packed,forced,101870.0
+gemm_batched,c64,n=64 batch=16,16,64,64,64,262144,4,default,packed,above_faer_limit(volume=262144 limit=131072),196927.0
+gemm_batched,c64,n=64 batch=16,16,64,64,64,262144,4,packed,packed,forced,196496.0
+gemm_batched,f32,n=32 batch=64,64,32,32,32,32768,4,default,faer,fused,14958.0
+gemm_batched,f32,n=32 batch=64,64,32,32,32,32768,4,packed,packed,forced,39303.0
+gemm_batched,f64,n=32 batch=64,64,32,32,32,32768,4,default,faer,fused,25628.0
+gemm_batched,f64,n=32 batch=64,64,32,32,32,32768,4,packed,packed,forced,50364.0
+gemm_batched,c32,n=32 batch=64,64,32,32,32,32768,4,default,faer,fused,46366.0
+gemm_batched,c32,n=32 batch=64,64,32,32,32,32768,4,packed,packed,forced,64971.0
+gemm_batched,c64,n=32 batch=64,64,32,32,32,32768,4,default,faer,fused,88245.0
+gemm_batched,c64,n=32 batch=64,64,32,32,32,32768,4,packed,packed,forced,122729.0
+gemm_batched,f32,n=64 batch=64,64,64,64,64,262144,4,default,faer,fused,86341.0
+gemm_batched,f32,n=64 batch=64,64,64,64,64,262144,4,packed,packed,forced,177080.0
+gemm_batched,f64,n=64 batch=64,64,64,64,64,262144,4,default,faer,fused,169536.0
+gemm_batched,f64,n=64 batch=64,64,64,64,64,262144,4,packed,packed,forced,243034.0
+gemm_batched,c32,n=64 batch=64,64,64,64,64,262144,4,default,faer,fused,1018981.0
+gemm_batched,c32,n=64 batch=64,64,64,64,64,262144,4,packed,packed,forced,400748.0
+gemm_batched,c64,n=64 batch=64,64,64,64,64,262144,4,default,packed,above_faer_limit(volume=262144 limit=131072),944442.0
+gemm_batched,c64,n=64 batch=64,64,64,64,64,262144,4,packed,packed,forced,934172.0
+mps_env,f32,chi=16,1,16,32,16,8192,4,default,faer,fused,320.0
+mps_env,f32,chi=16,1,16,32,16,8192,4,packed,packed,forced,1433.0
+mps_env,f64,chi=16,1,16,32,16,8192,4,default,faer,fused,471.0
+mps_env,f64,chi=16,1,16,32,16,8192,4,packed,packed,forced,1432.0
+mps_env,c32,chi=16,1,16,32,16,8192,4,default,faer,fused,791.0
+mps_env,c32,chi=16,1,16,32,16,8192,4,packed,packed,forced,1854.0
+mps_env,c64,chi=16,1,16,32,16,8192,4,default,faer,fused,1492.0
+mps_env,c64,chi=16,1,16,32,16,8192,4,packed,packed,forced,2715.0
+mps_env,f32,chi=24,1,24,48,24,27648,4,default,faer,fused,871.0
+mps_env,f32,chi=24,1,24,48,24,27648,4,packed,packed,forced,1743.0
+mps_env,f64,chi=24,1,24,48,24,27648,4,default,faer,fused,1242.0
+mps_env,f64,chi=24,1,24,48,24,27648,4,packed,packed,forced,2234.0
+mps_env,c32,chi=24,1,24,48,24,27648,4,default,faer,fused,2364.0
+mps_env,c32,chi=24,1,24,48,24,27648,4,packed,packed,forced,5049.0
+mps_env,c64,chi=24,1,24,48,24,27648,4,default,faer,fused,4629.0
+mps_env,c64,chi=24,1,24,48,24,27648,4,packed,packed,forced,8085.0
+mps_env,f32,chi=32,1,32,64,32,65536,4,default,faer,fused,1433.0
+mps_env,f32,chi=32,1,32,64,32,65536,4,packed,packed,forced,4349.0
+mps_env,f64,chi=32,1,32,64,32,65536,4,default,faer,fused,2775.0
+mps_env,f64,chi=32,1,32,64,32,65536,4,packed,packed,forced,5830.0
+mps_env,c32,chi=32,1,32,64,32,65536,4,default,faer,fused,5370.0
+mps_env,c32,chi=32,1,32,64,32,65536,4,packed,packed,forced,7795.0
+mps_env,c64,chi=32,1,32,64,32,65536,4,default,faer,fused,10630.0
+mps_env,c64,chi=32,1,32,64,32,65536,4,packed,packed,forced,14056.0
+mps_env,f32,chi=48,1,48,96,48,221184,4,default,faer,fused,4499.0
+mps_env,f32,chi=48,1,48,96,48,221184,4,packed,packed,forced,7094.0
+mps_env,f64,chi=48,1,48,96,48,221184,4,default,faer,fused,8886.0
+mps_env,f64,chi=48,1,48,96,48,221184,4,packed,packed,forced,11872.0
+mps_env,c32,chi=48,1,48,96,48,221184,4,default,faer,fused,14687.0
+mps_env,c32,chi=48,1,48,96,48,221184,4,packed,packed,forced,13556.0
+mps_env,c64,chi=48,1,48,96,48,221184,4,default,packed,above_faer_limit(volume=221184 limit=131072),15569.0
+mps_env,c64,chi=48,1,48,96,48,221184,4,packed,packed,forced,14888.0
+mps_env,f32,chi=64,1,64,128,64,524288,4,default,faer,fused,9758.0
+mps_env,f32,chi=64,1,64,128,64,524288,4,packed,packed,forced,13585.0
+mps_env,f64,chi=64,1,64,128,64,524288,4,default,faer,fused,15950.0
+mps_env,f64,chi=64,1,64,128,64,524288,4,packed,packed,forced,17883.0
+mps_env,c32,chi=64,1,64,128,64,524288,4,default,faer,fused,17352.0
+mps_env,c32,chi=64,1,64,128,64,524288,4,packed,packed,forced,19817.0
+mps_env,c64,chi=64,1,64,128,64,524288,4,default,packed,above_faer_limit(volume=524288 limit=131072),33252.0
+mps_env,c64,chi=64,1,64,128,64,524288,4,packed,packed,forced,33102.0
+mps_env,f32,chi=96,1,96,192,96,1769472,4,default,faer,fused,27621.0
+mps_env,f32,chi=96,1,96,192,96,1769472,4,packed,packed,forced,18966.0
+mps_env,f64,chi=96,1,96,192,96,1769472,4,default,faer,fused,38763.0
+mps_env,f64,chi=96,1,96,192,96,1769472,4,packed,packed,forced,30777.0
+mps_env,c32,chi=96,1,96,192,96,1769472,4,default,faer,fused,82674.0
+mps_env,c32,chi=96,1,96,192,96,1769472,4,packed,packed,forced,46426.0
+mps_env,c64,chi=96,1,96,192,96,1769472,4,default,packed,above_faer_limit(volume=1769472 limit=131072),110366.0
+mps_env,c64,chi=96,1,96,192,96,1769472,4,packed,packed,forced,110135.0
+mps_env,f32,chi=128,1,128,256,128,4194304,4,default,faer,fused,33372.0
+mps_env,f32,chi=128,1,128,256,128,4194304,4,packed,packed,forced,35266.0
+mps_env,f64,chi=128,1,128,256,128,4194304,4,default,faer,fused,61364.0
+mps_env,f64,chi=128,1,128,256,128,4194304,4,packed,packed,forced,75881.0
+mps_env,c32,chi=128,1,128,256,128,4194304,4,default,faer,fused,99025.0
+mps_env,c32,chi=128,1,128,256,128,4194304,4,packed,packed,forced,97362.0
+mps_env,c64,chi=128,1,128,256,128,4194304,4,default,packed,above_faer_limit(volume=4194304 limit=131072),185275.0
+mps_env,c64,chi=128,1,128,256,128,4194304,4,packed,packed,forced,185596.0
+mps_site,f32,chi=16,1,16,16,32,8192,4,default,faer,fused,321.0
+mps_site,f32,chi=16,1,16,16,32,8192,4,packed,packed,forced,1653.0
+mps_site,f64,chi=16,1,16,16,32,8192,4,default,faer,fused,481.0
+mps_site,f64,chi=16,1,16,16,32,8192,4,packed,packed,forced,1343.0
+mps_site,c32,chi=16,1,16,16,32,8192,4,default,faer,fused,811.0
+mps_site,c32,chi=16,1,16,16,32,8192,4,packed,packed,forced,2655.0
+mps_site,c64,chi=16,1,16,16,32,8192,4,default,faer,fused,1473.0
+mps_site,c64,chi=16,1,16,16,32,8192,4,packed,packed,forced,2615.0
+mps_site,f32,chi=24,1,24,24,48,27648,4,default,faer,fused,901.0
+mps_site,f32,chi=24,1,24,24,48,27648,4,packed,packed,forced,2925.0
+mps_site,f64,chi=24,1,24,24,48,27648,4,default,faer,fused,1262.0
+mps_site,f64,chi=24,1,24,24,48,27648,4,packed,packed,forced,2314.0
+mps_site,c32,chi=24,1,24,24,48,27648,4,default,faer,fused,2344.0
+mps_site,c32,chi=24,1,24,24,48,27648,4,packed,packed,forced,4849.0
+mps_site,c64,chi=24,1,24,24,48,27648,4,default,faer,fused,4599.0
+mps_site,c64,chi=24,1,24,24,48,27648,4,packed,packed,forced,8015.0
+mps_site,f32,chi=32,1,32,32,64,65536,4,default,faer,fused,1452.0
+mps_site,f32,chi=32,1,32,32,64,65536,4,packed,packed,forced,4548.0
+mps_site,f64,chi=32,1,32,32,64,65536,4,default,faer,fused,2796.0
+mps_site,f64,chi=32,1,32,32,64,65536,4,packed,packed,forced,6152.0
+mps_site,c32,chi=32,1,32,32,64,65536,4,default,faer,fused,5330.0
+mps_site,c32,chi=32,1,32,32,64,65536,4,packed,packed,forced,8596.0
+mps_site,c64,chi=32,1,32,32,64,65536,4,default,faer,fused,10700.0
+mps_site,c64,chi=32,1,32,32,64,65536,4,packed,packed,forced,14978.0
+mps_site,f32,chi=48,1,48,48,96,221184,4,default,faer,fused,4548.0
+mps_site,f32,chi=48,1,48,48,96,221184,4,packed,packed,forced,7303.0
+mps_site,f64,chi=48,1,48,48,96,221184,4,default,faer,fused,9268.0
+mps_site,f64,chi=48,1,48,48,96,221184,4,packed,packed,forced,12062.0
+mps_site,c32,chi=48,1,48,48,96,221184,4,default,faer,fused,20899.0
+mps_site,c32,chi=48,1,48,48,96,221184,4,packed,packed,forced,13986.0
+mps_site,c64,chi=48,1,48,48,96,221184,4,default,packed,above_faer_limit(volume=221184 limit=131072),21780.0
+mps_site,c64,chi=48,1,48,48,96,221184,4,packed,packed,forced,21420.0
+mps_site,f32,chi=64,1,64,64,128,524288,4,default,faer,fused,11822.0
+mps_site,f32,chi=64,1,64,64,128,524288,4,packed,packed,forced,15689.0
+mps_site,f64,chi=64,1,64,64,128,524288,4,default,faer,fused,24916.0
+mps_site,f64,chi=64,1,64,64,128,524288,4,packed,packed,forced,17273.0
+mps_site,c32,chi=64,1,64,64,128,524288,4,default,faer,fused,27110.0
+mps_site,c32,chi=64,1,64,64,128,524288,4,packed,packed,forced,21911.0
+mps_site,c64,chi=64,1,64,64,128,524288,4,default,packed,above_faer_limit(volume=524288 limit=131072),33964.0
+mps_site,c64,chi=64,1,64,64,128,524288,4,packed,packed,forced,33172.0
+mps_site,f32,chi=96,1,96,96,192,1769472,4,default,faer,fused,21671.0
+mps_site,f32,chi=96,1,96,96,192,1769472,4,packed,packed,forced,36067.0
+mps_site,f64,chi=96,1,96,96,192,1769472,4,default,faer,fused,41868.0
+mps_site,f64,chi=96,1,96,96,192,1769472,4,packed,packed,forced,29705.0
+mps_site,c32,chi=96,1,96,96,192,1769472,4,default,faer,fused,63468.0
+mps_site,c32,chi=96,1,96,96,192,1769472,4,packed,packed,forced,50164.0
+mps_site,c64,chi=96,1,96,96,192,1769472,4,default,packed,above_faer_limit(volume=1769472 limit=131072),109975.0
+mps_site,c64,chi=96,1,96,96,192,1769472,4,packed,packed,forced,109144.0
+mps_site,f32,chi=128,1,128,128,256,4194304,4,default,faer,fused,88495.0
+mps_site,f32,chi=128,1,128,128,256,4194304,4,packed,packed,forced,41037.0
+mps_site,f64,chi=128,1,128,128,256,4194304,4,default,faer,fused,76714.0
+mps_site,f64,chi=128,1,128,128,256,4194304,4,packed,packed,forced,76854.0
+mps_site,c32,chi=128,1,128,128,256,4194304,4,default,faer,fused,112259.0
+mps_site,c32,chi=128,1,128,128,256,4194304,4,packed,packed,forced,103192.0
+mps_site,c64,chi=128,1,128,128,256,4194304,4,default,packed,above_faer_limit(volume=4194304 limit=131072),192368.0
+mps_site,c64,chi=128,1,128,128,256,4194304,4,packed,packed,forced,192239.0
