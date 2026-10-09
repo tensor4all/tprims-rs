@@ -1,0 +1,135 @@
+neutral-dispatch: what the neutral contraction interface costs per call
+
+Measured library revision
+  tprims-rs 9daeea6 (branch exp/neutral-dispatch, based on main 9daeea6), the
+  commit that carries this probe. No file in crates/, benchmarks/ or docs/
+  changed. strided-view 12ff2de9 (=0.4.6), rayon 1.12.0.
+Probe
+  experiments/neutral-dispatch, own workspace, excluded from the root workspace.
+
+Command
+  bash experiments/neutral-dispatch/run.sh 3
+
+Why
+  This is the item #31 deferred: "the paired 1T/4T timing comparison of the
+  concrete and trait paths. It was deferred; only allocation parity was checked."
+  It answers whether the object-safe interface is a cost at the call boundary,
+  which is what a consumer with a runtime backend slot pays.
+
+Arms, and what one call pays
+  prepare_concrete  Plan::<T>::new(&problem, &PlanConfig::default())
+  prepare_trait     Box<dyn ContractionBackend<T>>::prepare with
+                    Requirements::new() and PlanningBudget::serial()
+  exec_concrete     Plan::execute_into on a prebuilt plan
+  exec_trait        BoxedPlan<T>::execute_into on the plan the trait prepared
+  Both arms run the same kernels by construction: TprimsBackend::prepare is
+  Plan::new with the trait's no_materialize OR-ed in, and the trait's
+  execute_into forwards to the same execution, so any difference is dispatch and
+  boxing rather than arithmetic.
+  Views are descriptors over fixed buffers and are built outside the clock;
+  the output is preallocated. One arm is measured at a time.
+
+Shapes
+  gemm_n64      D[i, k] = sum_j A[i, j] B[j, k], 64 x 64 x 64
+  mps_env_chi32 the #61 corpus's MPS environment step at chi = 32,
+                `ab,asc->bsc`: D[b, s, c] = sum_a A[a, b] B[a, s, c]
+
+Correctness before timing
+  Both arms are checked against a naive reference written in the probe from the
+  axes (f64; the c64 rows are timed but not referenced, since the probe has no
+  complex reference). 8 CHECK lines per session, relative error at machine
+  precision, no mismatch in any session.
+
+Statistic
+  Best of 5 calls per arm per session, after 500 ms of untimed wall-clock
+  priming per arm; median of 3 sessions, spread = (max-min)/median.
+
+Threads
+  1T: Exec::serial(), one thread, no pool entered.
+  4T: a host-owned rayon::ThreadPool of 4 workers built once before the timed
+  region, borrowed through tprims_exec::Pool::borrow, handed to Exec::rayon.
+
+Host and guard
+  AMD Ryzen AI 9 HX 470 (Zen5 APU), 12 physical / 24 logical cores, L3 4-11
+  and 16-23 share 8 MiB; rustc 1.99.0 (b940084d7 2026-09-28), release profile.
+  Every session ran through benchmarks/scripts/pinned.sh on the four CPUs
+  `idle_cpus.py pick 4` returned (cpus=4,5,6,7 in all three sessions,
+  idle_window=3s max_busy=0.05 retries=3) and was valid at attempt 1 ("idle
+  before and after"); the guard also checked each CPU's SMT sibling. See
+  results/session*.guard. Nothing else was built or measured during a session.
+
+Result
+  ns per call, median of 3 sessions.
+
+  | case | dtype | T | arm | ns | spread |
+  |---|---|---|---|---:|---:|
+  | `gemm_n64` | c64 | 1 | exec_concrete | 61014 | 1% |
+  | `gemm_n64` | c64 | 1 | exec_trait | 61034 | 1% |
+  | `gemm_n64` | c64 | 1 | prepare_concrete | 5511 | 1% |
+  | `gemm_n64` | c64 | 1 | prepare_trait | 5781 | 2% |
+  | `gemm_n64` | c64 | 4 | exec_concrete | 20829 | 17% |
+  | `gemm_n64` | c64 | 4 | exec_trait | 20539 | 7% |
+  | `gemm_n64` | c64 | 4 | prepare_concrete | 5480 | 1% |
+  | `gemm_n64` | c64 | 4 | prepare_trait | 5671 | 2% |
+  | `gemm_n64` | f64 | 1 | exec_concrete | 10290 | 0% |
+  | `gemm_n64` | f64 | 1 | exec_trait | 10299 | 0% |
+  | `gemm_n64` | f64 | 1 | prepare_concrete | 330 | 3% |
+  | `gemm_n64` | f64 | 1 | prepare_trait | 481 | 4% |
+  | `gemm_n64` | f64 | 4 | exec_concrete | 10389 | 0% |
+  | `gemm_n64` | f64 | 4 | exec_trait | 10399 | 0% |
+  | `gemm_n64` | f64 | 4 | prepare_concrete | 331 | 6% |
+  | `gemm_n64` | f64 | 4 | prepare_trait | 491 | 2% |
+  | `mps_env_chi32` | c64 | 1 | exec_concrete | 10630 | 0% |
+  | `mps_env_chi32` | c64 | 1 | exec_trait | 10619 | 0% |
+  | `mps_env_chi32` | c64 | 1 | prepare_concrete | 331 | 3% |
+  | `mps_env_chi32` | c64 | 1 | prepare_trait | 491 | 2% |
+  | `mps_env_chi32` | c64 | 4 | exec_concrete | 10620 | 1% |
+  | `mps_env_chi32` | c64 | 4 | exec_trait | 10620 | 0% |
+  | `mps_env_chi32` | c64 | 4 | prepare_concrete | 340 | 0% |
+  | `mps_env_chi32` | c64 | 4 | prepare_trait | 481 | 2% |
+  | `mps_env_chi32` | f64 | 1 | exec_concrete | 2815 | 1% |
+  | `mps_env_chi32` | f64 | 1 | exec_trait | 2795 | 1% |
+  | `mps_env_chi32` | f64 | 1 | prepare_concrete | 340 | 6% |
+  | `mps_env_chi32` | f64 | 1 | prepare_trait | 501 | 2% |
+  | `mps_env_chi32` | f64 | 4 | exec_concrete | 2805 | 1% |
+  | `mps_env_chi32` | f64 | 4 | exec_trait | 2795 | 1% |
+  | `mps_env_chi32` | f64 | 4 | prepare_concrete | 341 | 3% |
+  | `mps_env_chi32` | f64 | 4 | prepare_trait | 480 | 2% |
+
+  Ratios:
+
+  | case | dtype | T | prepare trait/concrete | exec trait/concrete | prepare delta |
+  |---|---|---|---:|---:|---:|
+  | `gemm_n64` | c64 | 1 | 1.05 | 1.00 | +270 ns |
+  | `gemm_n64` | c64 | 4 | 1.03 | 0.99 | +191 ns |
+  | `gemm_n64` | f64 | 1 | 1.46 | 1.00 | +151 ns |
+  | `gemm_n64` | f64 | 4 | 1.48 | 1.00 | +160 ns |
+  | `mps_env_chi32` | c64 | 1 | 1.48 | 1.00 | +160 ns |
+  | `mps_env_chi32` | c64 | 4 | 1.41 | 1.00 | +141 ns |
+  | `mps_env_chi32` | f64 | 1 | 1.47 | 0.99 | +161 ns |
+  | `mps_env_chi32` | f64 | 4 | 1.41 | 1.00 | +139 ns |
+
+Reading
+  The interface is free per call and costs about 150 ns once per prepared plan:
+  `exec_trait / exec_concrete` is 0.99-1.00 in every row at both widths, while
+  `prepare_trait / prepare_concrete` is 1.03-1.48, which is the same absolute
+  +140 to +270 ns in every row — one `Box` plus the `Requirements`/budget
+  plumbing, not a per-call cost. The ratio looks worse on the cheap f64 rows
+  (1.46) than on the c64 GEMM (1.03) only because that concrete preparation is
+  5.5 us, so the same absolute overhead is a smaller share of it.
+  So a consumer that keeps a prepared plan pays nothing measurable for runtime
+  backend selection, and pays it once at preparation. Allocations are not counted
+  here: tests/plan_alloc.rs pins the concrete path's counts and
+  tests/neutral_alloc.rs covers the interface's extra one.
+
+What this does not cover
+  - One host, one rustc, one revision; three sessions; the gemm c64 4T exec row
+    is the noisiest at 17% spread, so its 3% difference is not a finding and the
+    row is reported as such.
+  - Two shapes only, and one dtype pair (f64, c64). The interface is
+    dtype-generic; the point here is the seam, not the kernel.
+  - No c64 correctness reference (the probe has no complex naive reference), so
+    c64 is timed but only f64 is checked against the reference. Both arms are
+    checked against each other implicitly: they run the same plan code, and the
+    f64 rows show rel_arms = 0 at machine precision.
+  - No GPU, no C ABI, and nothing about concurrent execution.
