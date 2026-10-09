@@ -96,9 +96,12 @@ pub fn problem_of<T: BenchElem>(s: &Sized) -> Result<Problem, tprims_contract::E
 /// of that bias in every arm (largest in the fastest arm). `prime_ms == 0`
 /// skips priming.
 ///
-/// Minimum rather than mean: these are deterministic compute kernels, so the
-/// spread is machine noise (frequency, interrupts, other tenants) and the
-/// minimum is the least contaminated estimator.
+/// The 1500 ms default is not a round number: at 500 ms the *first* arm measured
+/// for a case read 40% low (2.89 ms against 2.06 ms once settled for a 2 ms
+/// call), which made the second arm look 29% faster than the same work
+/// measured on its own, and 1500 ms removed the position dependence (the same
+/// case then read 2.06 ms whether measured alone or after another arm). Two arms
+/// that resolve to the same driver and grid are the check: they must agree.
 pub fn timed(reps: usize, prime_ms: u64, mut f: impl FnMut()) -> f64 {
     let until = Instant::now() + std::time::Duration::from_millis(prime_ms);
     while Instant::now() < until {

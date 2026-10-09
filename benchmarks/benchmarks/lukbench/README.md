@@ -68,9 +68,16 @@ benchmarks/scripts/pinned.sh "$cpus"       -- target/release/lukbench run --thre
   the timed region; each timed call runs the whole program into slots allocated
   once. Planning, input generation and (`N > 1`) tprims's pool construction are
   excluded.
-- **Time-based priming, then best of `--reps`.** At least 500 ms of untimed,
+- **Time-based priming, then best of `--reps`.** At least 1500 ms of untimed,
   wall-clock priming per arm (`--prime-ms`, echoed by `run` in its
   `... N ms priming ...` banner), then five repetitions, best wall time.
+  The default is 1500 ms, not 500: at 500 ms the *first* arm measured for a
+  case read 40% low on this host (2.89 ms against 2.06 ms once settled, for a call
+  of about 2 ms), which made the arm measured after it look 29% faster than the
+  same work measured on its own — a position bias, not a kernel difference. At
+  1500 ms the same case reads 2.06 ms whether measured alone or after another arm.
+  The built-in check: two arms that resolve to the same driver and grid must agree.
+
   Priming is time-based, not a call count: a fixed number of warm-up calls
   removes a different share of the clock ramp in every arm, most in the fastest
   one.

@@ -199,7 +199,7 @@ where
         // re-read later.
         let notes = match &report.packed {
             Some(r) => format!(
-                "{} {}x{} {} {}x{}x{} {}",
+                "{} {}x{} {} {}x{}x{} {} {}",
                 r.family_id,
                 r.mr,
                 r.nr,
@@ -207,6 +207,7 @@ where
                 r.mc,
                 r.kc,
                 r.nc,
+                tprims_bench::partition::describe(r),
                 check(name, &d, &mut reference)
             ),
             None => format!(
