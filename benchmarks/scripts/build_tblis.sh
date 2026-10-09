@@ -111,7 +111,9 @@ cc_version="$(cc --version 2>&1 | head -1 || true)"
     printf 'config_family=%s\n' "$FAMILY"
     printf 'build=%s\n' "./configure --prefix=$prefix --with-blis-config-family=$FAMILY (cmake, Unix Makefiles, Release)"
     printf 'compiler=%s\n' "$cc_version"
-    printf 'libtblis_sha256=%s\n' "$sha"
+    # `sha256=` is the field the campaign's recorder reads into the manifest's
+    # `providers[].sha256`; it is the hash of the artifact that gets linked.
+    printf 'sha256=%s\n' "$sha"
 } > "$prefix/PROVENANCE"
 
 echo "installed $so (sha256 $sha)"
