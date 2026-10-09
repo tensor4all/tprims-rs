@@ -1,28 +1,70 @@
 faer-limit-sweep: the planner's faer route against the packed driver on
-copy-free fusable contractions, per dtype and per thread count
+copy-free fusable contractions, per dtype, per thread count and per C mode
 
 Measured library revision
-  tprims-rs 4e02ba0 (branch exp/faer-limit-sweep, based on main 4e02ba0). The
-  probe measures crates/tprims-contract's planner: PlanConfig::default() (faer
-  below the dtype's FaerLimit, packed above it) and PlanConfig::packed(), the
-  subject of tprims-rs#63 / #69. strided-view 12ff2de9 (=0.4.6), the revision
-  main pins; faer 0.24.4; rayon 1.12.0. No file in crates/, benchmarks/ or
-  docs/ changed.
-  The three sessions were recorded before the probe source had a final
-  `rustfmt` pass and one `#[allow(clippy::too_many_arguments)]` attribute;
-  both are formatting/lint only, no token or code path changed.
+  Third run: tprims-rs base bf2c868, this commit on top (branch
+  exp/faer-limit-accumulate). The crate sources are unchanged -- crates/,
+  benchmarks/ and docs/ are untouched by that commit; only the probe gained the
+  faer_forced arm. Second run: tprims-rs bf2c868. Earlier run: tprims-rs
+  4e02ba0. All measure crates/tprims-contract's planner: PlanConfig::default()
+  (faer below the dtype's FaerLimit, packed above it), PlanConfig::packed(), and
+  -- third run only -- PlanConfig { faer_limit: FaerLimit::NONE, ..default },
+  the subject of tprims-rs#63 / #69. strided-view 12ff2de9 (=0.4.6), the
+  revision main pins; faer 0.24.4; rayon 1.12.0. No file in crates/,
+  benchmarks/ or docs/ changed.
+  The earlier sessions were recorded before the probe source had a final
+  `rustfmt` pass and one `#[allow(clippy::too_many_arguments)]` attribute; both
+  are formatting/lint only, no token or code path changed. The second and third
+  sessions were likewise recorded before the final `rustfmt` pass on their probe
+  revisions (formatting only). The second and third run share the library
+  revision bf2c868, so a ratio read across their tables is same-revision; a
+  ratio read across the earlier and the later tables mixes that change.
+
+Arms
+  default       PlanConfig::default() -- the planner's own route: faer below the
+                dtype's FaerLimit, the packed driver above it, elementwise for
+                all-batch.
+  packed        PlanConfig::packed() -- the packed TBLIS-style driver, forced.
+  faer_forced   PlanConfig { faer_limit: FaerLimit::NONE, ..default } -- faer
+                for every fusable problem, the rule before #63. Third run only;
+                the only arm that reaches faer above the dtype's FaerLimit.
+  `packed` is planned in every run: its PlanStats supplies the `batch,m,n,k,mnk`
+  every row shares.
+
+C modes
+  absent  CSpec::Absent, beta = 0, Plan::execute_into: D = alpha * A * B into a
+          zero D (the overwrite form the earlier run used).
+  output  CSpec::Output(Op::Identity), beta = 1, Plan::execute_into_accum with
+          AccumulationSource::Output: D = alpha * A * B + beta * D in place over
+          a non-zero D (the MPS-step form, D += A*B).
+  alpha = 1 in both. The `output` reference is alpha * sum(A*B) + beta * D_old,
+  computed from the labels exactly as the absent oracle is, on a non-zero
+  starting D.
+
 Probe
   experiments/faer-limit-sweep, own workspace, excluded from the root
   workspace.
 
 Command
-  bash experiments/faer-limit-sweep/run.sh 3
+  bash experiments/faer-limit-sweep/run.sh [sessions] [set]
+  One entry point records whichever set it is asked for; one binary records both
+  C modes and the arms of that set:
+    triarm (default)  default,packed,faer_forced ->
+                      results/triarm-session{s}.{csv,txt,guard}
+    cmode             default,packed ->
+                      results/cmode-session{s}.{csv,txt,guard}
+  Each sub-run writes its own file set.
 
 Timed boundary
-  Per call, `Plan::execute_into` only: `D = alpha * A * B` with alpha = 1, a
-  prebuilt Plan (planner default, or packed forced) and a preallocated output.
-  Problem construction, planning, view construction and buffer allocation are
-  outside the clock. One arm is measured at a time.
+  Per call, only the plan execution, on a prebuilt Plan (planner default, packed
+  forced, or faer forced) and a preallocated output. Problem construction,
+  planning, view construction and buffer allocation are outside the clock. One
+  arm is measured at a time:
+    absent  Plan::execute_into.
+    output  Plan::execute_into_accum(.., AccumulationSource::Output).
+  In the output mode the priming and timed calls accumulate into the same D
+  without a reset between calls (as a sequence of MPS steps does); the per-call
+  cost is the same.
     1T  Exec::serial(); the process is pinned to one CPU.
     4T  a host-owned rayon::ThreadPool of 4 workers, built once before the
         timed region, borrowed through tprims_exec::Pool::borrow and handed to
@@ -30,10 +72,17 @@ Timed boundary
         that Cpus_allowed_list holds exactly the requested CPUs, and refuses
         RAYON_NUM_THREADS / OMP_NUM_THREADS / OPENBLAS_NUM_THREADS /
         MKL_NUM_THREADS / VECLIB_MAXIMUM_THREADS that contradict --threads.
-  Correctness: every case is checked against a naive label oracle and the two
-  arms against each other before any timing (rel < 1e-10 for f64/c64, < 1e-5
-  for f32/c32); a mismatch aborts the run. The CHECK lines are in each
-  session*.txt (184 per session: 23 shapes x 4 dtypes, both arms per line).
+  Correctness: every case is checked against a naive label oracle, and every arm
+  against that oracle and the other arms, before any timing (rel < 1e-10 for
+  f64/c64, < 1e-5 for f32/c32); a mismatch aborts the run. A faer plan that
+  refuses a problem -- the faer_forced arm's construction returns Err -- aborts
+  with that error instead of being routed around; none occurred. The CHECK lines
+  are in each triarm-session*.txt and cmode-session*.txt (368 per session: 23
+  shapes x 4 dtypes x 2 C modes x 2 thread counts; the triarm CHECK also carries
+  faer_forced/route_faer/rel_faer), and the earlier session*.txt carry 184 per
+  session, absent only.
+  Worst rel over the third run: absent 1.13e-6, output 1.11e-6 (f32/c32 rows);
+  rel_arms <= 4.6e-7. No case failed and no problem was refused.
 
 Shapes (column-major contiguous; labels as in experiments/three-engine-contract)
   gemm         D[i,k] = sum_j A[i,j] B[j,k], n in {32, 64, 128, 256}
@@ -44,14 +93,14 @@ Shapes (column-major contiguous; labels as in experiments/three-engine-contract)
                chi in {16, 24, 32, 48, 64, 96, 128}
   Every class is measured in DType::{F32, F64, C32, C64}. `mnk` is the fused
   `m * n * k` per batch item, the quantity the planner's FaerLimit compares; it
-  is read from the packed plan's PlanStats for both rows.
+  is read from the packed plan's PlanStats for every arm and both C modes.
 
 Statistic
   Best of 5 calls per arm per session, after 500 ms of untimed wall-clock
-  priming per arm (the same wall-clock warm-up on both arms, so the shorter one
-  is not biased by a call count). The table reports the median over the 3
-  sessions, and spread = (max-min)/median of the 3 per-session values, the
-  larger of the two arms' spreads.
+  priming per arm (the same wall-clock warm-up on every arm, so a shorter one is
+  not biased by a call count). The table reports the median over the 3 sessions,
+  and spread = (max-min)/median of the 3 per-session values, the larger of the
+  arms' spreads.
 
 Host
   AMD Ryzen AI 9 HX 470 (Zen5 APU), 12 physical / 24 logical cores. Two L3
@@ -65,34 +114,37 @@ Guard
   process per (session, thread count). 1T picks its CPU with
   `idle_cpus.py pick 1 --seconds 3`; 4T picks with `idle_cpus.py pick 4`. The
   guard log records the window (3 s), the threshold (busy <= 0.05) and the SMT
-  siblings it checked. All six sub-runs passed at attempt 1 ("idle before and
-  after"); see results/session*.guard. Nothing else was built or measured while
-  a session ran; the cargo build precedes the sessions.
-  CPU sets: session 1 - 1T cpu4, 4T cpu4,5,6,7; session 2 - 1T cpu4, 4T
-  cpu5,6,7,8; session 3 - 1T cpu5, 4T cpu4,5,6,7.
+  siblings it checked. All six sub-runs of each run passed at attempt 1
+  ("idle before and after"); see results/triarm-session*.guard,
+  results/cmode-session*.guard and results/session*.guard. Nothing else was
+  built or measured while a session ran; the cargo build precedes the sessions.
+  CPU sets: every session of every run ran 1T on cpu4 and 4T on cpu4,5,6,7.
 
 Result
-  results/session{1,2,3}.csv hold 368 rows each (23 shapes x 4 dtypes x 2 arms
-  x 2 thread counts, one ns per row). README.md carries the summary table and
-  the per-class ratios.
+  results/triarm-session{1,2,3}.csv hold 1104 rows each (23 shapes x 4 dtypes x
+  3 arms x 2 thread counts x 2 C modes, one ns per row); their .txt hold the
+  CHECK lines and their .guard the guard logs. results/cmode-session{1,2,3}.*
+  hold the second run (736 rows each, two arms). results/session{1,2,3}.* hold
+  the earlier absent-only run (368 rows each). README.md carries the summary
+  tables and the per-class ratios.
 
 What this does not cover
-  - One host, one rustc, one library revision, one session order. The 1T rows
-    repeat within a median 0.4% / p90 1.9% / max 12.3% spread across the three
-    sessions; the 4T rows are much noisier (median 1.2%, p90 13.8%, max 89.1%),
-    so 4T differences below that band are not findings.
-  - A laptop APU under `powersave`: no fixed frequency, no isolated cores.
-  - Only `execute_into` (the overwrite form). `execute_into_accum` with a
-    separate or in-place C is not measured.
-  - The problem is built with CSpec::Absent, so the faer strategy's
-    separate-C / in-place-beta paths are not exercised.
+  - One host, one rustc, one session order, and two library revisions across the
+    runs. A laptop APU under `powersave`: no fixed frequency, no isolated cores.
+  - Only two C modes: absent (overwrite) and output (in-place accumulation,
+    beta = 1, Op::Identity). CSpec::Separate is not measured; nor are other beta
+    values, op_C conjugation or alpha != 1.
+  - Whole-shape timings only: no split between packing, the micro-kernel and
+    write-back inside either engine, and no counter-based attribution.
   - The `mps_env` output shape follows the label order of the equation
     (`bsc` -> chi x 2 x chi), not the "2 x chi x chi" written in the task text.
-  - For c64 above the provisional limit both arms are the packed driver: the
-    default route already switches at mnk = 262144, so those rows are an A/A of
-    one engine, not a faer/packed comparison. The c64 crossover is observable
-    here only below that volume.
-  - Routing observed: default = faer/`fused` for all f32/f64/c32 and c64 below
-    the limit; packed/`above_faer_limit` above it. `NotFusable`, `AllBatch` and
-    elementwise never appeared; no case failed a CHECK line.
+  - c64 above the provisional limit: the default arm routes to packed, so on
+    those rows the `default` and `packed` arms are the same engine and their
+    ratio is ~1.00. The third run's faer_forced arm is what measures faer there;
+    its column is the faer time the default route cannot show.
+  - Routing observed in the third run: default = faer/fused for all
+    f32/f64/c32 and for c64 below the limit, packed/above_faer_limit above it;
+    faer_forced = faer/fused for all 368 case/dtype/thread/mode rows of every
+    session. NotFusable, AllBatch and elementwise never appeared; the routing is
+    identical in both C modes.
   - No FaerLimit value is chosen or recommended here.

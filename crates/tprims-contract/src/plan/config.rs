@@ -30,11 +30,14 @@ use crate::api::{ConfigError, DType, Error, Result};
 /// [#63](https://github.com/tensor4all/tprims-rs/issues/63) fixes the
 /// predicate and the per-dtype values; the other dtypes are unbounded until
 /// measured. The 2026-10-09 sweep of
-/// [#69](https://github.com/tensor4all/tprims-rs/issues/69) did not contradict
-/// these defaults — faer wins every f32/f64/c32 case it measured at one thread,
-/// and the c64 bound sits above the largest c64 volume where faer was measured
-/// to win — but that sweep measured the overwrite form only, so the value stays
-/// provisional. See `docs/decision-log.md`.
+/// [#69](https://github.com/tensor4all/tprims-rs/issues/69) measures both C modes,
+/// and with a [`NONE`](Self::NONE) arm both sides of the c64 bound: on the host it
+/// ran on, faer is ahead of the packed driver at every fusable volume it measured
+/// at one thread — including above the bound, by 1.05x to 1.58x — while at four
+/// threads the packed driver is ahead there for 18 of 79 groups. The crossover is
+/// therefore host- and width-dependent, no single per-dtype volume is justified by
+/// that evidence, and these values stay provisional. See
+/// `docs/decision-log.md`.
 ///
 /// # Examples
 ///
