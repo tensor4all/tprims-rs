@@ -1,0 +1,7 @@
+pinned.sh: cpus=4 idle_window=3s max_busy=0.05 retries=3
+cpu4 busy=0.000
+cpu16 busy=0.000 (sibling)
+wrote /home/shinaoka/projects/tensor4all/tprims-rs/experiments/unary-add/results/session1.csv
+cpu4 busy=0.000
+cpu16 busy=0.000 (sibling)
+pinned.sh: cpus 4 idle before and after (attempt 1)

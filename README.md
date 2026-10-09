@@ -24,7 +24,7 @@ AI-assisted contributions are welcome; see [AGENTS.md](AGENTS.md) and
 | --- | --- |
 | `tprims-exec` | Execution context: serial, or the host's borrowed/owned/shared-`Arc` Rayon pool (or created and joined through the C API); width chosen from work; reusable, wrapper-owned scratch. |
 | `tprims-kernel` | The kernel layer: packed formats, kernel-family descriptors and their registry, resolution with frozen blocking, packing and write-back, cache blocking, and every microkernel family (scalar, AVX2, AVX-512 and NEON register-tile kernels, portable reference kernels, native complex kernels). |
-| `tprims-contract` | Binary contraction over one validated `Problem` (from `DotGeneral` or from labels): `Plan<T>`, `PlanConfig`, the packed, faer and elementwise strategies chosen by the planner, `contract_batched`, shared errors, and the backend trait. |
+| `tprims-contract` | Binary contraction over one validated `Problem` (from `DotGeneral` or from labels): `Plan<T>`, `PlanConfig`, the packed, faer and elementwise strategies chosen by the planner, `contract_batched`, the labels-based unary update (`unary`), shared errors, and the backend trait. |
 | `tprims-capi` | `libtprims` (cdylib, staticlib, rlib): the TAPP C ABI over `tprims-contract`, DLPack operands, executors. The only crate that produces a library for C. |
 | `tprims-testkit` | Test support: an independent label oracle, seeded fixtures, a naive second backend, downstream-kernel fixtures. Not a production fallback. |
 | `tprims-bench` (`benchmarks/`) | Benchmark harness (`tcbench`, C and Rust ABI rows); not part of the library. |

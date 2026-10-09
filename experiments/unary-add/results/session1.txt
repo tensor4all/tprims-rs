@@ -1,0 +1,17 @@
+# unary-add: tprims-contract 0.0.0 per call, 1 thread (Exec::serial), 5 reps, 500 ms priming
+CHECK perm_8x8 0.000e0
+CHECK perm_32x32 0.000e0
+CHECK site_chi32 0.000e0
+CHECK trace_32 0.000e0
+CHECK site_chi32 0.000e0
+shape,dtype,ns,arm
+perm_8x8,f64,4007.0,api
+perm_8x8,f64,852.0,plan[packed]
+perm_32x32,f64,16100.0,api
+perm_32x32,f64,3436.0,plan[packed]
+site_chi32,f64,24756.0,api
+site_chi32,f64,6162.0,plan[packed]
+trace_32,f64,4629.0,api
+trace_32,f64,1733.0,plan[packed]
+site_chi32,c64,31609.0,api
+site_chi32,c64,10059.0,plan[packed]

@@ -1,0 +1,11 @@
+shape,dtype,ns,arm
+perm_8x8,f64,4068.0,api
+perm_8x8,f64,891.0,plan[packed]
+perm_32x32,f64,15760.0,api
+perm_32x32,f64,3566.0,plan[packed]
+site_chi32,f64,24776.0,api
+site_chi32,f64,6152.0,plan[packed]
+trace_32,f64,4719.0,api
+trace_32,f64,1753.0,plan[packed]
+site_chi32,c64,30918.0,api
+site_chi32,c64,9949.0,plan[packed]

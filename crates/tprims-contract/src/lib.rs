@@ -20,6 +20,10 @@
 //! [`contract_batched`] runs many independent items of one plan with the batch
 //! as the parallel axis, the regime where per-contraction threading loses.
 //!
+//! [`unary`] is the same machinery for the one-operand update `D = alpha *
+//! op_A(A[labels]) + beta * D_old`, which covers a permutation, a diagonal and
+//! a reduction in one operation.
+//!
 //! The neutral [`api::ContractionBackend`] / [`api::PreparedContraction`]
 //! traits are the extension seam for a second implementation; [`TprimsBackend`]
 //! is this crate's.
@@ -60,6 +64,7 @@ mod plan;
 mod resolve;
 mod select;
 mod strategy;
+pub mod unary;
 mod wrappers;
 
 pub use api::{Error, Result};
