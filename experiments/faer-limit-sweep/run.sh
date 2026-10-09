@@ -5,6 +5,8 @@
 #
 #   run.sh [sessions]
 #
+# One binary records both C modes (overwrite `absent`, accumulating `output`)
+# for every case; each sub-run writes `results/cmode-session$s.{csv,txt,guard}`.
 # One measurement at a time. Every sub-run is its own guarded process, and its
 # guard log must say the cores were idle before and after; a sub-run that does
 # not is discarded and retried.
@@ -41,12 +43,12 @@ run_pinned() {
             {
                 echo "=== session $s, ${t}T, cpus=$cpu ==="
                 cat "$out/.tmp.$s.$t.guard"
-            } >> "$out/session$s.guard"
-            cat "$out/.tmp.$s.$t.txt" >> "$out/session$s.txt"
-            if [ -s "$out/session$s.csv" ]; then
-                tail -n +2 "$out/.tmp.$s.$t.csv" >> "$out/session$s.csv"
+            } >> "$out/cmode-session$s.guard"
+            cat "$out/.tmp.$s.$t.txt" >> "$out/cmode-session$s.txt"
+            if [ -s "$out/cmode-session$s.csv" ]; then
+                tail -n +2 "$out/.tmp.$s.$t.csv" >> "$out/cmode-session$s.csv"
             else
-                cat "$out/.tmp.$s.$t.csv" >> "$out/session$s.csv"
+                cat "$out/.tmp.$s.$t.csv" >> "$out/cmode-session$s.csv"
             fi
             rm -f "$out/.tmp.$s.$t.csv" "$out/.tmp.$s.$t.txt" "$out/.tmp.$s.$t.guard"
             return 0
@@ -60,9 +62,9 @@ run_pinned() {
 }
 
 for s in $(seq 1 "$sessions"); do
-    : > "$out/session$s.csv"
-    : > "$out/session$s.txt"
-    : > "$out/session$s.guard"
+    : > "$out/cmode-session$s.csv"
+    : > "$out/cmode-session$s.txt"
+    : > "$out/cmode-session$s.guard"
     run_pinned "$s" 1
     run_pinned "$s" 4
 done
@@ -75,8 +77,8 @@ out, sessions = pathlib.Path(sys.argv[1]), int(sys.argv[2])
 runs = {}
 meta = {}
 for s in range(1, sessions + 1):
-    for r in csv.DictReader((out / f"session{s}.csv").open()):
-        key = (r["threads"], r["class"], r["dtype"], r["params"], r["arm"])
+    for r in csv.DictReader((out / f"cmode-session{s}.csv").open()):
+        key = (r["c_mode"], r["threads"], r["class"], r["dtype"], r["params"], r["arm"])
         runs.setdefault(key, []).append(float(r["ns"]))
         meta[key] = r
 
@@ -90,23 +92,23 @@ def spread(key):
 
 print()
 print(
-    "| threads | class | dtype | params | mnk | default | packed | "
+    "| c_mode | threads | class | dtype | params | mnk | default | packed | "
     "ns default | ns packed | default/packed | spread |"
 )
-print("|---|---|---|---|---:|---|---|---:|---:|---:|---:|")
+print("|---|---|---|---|---|---:|---|---|---:|---:|---:|---:|")
 seen = []
-for (threads, cls, dtype, params, arm) in runs:
-    row = (threads, cls, dtype, params)
+for (c_mode, threads, cls, dtype, params, arm) in runs:
+    row = (c_mode, threads, cls, dtype, params)
     if row not in seen:
         seen.append(row)
-for (threads, cls, dtype, params) in seen:
-    d = (threads, cls, dtype, params, "default")
-    p = (threads, cls, dtype, params, "packed")
+for (c_mode, threads, cls, dtype, params) in seen:
+    d = (c_mode, threads, cls, dtype, params, "default")
+    p = (c_mode, threads, cls, dtype, params, "packed")
     nd, np_ = med(d), med(p)
     ratio = nd / np_ if np_ else float("inf")
     sd = max(spread(d), spread(p))
     print(
-        f"| {threads} | `{cls}` | {dtype} | {params} | {meta[d]['mnk']} | "
+        f"| {c_mode} | {threads} | `{cls}` | {dtype} | {params} | {meta[d]['mnk']} | "
         f"{meta[d]['algorithm']} | {meta[p]['algorithm']} | {nd:.0f} | {np_:.0f} | "
         f"{ratio:.3f} | {100 * sd:.0f}% |"
     )

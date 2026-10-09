@@ -4,9 +4,21 @@
 //! One `Problem` per case is planned twice: with [`PlanConfig::default`] (what
 //! the planner itself chooses, `faer` below the dtype's `FaerLimit` and packed
 //! above it) and with [`PlanConfig::packed`] (the packed driver forced). Only
-//! `Plan::execute_into` is timed, on prebuilt plans and a preallocated output,
-//! so the number is the execution of the plan and neither its construction nor
-//! any allocation of `A`/`B`/`D`.
+//! the execution is timed, on prebuilt plans and a preallocated output, so the
+//! number is the execution of the plan and neither its construction nor any
+//! allocation of `A`/`B`/`D`.
+//!
+//! Two C modes are recorded per case:
+//!
+//! * `absent` — `CSpec::Absent`, `Plan::execute_into`, i.e. `D = alpha * A * B`
+//!   overwriting a zero `D` (the overwrite form).
+//! * `output` — `CSpec::Output(Op::Identity)`, `Plan::execute_into_accum` with
+//!   `beta = 1` and [`AccumulationSource::Output`], i.e. `D += alpha * A * B`
+//!   in place over a non-zero `D`, the form an MPS step pays.
+//!
+//! In both modes the correctness oracle is computed from the labels: the
+//! `absent` oracle is the bare product; the `output` oracle is `alpha * sum +
+//! beta * D_old`.
 //!
 //! This answers the size question of [tprims-rs#63] / [#69]: the crossover of
 //! the two engines on the classes that fuse to one strided batched GEMM is a
@@ -34,7 +46,9 @@ use std::time::{Duration, Instant};
 
 use num_complex::{Complex32 as C32, Complex64 as C64};
 use strided_view::{StridedView, StridedViewMut};
-use tprims_contract::api::{CSpec, DType, Labels, LayoutSpec, OperandSpec, Problem, Scalar};
+use tprims_contract::api::{
+    AccumulationSource, CSpec, DType, Labels, LayoutSpec, Op, OperandSpec, Problem, Scalar,
+};
 use tprims_contract::{Plan, PlanConfig, Reason};
 use tprims_exec::{Exec, Pool};
 use tprims_kernel::{Element, Real};
@@ -60,6 +74,33 @@ struct Case {
 /// ASCII label codes, so the integer labels in the CSV match the equations.
 fn ids(s: &str) -> Vec<i64> {
     s.chars().map(|c| c as i64).collect()
+}
+
+/// The C mode: overwrite (`absent`) or in-place accumulation (`output`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CMode {
+    Absent,
+    Output,
+}
+
+impl CMode {
+    fn name(self) -> &'static str {
+        match self {
+            CMode::Absent => "absent",
+            CMode::Output => "output",
+        }
+    }
+
+    /// The `CSpec` a problem is built with in this mode. `output` maps C to the
+    /// old D itself with no element-wise op.
+    fn c_spec(self) -> CSpec {
+        match self {
+            CMode::Absent => CSpec::Absent,
+            CMode::Output => CSpec::Output(Op::Identity),
+        }
+    }
+
+    const ALL: [CMode; 2] = [CMode::Absent, CMode::Output];
 }
 
 fn cases() -> Vec<Case> {
@@ -237,9 +278,31 @@ fn timed(reps: usize, prime_ms: u64, mut f: impl FnMut()) -> f64 {
     best
 }
 
+/// Run one plan once, in `mode`. `absent` overwrites D; `output` accumulates
+/// `alpha * A * B + beta * D` into D in place, which is what the corpus pays.
+#[allow(clippy::too_many_arguments)]
+fn apply<S: Scalar>(
+    plan: &Plan<S>,
+    mode: CMode,
+    exec: &Exec<'_>,
+    alpha: S,
+    av: &StridedView<'_, S>,
+    bv: &StridedView<'_, S>,
+    beta: S,
+    dv: &mut StridedViewMut<'_, S>,
+) {
+    match mode {
+        CMode::Absent => plan.execute_into(exec, alpha, av, bv, dv).unwrap(),
+        CMode::Output => plan
+            .execute_into_accum(exec, alpha, av, bv, beta, AccumulationSource::Output, dv)
+            .unwrap(),
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn time_plan<S: Scalar>(
     plan: &Plan<S>,
+    mode: CMode,
     d: &mut [S],
     dims: &[usize],
     strides: &[isize],
@@ -250,9 +313,10 @@ fn time_plan<S: Scalar>(
     prime_ms: u64,
 ) -> f64 {
     let mut dv = StridedViewMut::new(d, dims, strides, 0).unwrap();
+    let alpha = <S as Element>::one();
+    let beta = <S as Element>::one();
     timed(reps, prime_ms, || {
-        plan.execute_into(exec, <S as Element>::one(), av, bv, &mut dv)
-            .unwrap();
+        apply(plan, mode, exec, alpha, av, bv, beta, &mut dv);
     })
 }
 
@@ -275,6 +339,7 @@ fn reason_str(r: &Reason) -> String {
 #[allow(clippy::too_many_arguments)]
 fn one_case<S: Scalar>(
     case: &Case,
+    mode: CMode,
     threads: usize,
     exec: &Exec<'_>,
     reps: usize,
@@ -287,14 +352,13 @@ fn one_case<S: Scalar>(
     let (sa, sb, sd) = (col_major(&case.a), col_major(&case.b), col_major(&case.d));
     let a = fill::<S>(product(&case.a));
     let b = fill::<S>(product(&case.b));
-    let mut d = vec![<S as Element>::zero(); product(&case.d)];
 
     let l = |dims: &[usize], st: &[isize]| OperandSpec::new(LayoutSpec::new(dims, st, 0).unwrap());
     let problem = Problem::from_labels(
         dtype,
         l(&case.a, &sa),
         l(&case.b, &sb),
-        CSpec::Absent,
+        mode.c_spec(),
         l(&case.d, &sd),
         &Labels::new(&case.la, &case.lb, &case.ld),
     )
@@ -317,25 +381,40 @@ fn one_case<S: Scalar>(
     let av = StridedView::new(&a, &case.a, &sa, 0).unwrap();
     let bv = StridedView::new(&b, &case.b, &sb, 0).unwrap();
     let alpha = <S as Element>::one();
+    let beta = <S as Element>::one();
 
-    // Correctness before timing: naive oracle, then each arm, then the arms
-    // against each other.
-    let want = oracle::<S>(
+    // The old D: zero for the overwrite form (exactly the recorded absent
+    // rows), a non-zero fill for the accumulating form.
+    let start: Vec<S> = match mode {
+        CMode::Absent => vec![<S as Element>::zero(); product(&case.d)],
+        CMode::Output => fill::<S>(product(&case.d)),
+    };
+
+    // Correctness before timing: naive label oracle, then each arm, then the
+    // arms against each other. `absent` wants the bare product; `output` wants
+    // `alpha * sum + beta * D_old`.
+    let prod = oracle::<S>(
         &a, &case.a, &case.la, &b, &case.b, &case.lb, &case.d, &case.ld,
     );
+    let want: Vec<S> = match mode {
+        CMode::Absent => prod,
+        CMode::Output => prod
+            .iter()
+            .zip(&start)
+            .map(|(&p, &s)| Element::add(Element::mul(alpha, p), Element::mul(beta, s)))
+            .collect(),
+    };
+    let mut d = start.clone();
     {
         let mut dv = StridedViewMut::new(&mut d, &case.d, &sd, 0).unwrap();
-        plan_default
-            .execute_into(exec, alpha, &av, &bv, &mut dv)
-            .unwrap();
+        apply(&plan_default, mode, exec, alpha, &av, &bv, beta, &mut dv);
     }
     let got_default = d.clone();
     let rel_default = rel_err(&got_default, &want);
+    d.copy_from_slice(&start);
     {
         let mut dv = StridedViewMut::new(&mut d, &case.d, &sd, 0).unwrap();
-        plan_packed
-            .execute_into(exec, alpha, &av, &bv, &mut dv)
-            .unwrap();
+        apply(&plan_packed, mode, exec, alpha, &av, &bv, beta, &mut dv);
     }
     let rel_packed = rel_err(&d, &want);
     let rel_arms = rel_err(&d, &got_default);
@@ -346,19 +425,21 @@ fn one_case<S: Scalar>(
         1e-5
     };
     checks.push(format!(
-        "CHECK {} {} {} threads={threads} default={alg_default} packed={alg_packed} \
+        "CHECK {} {} {} c_mode={} threads={threads} default={alg_default} packed={alg_packed} \
          rel_default={rel_default:.3e} rel_packed={rel_packed:.3e} rel_arms={rel_arms:.3e} tol={tol:.0e}",
         dtype.name(),
         case.class,
         case.params,
+        mode.name(),
     ));
     assert!(
         rel_default < tol && rel_packed < tol && rel_arms < tol,
-        "{} {} {} threads={threads} failed the oracle: default={rel_default:.3e} \
+        "{} {} {} c_mode={} threads={threads} failed the oracle: default={rel_default:.3e} \
          packed={rel_packed:.3e} arms={rel_arms:.3e} (tol {tol:.0e})",
         dtype.name(),
         case.class,
         case.params,
+        mode.name(),
     );
 
     if !timing {
@@ -366,6 +447,7 @@ fn one_case<S: Scalar>(
     }
     let ns_default = time_plan(
         &plan_default,
+        mode,
         &mut d,
         &case.d,
         &sd,
@@ -377,6 +459,7 @@ fn one_case<S: Scalar>(
     );
     let ns_packed = time_plan(
         &plan_packed,
+        mode,
         &mut d,
         &case.d,
         &sd,
@@ -388,10 +471,11 @@ fn one_case<S: Scalar>(
     );
 
     let base = format!(
-        "{},{},{},{},{},{},{},{},{threads}",
+        "{},{},{},{},{},{},{},{},{},{threads}",
         case.class,
         dtype.name(),
         case.params,
+        mode.name(),
         stats.batch,
         stats.m,
         stats.n,
@@ -407,6 +491,7 @@ fn one_case<S: Scalar>(
 #[allow(clippy::too_many_arguments)]
 fn dispatch<S: Scalar>(
     case: &Case,
+    mode: CMode,
     threads: usize,
     exec: &Exec<'_>,
     reps: usize,
@@ -415,7 +500,9 @@ fn dispatch<S: Scalar>(
     rows: &mut Vec<String>,
     checks: &mut Vec<String>,
 ) {
-    one_case::<S>(case, threads, exec, reps, prime_ms, timing, rows, checks);
+    one_case::<S>(
+        case, mode, threads, exec, reps, prime_ms, timing, rows, checks,
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -458,7 +545,7 @@ fn check_env(threads: usize) {
     }
 }
 
-const HEADER: &str = "class,dtype,params,batch,m,n,k,mnk,threads,arm,algorithm,reason,ns";
+const HEADER: &str = "class,dtype,params,c_mode,batch,m,n,k,mnk,threads,arm,algorithm,reason,ns";
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -582,9 +669,19 @@ fn run_all(
     checks: &mut Vec<String>,
 ) {
     for case in cases {
-        dispatch::<f32>(case, threads, exec, reps, prime_ms, timing, rows, checks);
-        dispatch::<f64>(case, threads, exec, reps, prime_ms, timing, rows, checks);
-        dispatch::<C32>(case, threads, exec, reps, prime_ms, timing, rows, checks);
-        dispatch::<C64>(case, threads, exec, reps, prime_ms, timing, rows, checks);
+        for mode in CMode::ALL {
+            dispatch::<f32>(
+                case, mode, threads, exec, reps, prime_ms, timing, rows, checks,
+            );
+            dispatch::<f64>(
+                case, mode, threads, exec, reps, prime_ms, timing, rows, checks,
+            );
+            dispatch::<C32>(
+                case, mode, threads, exec, reps, prime_ms, timing, rows, checks,
+            );
+            dispatch::<C64>(
+                case, mode, threads, exec, reps, prime_ms, timing, rows, checks,
+            );
+        }
     }
 }
