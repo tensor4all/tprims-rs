@@ -1,0 +1,17 @@
+# three-engine-contract threads=1 sample_ms=20 samples=11 seed=61
+case,dtype,steps,macs,arm,median_ns,min_ns,rel_err
+mps_chain_L32_chi4,c64,64,8192,tc_exec,20999.1,20647.2,1.12e-15
+mps_chain_L32_chi4,c64,64,8192,tc_call,83623.8,81569.2,1.12e-15
+mps_chain_L32_chi4,c64,64,8192,tp_exec,11542.3,11366.2,1.12e-15
+mps_chain_L32_chi4,c64,64,8192,tp_packed_exec,20609.6,20350.0,1.12e-15
+mps_chain_L32_chi4,c64,64,8192,tp_call,83762.2,82408.9,1.12e-15
+mps_chain_L32_chi4,c64,64,8192,tf_exec,29218.2,28886.8,1.12e-15
+mps_chain_L32_chi4,c64,64,8192,tf_call,282582.8,277118.1,1.12e-15
+mps_chain_L32_chi4,c64,64,8192,tf_call_spc,293728.9,289448.7,1.12e-15
+mps_chain_L32_chi4,c64,64,8192,tf_call_subs,245735.1,242181.6,1.12e-15
+mps_chain_L32_chi4,c64,64,8192,tf_prep_exec,242427.7,236742.5,1.12e-15
+mps_chain_L32_chi4,c64,64,8192,tf_plan_exec,86219.1,85684.6,1.12e-15
+mps_chain_L32_chi4,c64,64,8192,tf_eager,122421.3,120564.2,1.12e-15
+mps_chain_L32_chi4,c64,64,8192,tf_eager_scoped,120685.4,120103.3,1.12e-15
+mps_chain_L32_chi4,c64,64,8192,tf_traced,155402.2,152536.9,1.12e-15
+mps_chain_L32_chi4,c64,64,8192,tf_traced_nary,129388.7,128474.7,1.79e-15
