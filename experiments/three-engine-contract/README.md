@@ -89,8 +89,11 @@ Unresolved in #61, recorded here rather than implied to be done:
   comparison at 4T on the recorded host; that needs that host. The width half of
   the question is measured on the zen5 host instead, at these same corpus shapes,
   by [`../faer-limit-sweep/`](../faer-limit-sweep/README.md), which compares
-  tprims' own two routes at 1T and 4T and records the 4T width as undetermined
-  inside its session noise.
+  tprims' own two routes at 1T and 4T. That sweep finds the 4T ranking
+  **reproducibly different** from 1T's for 18 of 79 groups (packed ahead at 4T in
+  both of its recordings, faer ahead at 1T in every one of them), so the width
+  matters — but a rule that used it would need the executor width at plan time,
+  which a `Plan` does not have. See the 2026-10-09 row in `docs/decision-log.md`.
 - **The corpus is our reconstruction.** `corpus()` in `src/main.rs` carries
   working assumptions where the figure is ambiguous, not definitions confirmed
   against the unpublished script.

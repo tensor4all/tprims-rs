@@ -119,7 +119,9 @@ needs it.
   Max, which is not available for a follow-up, and cross-machine ratios are not
   comparable. The width question is answered on the zen5 host instead, at these
   same shapes, by `experiments/faer-limit-sweep/` — tprims' own two routes at 1T
-  and 4T, where the 4T width is recorded as undetermined inside its noise. The
+  and 4T, where the 4T ranking is **reproducibly different** for 18 of 79 groups
+  (packed ahead at 4T in both recordings, faer ahead at 1T in every one of them),
+  so the width matters but no rule can use it without a plan-time width. The
   tenferro comparison at 4T on the recorded host is what remains missing.
 - **One host, one rustc, one revision per engine**, and one 3-session A/A repeat
   of a single host state. Nothing here is a cross-host comparison.
