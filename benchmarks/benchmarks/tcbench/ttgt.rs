@@ -13,7 +13,7 @@
 //! The permutation itself writes its output contiguously and gathers its
 //! input, which is the sensible naive strategy. A production TTGT would use a
 //! blocked/vectorised transpose such as HPTT; treat these numbers as an upper
-//! bound on TTGT's transposition cost, and TBLIS as the strong baseline.
+//! bound on TTGT's transposition cost.
 
 #![allow(dead_code)] // only reachable with the `blas` feature
 

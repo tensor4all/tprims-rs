@@ -4,7 +4,6 @@
 pub mod run;
 pub mod verify;
 
-use std::os::raw::c_int;
 use std::time::Instant;
 
 use num_complex::Complex;
@@ -14,7 +13,6 @@ use tprims_kernel::Element;
 
 use crate::blas::GemmScalar;
 use crate::corpus::{Layout, Sized};
-use crate::tblis;
 
 // Concrete implementations avoid mixing the two libraries' Element traits.
 macro_rules! upstream_method {
@@ -38,11 +36,9 @@ macro_rules! upstream_method {
 #[allow(dead_code)] // some members are only used under optional features
 pub trait BenchElem: Scalar + GemmScalar {
     const NAME: &'static str;
-    const TBLIS_TYPE: c_int;
     /// The same shape in the corresponding real type, for ratio reporting.
     const REAL_NAME: &'static str;
 
-    fn tblis_scalar(v: f64) -> tblis::tblis_scalar;
     fn sample(rng: &mut impl Rng) -> Self;
     fn from_f64(v: f64) -> Self;
     #[cfg(feature = "upstream")]
@@ -60,11 +56,7 @@ pub trait BenchElem: Scalar + GemmScalar {
 impl BenchElem for f32 {
     upstream_method!();
     const NAME: &'static str = "f32";
-    const TBLIS_TYPE: c_int = tblis::TYPE_SINGLE;
     const REAL_NAME: &'static str = "f32";
-    fn tblis_scalar(v: f64) -> tblis::tblis_scalar {
-        tblis::tblis_scalar::f32(v as f32)
-    }
     fn sample(rng: &mut impl Rng) -> Self {
         rng.gen_range(-1.0..1.0)
     }
@@ -76,11 +68,7 @@ impl BenchElem for f32 {
 impl BenchElem for f64 {
     upstream_method!();
     const NAME: &'static str = "f64";
-    const TBLIS_TYPE: c_int = tblis::TYPE_DOUBLE;
     const REAL_NAME: &'static str = "f64";
-    fn tblis_scalar(v: f64) -> tblis::tblis_scalar {
-        tblis::tblis_scalar::f64(v)
-    }
     fn sample(rng: &mut impl Rng) -> Self {
         rng.gen_range(-1.0..1.0)
     }
@@ -92,11 +80,7 @@ impl BenchElem for f64 {
 impl BenchElem for Complex<f32> {
     upstream_method!();
     const NAME: &'static str = "c32";
-    const TBLIS_TYPE: c_int = tblis::TYPE_SCOMPLEX;
     const REAL_NAME: &'static str = "f32";
-    fn tblis_scalar(v: f64) -> tblis::tblis_scalar {
-        tblis::tblis_scalar::c32(v as f32, 0.0)
-    }
     fn sample(rng: &mut impl Rng) -> Self {
         Complex::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0))
     }
@@ -108,11 +92,7 @@ impl BenchElem for Complex<f32> {
 impl BenchElem for Complex<f64> {
     upstream_method!();
     const NAME: &'static str = "c64";
-    const TBLIS_TYPE: c_int = tblis::TYPE_DCOMPLEX;
     const REAL_NAME: &'static str = "f64";
-    fn tblis_scalar(v: f64) -> tblis::tblis_scalar {
-        tblis::tblis_scalar::c64(v, 0.0)
-    }
     fn sample(rng: &mut impl Rng) -> Self {
         Complex::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0))
     }
@@ -185,18 +165,9 @@ pub fn rel_error<T: Element>(got: &[T], want: &[T]) -> f64 {
     }
 }
 
-/// Set provider budgets and confirm the linked TBLIS ABI.
+/// Set provider budgets.
 pub fn configure_threads(threads: usize) {
     let _ = threads;
-    #[cfg(feature = "tblis")]
-    unsafe {
-        tblis::tblis_set_num_threads(threads.try_into().expect("TBLIS thread count fits u32"));
-        assert_eq!(tblis::tblis_get_num_threads() as usize, threads);
-        if let Err(e) = tblis::verify_type_tags() {
-            eprintln!("FATAL: {e}");
-            std::process::exit(2);
-        }
-    };
     // Accelerate has no equivalent: it reads `VECLIB_MAXIMUM_THREADS` once at
     // first use, so pinning it is the caller's job and cannot be done from here.
     #[cfg(all(feature = "blas", not(feature = "accelerate")))]

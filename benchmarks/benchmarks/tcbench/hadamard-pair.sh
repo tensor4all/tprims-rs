@@ -6,7 +6,6 @@ out=$(realpath -m "$1"); baseline=$(realpath "$2"); candidate=$(realpath "$3")
 root=$(cd "$(dirname "$0")/../../.." && pwd); cd "$root"
 corpus="$root/benchmarks/benchmarks/tprims/corpus/hadamard.json"
 mkdir -p "$out"
-export LD_LIBRARY_PATH="${TBLIS_ROOT:?}/lib:${TBLIS_ROOT}/lib64:${LD_LIBRARY_PATH:-}"
 { date -Iseconds; sha256sum "$baseline" "$candidate" "$corpus"; printf 'native/release; median20 (10 at work>=2^24); warmup3; CPUs4/4-7\n'; } > "$out/manifest.txt"
 for sample in A A2; do
     arms='baseline candidate'; [[ $sample == A2 ]] && arms='candidate baseline'

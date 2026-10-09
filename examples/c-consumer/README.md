@@ -57,8 +57,8 @@ target_include_directories(your_target PRIVATE
     ${TPRIMS_DIR}/crates/tprims-capi/include)
 ```
 
-`CRATES` matters: it keeps the unpublished benchmark harness — whose build
-script requires `TBLIS_ROOT` — out of your build.
+`CRATES` matters: it keeps the unpublished benchmark harness out of your
+build.
 
 Corrosion works out the platform link line for you, which is the main reason to
 prefer it. On Linux it resolves a static link to `gcc_s;util;rt;pthread;m;dl;c`;

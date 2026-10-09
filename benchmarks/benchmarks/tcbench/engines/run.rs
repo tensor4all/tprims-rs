@@ -1,7 +1,7 @@
 //! The TCCG corpus run: every case, every requested dtype, every engine.
 //!
 //! Engines: `plan` (the planner's own choice under the knobs), `packed` (the
-//! packed driver, forced), and the external baselines `ttgt` and `tblis`.
+//! packed driver, forced), and the external baselines `upstream` and `ttgt`.
 
 use std::process::ExitCode;
 
@@ -27,7 +27,6 @@ pub const ENGINE_ORDER: &[&str] = &[
     #[cfg(feature = "upstream")]
     "upstream",
     "ttgt",
-    "tblis",
 ];
 
 pub fn run(opts: &Options, exec: &Exec<'_>) -> ExitCode {
@@ -230,9 +229,9 @@ where
     // Regularity for the baselines' rows: the packed engine's, so the column
     // means one thing per row. (Only consumed when a baseline feature is
     // enabled.)
-    #[cfg(any(feature = "blas", feature = "tblis"))]
+    #[cfg(feature = "blas")]
     let (reg_a, reg_b) = regularity;
-    #[cfg(not(any(feature = "blas", feature = "tblis")))]
+    #[cfg(not(feature = "blas"))]
     let _ = regularity;
 
     // ---- original tensorprimitives-rs ------------------------------------
@@ -264,46 +263,6 @@ where
         });
         let notes = check("ttgt", &dt, &mut reference);
         push("ttgt", secs, reg_a, reg_b, notes, results);
-    }
-    // ---- TBLIS -----------------------------------------------------------
-    #[cfg(feature = "tblis")]
-    if opts.engine("tblis") {
-        use crate::tblis as tb;
-        let mut oa = tb::Operand::new(s.la.extents(), s.la.strides(), s.case.a);
-        let mut ob = tb::Operand::new(s.lb.extents(), s.lb.strides(), s.case.b);
-        let mut oc = tb::Operand::new(s.lc.extents(), s.lc.strides(), s.case.c);
-        let mut dt: Vec<T> = vec![<T as Element>::zero(); s.elems_c()];
-        let ta = oa.tensor(
-            T::TBLIS_TYPE,
-            T::tblis_scalar(1.0),
-            a.as_ptr() as *mut std::ffi::c_void,
-        );
-        let tbv = ob.tensor(
-            T::TBLIS_TYPE,
-            T::tblis_scalar(1.0),
-            b.as_ptr() as *mut std::ffi::c_void,
-        );
-        let secs = timed(opts.reps, opts.prime_ms, || {
-            let mut tc = oc.tensor(
-                T::TBLIS_TYPE,
-                T::tblis_scalar(0.0),
-                dt.as_mut_ptr() as *mut std::ffi::c_void,
-            );
-            unsafe {
-                tb::tblis_tensor_mult(
-                    std::ptr::null(),
-                    std::ptr::null(),
-                    &ta,
-                    oa.labels(),
-                    &tbv,
-                    ob.labels(),
-                    &mut tc,
-                    oc.labels(),
-                )
-            }
-        });
-        let notes = check("tblis", &dt, &mut reference);
-        push("tblis", secs, reg_a, reg_b, notes, results);
     }
 }
 

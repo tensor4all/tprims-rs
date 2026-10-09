@@ -174,16 +174,7 @@ pub fn print_environment() {
     let blas = crate::blas::IMPL;
     #[cfg(not(feature = "blas"))]
     let blas = "false";
-    println!(
-        "baselines   : tblis={} blas={blas}",
-        cfg!(feature = "tblis")
-    );
-    #[cfg(feature = "tblis")]
-    println!(
-        "tblis       : abi {}, {} thread(s)",
-        crate::tblis::VERSION,
-        unsafe { crate::tblis::tblis_get_num_threads() }
-    );
+    println!("baselines   : blas={blas}");
 }
 
 /// This machine's name, for the `PROVENANCE.txt` convention every directory
@@ -206,7 +197,7 @@ fn hostname() -> String {
 }
 
 /// `gethostname(2)`, declared rather than pulled in with a `libc` dependency —
-/// the same call this crate's BLAS and TBLIS bindings are written as.
+/// the same call this crate's BLAS bindings are written as.
 fn posix_hostname() -> Option<String> {
     use std::ffi::c_char;
 

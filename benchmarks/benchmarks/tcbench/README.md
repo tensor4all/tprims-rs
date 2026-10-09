@@ -1,4 +1,4 @@
-# Three-provider contraction benchmark
+# TCCG contraction benchmark
 
 `tcbench` reuses the full 49-case TCCG corpus (CCSD, AO2MO, InTensLi,
 CCSD(T), transposed output). Shapes, signed element strides, seeded random
@@ -14,22 +14,16 @@ without Transposition*, [arXiv:1607.00291](https://arxiv.org/abs/1607.00291).
 | `plan` | tprims's default planner: packed or copy-free faer |
 | `packed` | tprims packed driver forced (diagnostic) |
 | `upstream` | Original tensorcontract, explicit `.with_threads(N)`, default scoped-thread policy |
-| `tblis` | Actual C++ TBLIS via the existing direct FFI adapter |
 
-Do not label `packed` as external TBLIS or upstream tensorprimitives.
+Do not label `packed` as upstream tensorprimitives.
 
 ## Fixed procedure
 
 The source of truth is
 [the tprims-benchmark skill](../../../.agents/skills/tprims-benchmark/SKILL.md).
-Use `RUSTFLAGS="-C target-cpu=native"` and release for all Rust code; TBLIS
-must be a Release/native build. TBLIS 2.x requires `--features upstream,tblis`;
-1.3 instead requires `upstream,tblis13` (not supported by this 2.x runner).
-Installation options: [RESTGroup tblis-rs](https://github.com/RESTGroup/tblis-rs#installation).
-System BLIS alone is not TBLIS.
+Use `RUSTFLAGS="-C target-cpu=native"` and release for all Rust code.
 
 ```sh
-export TBLIS_ROOT=/path/to/native-release-tblis
 export CARGO_BUILD_JOBS=8  # choose for the host
 # Ryzen AI 9 HX 470: 1/4/8 physical cores in L3 #1; 12 physical cores in two L3s.
 bash benchmarks/benchmarks/tcbench/run.sh \
@@ -52,14 +46,14 @@ a call count: a fixed number of warm-up calls removes a different share of the
 clock ramp in every arm, most in the fastest one. Input generation,
 planning/descriptor construction and tprims pool construction are excluded.
 tprims retains a caller-owned scratch arena/pool; upstream retains its default
-per-call scoped-thread/allocation policy; TBLIS retains its internal policy.
+per-call scoped-thread/allocation policy.
 These are library execution comparisons, not isolated microkernel timings.
 
 CSV rows include the thread budget, dtype, equivalent M/N/K, GFLOP/s, latency
 and tprims strategy/kernel notes. `manifest.txt` records the base commit,
 dirty status, binary SHA256, compiler, flags and actual topology;
 `source.patch` records tracked local harness edits. Archive new source files
-and TBLIS's build configuration next to results too. The legacy `info` cache
+next to results too. The legacy `info` cache
 and domain estimates describe the library's model, **not** actual affinity;
 use the captured `lscpu` topology to interpret this heterogeneous host.
 
