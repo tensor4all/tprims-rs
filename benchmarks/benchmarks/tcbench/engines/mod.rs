@@ -97,23 +97,37 @@ pub fn problem_of<T: BenchElem>(s: &Sized) -> Result<Problem, tprims_contract::E
 /// skips priming.
 ///
 /// The 1500 ms default is not a round number: at 500 ms the *first* arm measured
-/// for a case read 40% low (2.89 ms against 2.06 ms once settled for a 2 ms
-/// call), which made the second arm look 29% faster than the same work
-/// measured on its own, and 1500 ms removed the position dependence (the same
-/// case then read 2.06 ms whether measured alone or after another arm). Two arms
-/// that resolve to the same driver and grid are the check: they must agree.
-pub fn timed(reps: usize, prime_ms: u64, mut f: impl FnMut()) -> f64 {
+/// for a case read 2.89 ms against 2.06 ms once settled — 40% higher latency, a
+/// 29% lower rate — and the arm measured after it read 2.20 ms, so it looked 29%
+/// faster than the same work measured on its own. At 1500 ms that case read 2.06
+/// ms whether measured alone or after another arm, and so did it at 3000 ms.
+/// That is those measured cases, not a guarantee: the arms are still measured one
+/// after another in a fixed order, and `best` alone would hide a slow first
+/// repetition, which is why the scatter is returned beside it. The diagnostic to
+/// apply by hand — the harness compares outputs, not timings — is that two arms
+/// whose rows carry the same family, blocking and partition policy must agree.
+///
+/// Returns `(best, scatter)` in seconds, scatter being `(max - min) / best` over
+/// the repetitions, which is 0 for a single repetition.
+pub fn timed(reps: usize, prime_ms: u64, mut f: impl FnMut()) -> (f64, f64) {
     let until = Instant::now() + std::time::Duration::from_millis(prime_ms);
     while Instant::now() < until {
         f();
     }
-    let mut best = f64::INFINITY;
+    let (mut best, mut worst) = (f64::INFINITY, 0.0f64);
     for _ in 0..reps.max(1) {
         let t = Instant::now();
         f();
-        best = best.min(t.elapsed().as_secs_f64());
+        let secs = t.elapsed().as_secs_f64();
+        best = best.min(secs);
+        worst = worst.max(secs);
     }
-    best
+    let scatter = if best.is_finite() && best > 0.0 {
+        (worst - best) / best
+    } else {
+        0.0
+    };
+    (best, scatter)
 }
 
 /// GFLOP/s given a multiply-accumulate count and a time.

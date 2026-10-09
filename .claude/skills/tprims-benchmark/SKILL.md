@@ -92,9 +92,10 @@ Before the first timed run, record this protocol in a work log:
 - all four thread counts **1,4,8,12** and exact core sets;
 - contiguous TCCG layouts first; `--stress padded` as a separately labelled
   follow-up, not silently mixed into the primary result;
-- **500 ms of untimed priming by wall clock** per arm (`--prime-ms`, default
-  500, echoed by `run`) then **5 repetitions**, best wall time per engine/case
-  (the existing `tcbench` statistic); complete suite repeated twice (A/A);
+- **1500 ms of untimed priming by wall clock** per arm (`--prime-ms`, default
+  1500, echoed by `run`) then **5 repetitions**, best wall time per engine/case,
+  with the `spread` across those repetitions recorded (the existing `tcbench`
+  statistic); complete suite repeated twice (A/A);
 - timing includes execution, packing, call/FFI and provider-owned allocation;
   excludes input generation, plan/descriptor construction and tprims pool
   construction; document scratch/pool reuse differences between providers;
@@ -107,12 +108,14 @@ Before the first timed run, record this protocol in a work log:
   first ~1-2 s of sustained AVX-512 work after an idle gate. A microbenchmark
   whose whole timed window is that short measures the ramp, not the hardware,
   and the error is large enough to look like a kernel defect (measured:
-  39.8 GFLOP/s for a kernel that reads 52.7 once warm). `tcbench` is safe
-  because it primes every arm for `--prime-ms` of wall time before its
-  repetitions, but any new
-  micro-probe or ablation must warm up for **0.5-2 s of wall time**, not a
-  fixed call count, and must use the *same* warm-up on every arm: if one arm
-  is much shorter than the other, a call-count warm-up biases the ratio.
+  39.8 GFLOP/s for a kernel that reads 52.7 once warm). `tcbench` primes every
+  arm for `--prime-ms` of wall time before its repetitions, but that only fixes
+  the arm's *own* start: the arms still run one after another in a fixed order, so
+  the first one absorbs the ramp the later ones inherit, which cost 40% of latency
+  at 500 ms and disappeared at 1500 ms. Any new micro-probe or ablation must warm
+  up for **1.5-2 s of wall time**, not a fixed call count, must use the *same*
+  warm-up on every arm, and must keep the scatter across repetitions — a slow first
+  repetition is the signature of an unsettled arm.
   Never quote an absolute rate without its warm-up and its run order.
 - report per-case latency, GFLOP/s, speedup vs each provider and 1T scaling;
   geometric-mean ratios are summaries, not substitutes for all rows;

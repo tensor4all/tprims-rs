@@ -136,25 +136,31 @@ where
         }
     };
 
-    let push =
-        |engine: &str, secs: f64, reg_a: f64, reg_b: f64, notes: String, results: &mut Results| {
-            results.push(Row {
-                case: s.case.name.to_string(),
-                group: s.case.group.to_string(),
-                dtype: T::NAME.to_string(),
-                engine: engine.to_string(),
-                threads: exec.budget(),
-                m,
-                n,
-                k,
-                macs,
-                secs,
-                gflops: gflops::<T>(macs, secs),
-                reg_a,
-                reg_b,
-                notes,
-            });
-        };
+    let push = |engine: &str,
+                secs: f64,
+                spread: f64,
+                reg_a: f64,
+                reg_b: f64,
+                notes: String,
+                results: &mut Results| {
+        results.push(Row {
+            case: s.case.name.to_string(),
+            group: s.case.group.to_string(),
+            dtype: T::NAME.to_string(),
+            engine: engine.to_string(),
+            threads: exec.budget(),
+            m,
+            n,
+            k,
+            macs,
+            secs,
+            spread,
+            gflops: gflops::<T>(macs, secs),
+            reg_a,
+            reg_b,
+            notes,
+        });
+    };
 
     // ---- this library: the planner's choice, and the packed driver ---------
     //
@@ -178,7 +184,7 @@ where
         if report.packed.is_some() && regularity == (0.0, 0.0) {
             regularity = (reg_a, reg_b);
         }
-        let secs = timed(opts.reps, opts.prime_ms, || {
+        let (secs, spread) = timed(opts.reps, opts.prime_ms, || {
             // SAFETY: the buffers are sized by the layouts, `D` is exclusive and
             // `beta = 0` reads no previous value.
             unsafe {
@@ -218,7 +224,7 @@ where
         }
         .trim()
         .to_string();
-        push(name, secs, reg_a, reg_b, notes, results);
+        push(name, secs, spread, reg_a, reg_b, notes, results);
     }
 
     // Regularity for the baselines' rows: the packed engine's, so the column
@@ -235,7 +241,7 @@ where
         let tp = TtgtPlan::new(&problem);
         let mut scratch = TtgtScratch::<T>::new(&tp);
         let mut dt: Vec<T> = vec![<T as Element>::zero(); s.elems_c()];
-        let secs = timed(opts.reps, opts.prime_ms, || {
+        let (secs, spread) = timed(opts.reps, opts.prime_ms, || {
             ttgt(
                 &tp,
                 <T as Element>::one(),
@@ -248,7 +254,7 @@ where
             )
         });
         let notes = check("ttgt", &dt, &mut reference);
-        push("ttgt", secs, reg_a, reg_b, notes, results);
+        push("ttgt", secs, spread, reg_a, reg_b, notes, results);
     }
 }
 

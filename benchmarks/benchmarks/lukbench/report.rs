@@ -20,6 +20,10 @@ pub struct Row {
     pub k: u64,
     pub macs: u64,
     pub secs: f64,
+    /// Scatter across the timed repetitions, `(max - min) / best`. One slow first
+    /// repetition — an arm measured before the machine settles — shows up here,
+    /// where `secs` alone would hide it. 0 for a single repetition.
+    pub spread: f64,
     pub gflops: f64,
     /// Fraction of A's row blocks and B's column blocks that are regular. Not
     /// aggregated across a program's steps here, so every row carries 0.
@@ -46,12 +50,12 @@ impl Results {
 
     pub fn write_csv(&self, path: &str) -> std::io::Result<()> {
         let mut s = String::from(
-            "case,group,dtype,engine,threads,m,n,k,macs,seconds,gflops,regular_a,regular_b,notes\n",
+            "case,group,dtype,engine,threads,m,n,k,macs,seconds,spread,gflops,regular_a,regular_b,notes\n",
         );
         for r in &self.rows {
             let _ = writeln!(
                 s,
-                "{},{},{},{},{},{},{},{},{},{:.9},{:.4},{:.4},{:.4},{}",
+                "{},{},{},{},{},{},{},{},{},{:.9},{:.4},{:.4},{:.4},{:.4},{}",
                 field(&r.case),
                 field(&r.group),
                 field(&r.dtype),
@@ -62,6 +66,7 @@ impl Results {
                 r.k,
                 r.macs,
                 r.secs,
+                r.spread,
                 r.gflops,
                 r.reg_a,
                 r.reg_b,
@@ -275,6 +280,7 @@ mod tests {
             k: 4,
             macs: 5,
             secs: 0.25,
+            spread: 0.075,
             gflops: 1.5,
             reg_a: 0.0,
             reg_b: 0.0,
@@ -294,11 +300,11 @@ mod tests {
         let mut lines = body.lines();
         assert_eq!(
             lines.next().unwrap(),
-            "case,group,dtype,engine,threads,m,n,k,macs,seconds,gflops,regular_a,regular_b,notes"
+            "case,group,dtype,engine,threads,m,n,k,macs,seconds,spread,gflops,regular_a,regular_b,notes"
         );
         assert_eq!(
             lines.next().unwrap(),
-            "c,g,f64,plan,1,2,3,4,5,0.250000000,1.5000,0.0000,0.0000,rel_err=1.00e-16"
+            "c,g,f64,plan,1,2,3,4,5,0.250000000,0.0750,1.5000,0.0000,0.0000,rel_err=1.00e-16"
         );
     }
 
