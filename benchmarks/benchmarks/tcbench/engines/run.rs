@@ -1,7 +1,7 @@
 //! The TCCG corpus run: every case, every requested dtype, every engine.
 //!
 //! Engines: `plan` (the planner's own choice under the knobs), `packed` (the
-//! packed driver, forced), and the external baselines `upstream` and `ttgt`.
+//! packed driver, forced) and the external baseline `ttgt`.
 
 use std::process::ExitCode;
 
@@ -21,13 +21,7 @@ use crate::Options;
 
 /// Column order for the report tables: this library's engines first, then the
 /// external baselines.
-pub const ENGINE_ORDER: &[&str] = &[
-    "plan",
-    "packed",
-    #[cfg(feature = "upstream")]
-    "upstream",
-    "ttgt",
-];
+pub const ENGINE_ORDER: &[&str] = &["plan", "packed", "ttgt"];
 
 pub fn run(opts: &Options, exec: &Exec<'_>) -> ExitCode {
     if opts.reps == 0 {
@@ -233,15 +227,6 @@ where
     let (reg_a, reg_b) = regularity;
     #[cfg(not(feature = "blas"))]
     let _ = regularity;
-
-    // ---- original tensorprimitives-rs ------------------------------------
-    #[cfg(feature = "upstream")]
-    if opts.engine("upstream") {
-        let mut du = vec![<T as Element>::zero(); s.elems_c()];
-        let secs = T::upstream(s, exec.budget(), &a, &b, &mut du, opts.reps, opts.prime_ms);
-        let notes = check("upstream", &du, &mut reference);
-        push("upstream", secs, regularity.0, regularity.1, notes, results);
-    }
 
     // ---- TTGT ------------------------------------------------------------
     #[cfg(feature = "blas")]

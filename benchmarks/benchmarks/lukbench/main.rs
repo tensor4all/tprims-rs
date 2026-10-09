@@ -12,8 +12,7 @@
 //!   corpus as this binary sees it (case, dtype, steps, MACs, `m`/`n`/`k`).
 //!
 //! Engines: `plan` (the planner's own choice, `PlanConfig::default()`), `packed`
-//! (the packed driver forced, `PlanConfig::packed()`), `upstream` (Lukas Devos's
-//! `tensorcontract`, under `--features upstream`) and `tblis` (the C++ TBLIS
+//! (the packed driver forced, `PlanConfig::packed()`) and `tblis` (the C++ TBLIS
 //! adapter, under `--features tblis` / `tblis13`). The default build needs no
 //! external library.
 //!
@@ -28,8 +27,6 @@ mod report;
 #[cfg(feature = "tblis")]
 #[path = "../tcbench/tblis.rs"]
 mod tblis;
-#[cfg(feature = "upstream")]
-mod upstream;
 
 use std::process::ExitCode;
 
@@ -64,7 +61,7 @@ fn main() -> ExitCode {
                  \x20 --case <substr>   only cases whose name contains this\n\
                  \x20 --engines <list>  comma separated, default all of:\n\
                  \x20                   plan,packed    (this library)\n\
-                 \x20                   upstream,tblis (optional external baselines, cargo features)\n\
+                 \x20                   tblis          (optional external baseline, cargo feature)\n\
                  \x20 --csv <path>      also write machine-readable results\n"
             );
             ExitCode::FAILURE

@@ -3,9 +3,6 @@
 `tcbench` reuses the full 49-case TCCG corpus (CCSD, AO2MO, InTensLi,
 CCSD(T), transposed output). Shapes, signed element strides, seeded random
 inputs, alpha=1, beta=0 and output buffers are identical across engines.
-The optional upstream baseline calls Lukas Devos's
-[tensorprimitives-rs](https://github.com/lkdvos/tensorprimitives-rs) at
-`8cda75e11ed26f46c0c22f9629004c84dbabc8e5`, not tprims's imported copy.
 The algorithms originate in Matthews, *High-Performance Tensor Contraction
 without Transposition*, [arXiv:1607.00291](https://arxiv.org/abs/1607.00291).
 
@@ -13,9 +10,6 @@ without Transposition*, [arXiv:1607.00291](https://arxiv.org/abs/1607.00291).
 | --- | --- |
 | `plan` | tprims's default planner: packed or copy-free faer |
 | `packed` | tprims packed driver forced (diagnostic) |
-| `upstream` | Original tensorcontract, explicit `.with_threads(N)`, default scoped-thread policy |
-
-Do not label `packed` as upstream tensorprimitives.
 
 ## Fixed procedure
 
@@ -45,8 +39,7 @@ executor/FFI entry and provider-internal allocation. Priming is time-based, not
 a call count: a fixed number of warm-up calls removes a different share of the
 clock ramp in every arm, most in the fastest one. Input generation,
 planning/descriptor construction and tprims pool construction are excluded.
-tprims retains a caller-owned scratch arena/pool; upstream retains its default
-per-call scoped-thread/allocation policy.
+tprims retains a caller-owned scratch arena/pool.
 These are library execution comparisons, not isolated microkernel timings.
 
 CSV rows include the thread budget, dtype, equivalent M/N/K, GFLOP/s, latency

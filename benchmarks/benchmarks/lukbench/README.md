@@ -40,16 +40,12 @@ checked against the corpus it claims to have measured.
 | --- | --- | --- |
 | `plan` | `PlanConfig::default()`: the planner's own choice | — |
 | `packed` | `PlanConfig::packed()`: the packed driver forced | — |
-| `upstream` | Lukas Devos's tensorcontract, prebuilt `Plan` per step | `upstream` |
 | `tblis` | the C++ TBLIS baseline, one `tblis_tensor_mult` per step | `tblis` / `tblis13` |
 
-`upstream` calls
-[tensorprimitives-rs](https://github.com/lkdvos/tensorprimitives-rs) at the
-revision `benchmarks/Cargo.toml` pins, not tprims's imported copy. The `tblis`
-arm binds the published `libtblis` directly (`benchmarks/benchmarks/tcbench/tblis.rs`,
-shared with `tcbench`'s retired arm) because the benchmark has to
-control which TBLIS and which BLIS configuration it measures;
-`scripts/build_tblis.sh` pins and installs one into a prefix, and
+The `tblis` arm binds the published `libtblis` directly
+(`benchmarks/benchmarks/tcbench/tblis.rs`, shared with `tcbench`'s retired arm)
+because the benchmark has to control which TBLIS and which BLIS configuration it
+measures; `scripts/build_tblis.sh` pins and installs one into a prefix, and
 `TBLIS_ROOT` names it. `tblis13` selects the 1.3 ABI; 1.3 and 2.x swap the
 `TYPE_DOUBLE`/`TYPE_SCOMPLEX` enumerators, so the harness self-checks the ABI
 at startup and refuses to run on a mismatch.
@@ -62,7 +58,7 @@ Use `RUSTFLAGS="-C target-cpu=native"` and release for all Rust code.
 
 ```sh
 export CARGO_BUILD_JOBS=16
-RUSTFLAGS="-C target-cpu=native" cargo build --release -p tprims-bench --bin lukbench --features upstream
+RUSTFLAGS="-C target-cpu=native" cargo build --release -p tprims-bench --bin lukbench
 cpus=$(python3 benchmarks/scripts/idle_cpus.py pick 4)
 benchmarks/scripts/pinned.sh "${cpus%%,*}" -- target/release/lukbench verify --threads 1
 benchmarks/scripts/pinned.sh "$cpus"       -- target/release/lukbench run --threads 4 --csv /tmp/lukbench-4t.csv

@@ -16,23 +16,6 @@ use crate::corpus::{col_major_strides, label_ids, Program, Step};
 #[cfg(feature = "tblis")]
 use std::os::raw::c_int;
 
-// Concrete implementations avoid mixing the two libraries' Element traits.
-macro_rules! upstream_method {
-    () => {
-        #[cfg(feature = "upstream")]
-        fn upstream(
-            p: &Program,
-            threads: usize,
-            inputs: &[Vec<Self>],
-            slots: &mut [Vec<Self>],
-            reps: usize,
-            prime_ms: u64,
-        ) -> f64 {
-            crate::upstream::run(p, threads, inputs, slots, reps, prime_ms)
-        }
-    };
-}
-
 /// An element type the harness can drive through every engine.
 pub trait BenchElem: Scalar {
     const NAME: &'static str;
@@ -43,19 +26,9 @@ pub trait BenchElem: Scalar {
     const TBLIS_TYPE: c_int;
     #[cfg(feature = "tblis")]
     fn tblis_scalar(v: f64) -> crate::tblis::tblis_scalar;
-    #[cfg(feature = "upstream")]
-    fn upstream(
-        p: &Program,
-        threads: usize,
-        inputs: &[Vec<Self>],
-        slots: &mut [Vec<Self>],
-        reps: usize,
-        prime_ms: u64,
-    ) -> f64;
 }
 
 impl BenchElem for f64 {
-    upstream_method!();
     const NAME: &'static str = "f64";
     fn sample(rng: &mut impl Rng) -> Self {
         rng.gen_range(-1.0..1.0)
@@ -72,7 +45,6 @@ impl BenchElem for f64 {
 }
 
 impl BenchElem for Complex<f64> {
-    upstream_method!();
     const NAME: &'static str = "c64";
     fn sample(rng: &mut impl Rng) -> Self {
         Complex::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0))

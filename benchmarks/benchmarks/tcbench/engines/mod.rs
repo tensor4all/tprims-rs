@@ -14,26 +14,8 @@ use tprims_kernel::Element;
 use crate::blas::GemmScalar;
 use crate::corpus::{Layout, Sized};
 
-// Concrete implementations avoid mixing the two libraries' Element traits.
-macro_rules! upstream_method {
-    () => {
-        #[cfg(feature = "upstream")]
-        fn upstream(
-            s: &Sized,
-            threads: usize,
-            a: &[Self],
-            b: &[Self],
-            d: &mut [Self],
-            reps: usize,
-            prime_ms: u64,
-        ) -> f64 {
-            crate::upstream::run(s, threads, a, b, d, reps, prime_ms)
-        }
-    };
-}
-
 /// An element type the harness can drive through every engine.
-#[allow(dead_code)] // some members are only used under optional features
+#[allow(dead_code)] // `REAL_NAME` is not read by any current report
 pub trait BenchElem: Scalar + GemmScalar {
     const NAME: &'static str;
     /// The same shape in the corresponding real type, for ratio reporting.
@@ -41,20 +23,9 @@ pub trait BenchElem: Scalar + GemmScalar {
 
     fn sample(rng: &mut impl Rng) -> Self;
     fn from_f64(v: f64) -> Self;
-    #[cfg(feature = "upstream")]
-    fn upstream(
-        s: &Sized,
-        threads: usize,
-        a: &[Self],
-        b: &[Self],
-        d: &mut [Self],
-        reps: usize,
-        prime_ms: u64,
-    ) -> f64;
 }
 
 impl BenchElem for f32 {
-    upstream_method!();
     const NAME: &'static str = "f32";
     const REAL_NAME: &'static str = "f32";
     fn sample(rng: &mut impl Rng) -> Self {
@@ -66,7 +37,6 @@ impl BenchElem for f32 {
 }
 
 impl BenchElem for f64 {
-    upstream_method!();
     const NAME: &'static str = "f64";
     const REAL_NAME: &'static str = "f64";
     fn sample(rng: &mut impl Rng) -> Self {
@@ -78,7 +48,6 @@ impl BenchElem for f64 {
 }
 
 impl BenchElem for Complex<f32> {
-    upstream_method!();
     const NAME: &'static str = "c32";
     const REAL_NAME: &'static str = "f32";
     fn sample(rng: &mut impl Rng) -> Self {
@@ -90,7 +59,6 @@ impl BenchElem for Complex<f32> {
 }
 
 impl BenchElem for Complex<f64> {
-    upstream_method!();
     const NAME: &'static str = "c64";
     const REAL_NAME: &'static str = "f64";
     fn sample(rng: &mut impl Rng) -> Self {

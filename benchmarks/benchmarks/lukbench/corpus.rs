@@ -286,9 +286,9 @@ pub fn col_major_strides(dims: &[usize]) -> Vec<isize> {
     s
 }
 
-/// Slot extents and strides as `i64`, for the FFI baselines' C APIs: both
-/// `tensorcontract::Layout` and `tblis_tensor` take `i64`.
-#[cfg(any(feature = "upstream", feature = "tblis"))]
+/// Slot extents and strides as `i64`, for the FFI baseline's C API:
+/// `tblis_tensor` takes `i64`.
+#[cfg(feature = "tblis")]
 pub fn dims_strides_i64(d: &[usize]) -> (Vec<i64>, Vec<i64>) {
     (
         d.iter().map(|&x| x as i64).collect(),

@@ -137,11 +137,7 @@ pub fn print_environment() {
             h.source.name()
         );
     }
-    println!(
-        "baselines   : upstream={} tblis={}",
-        cfg!(feature = "upstream"),
-        cfg!(feature = "tblis")
-    );
+    println!("baselines   : tblis={}", cfg!(feature = "tblis"));
     #[cfg(feature = "tblis")]
     println!(
         "tblis       : abi {}, {} thread(s)",
