@@ -1,0 +1,65 @@
+unary-add: per-call cost of the labels-based unary update at one thread
+
+Measured library revision
+  tprims-rs ac3047d, branch feat/unary-add, crates/tprims-contract with
+  crates/tprims-contract/src/unary.rs (tprims-rs#82). The probe files under
+  experiments/unary-add/ are added by a later commit that changes nothing in
+  the library, so this revision is the one that ran.
+Probe
+  experiments/unary-add, own workspace, excluded from the root workspace.
+  strided-view pinned to 12ff2de9 (=0.4.6), the revision tprims-rs main pins.
+
+Command
+  bash experiments/unary-add/run.sh 3
+
+Timed boundary
+  Per call, one thread, `Exec::serial()`; no pool is entered. The operand views
+  are descriptors over fixed buffers, built outside the clock. Two arms:
+    api   unary::add: build the Problem, plan it, then execute. What a caller
+          with no plan cache pays.
+    plan  a prebuilt Plan + AccumulationSource::Output, executed per call. What
+          a caller that keeps a plan pays, i.e. the C ABI's per-call shape.
+  Correctness: every case is checked against the probe's label oracle before any
+  timing; the CHECK lines in each session*.txt are the relative error (0.0e0 for
+  all of them). A mismatch aborts instead of publishing.
+
+Statistic
+  Best of 5 calls per session, after 500 ms of untimed wall-clock priming per arm,
+  median of 3 sessions, spread = (max-min)/median.
+
+Host
+  AMD Ryzen AI 9 HX 470 (Zen5 mobile APU), 12 physical / 24 logical cores,
+  L3 0-3 16 MiB shared and 4-11 8 MiB shared, one L3 domain.
+  rustc 1.99.0 (b940084d7 2026-09-28), release profile, default target CPU.
+  macOS/Linux: Linux, taskset-pinned to cpu4, chosen by
+  `idle_cpus.py pick 1 --seconds 3`.
+
+Guard
+  benchmarks/scripts/pinned.sh of the measured checkout: cpus=4
+  idle_window=3s max_busy=0.05 retries=3, and the CPU set expanded with its SMT
+  sibling (cpu4 -> cpu4, cpu16; both reported busy=0.000). All three sessions
+  passed at attempt 1 ("idle before and after"). See results/session*.guard.
+  Nothing else was built or measured while a session ran.
+
+Result (ns per call)
+  | shape | dtype | api | plan[packed] | plan / api |
+  |---|---|---:|---:|---:|
+  | `perm_8x8` | f64 | 4068 | 852 | 0.21 |
+  | `perm_32x32` | f64 | 16100 | 3566 | 0.22 |
+  | `site_chi32` (32x2x32 -> 2x32x32) | f64 | 24776 | 6162 | 0.25 |
+  | `site_chi32` | c64 | 30947 | 9949 | 0.32 |
+  | `trace_32` (sum over a diagonal) | f64 | 4698 | 1733 | 0.37 |
+
+  The planner chose `packed` for every case; none of them is a copy-free fusion
+  to one batched GEMM, and none is an all-batch problem.
+
+Reading
+  Planning dominates: three to five times the execution, so a caller that cannot
+  keep a plan pays 4-31 us per call while the same call on a plan costs
+  0.9-10 us. TensorKit's subblocks arrive one per `tensortadd!` call, so this is
+  the number to attack before a Julia backend is worth shipping: either the C
+  ABI caches plans keyed by labels and layouts, or the small-block path needs a
+  lowering that does not go through the whole binary `Problem` analysis.
+  Even the prebuilt plan is microseconds for an 8x8 permutation, not the
+  sub-microsecond a dedicated strided copy would cost, because the update runs
+  as a general contraction with a rank-zero `B`.
