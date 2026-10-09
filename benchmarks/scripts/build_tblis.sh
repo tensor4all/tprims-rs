@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# Build the pinned TBLIS baseline into an install prefix.
+#
+#   build_tblis.sh <prefix>
+#
+# The prefix is what `TBLIS_ROOT` points at: it must end up with
+# `lib/libtblis.so` and `include/tblis.h`, which is exactly what
+# `benchmarks/build.rs` links under `--features tblis`, and a `PROVENANCE` the
+# campaign's `scripts/record_run.py` reads to say which TBLIS a published cell
+# measured.
+#
+# Pinned by release *tag*, never by a branch, and never by a local revision:
+#
+#   tblis      tag v2.0-beta2, which resolves to
+#              b16a732939d8454021e0a0f0097cf1cc1dd3ab19; `tblis-version` reads 2.0
+#   BLIS       the commit in the checkout's `blis-git-tag` file, read from the
+#              checkout rather than hard-coded here. TBLIS 2.x fetches BLIS
+#              itself with `FetchContent` from https://github.com/flame/blis.git
+#              at that tag, so the *build* needs the network for BLIS; this
+#              script performs no other network access.
+#
+# **TBLIS 2.x builds through CMake.** Its `configure` is a checked-in autoconf
+# wrapper that invokes `cmake` (>= 3.23, CMakeLists.txt) and leaves a Makefile
+# behind, so `cmake` and a C/C++ toolchain must be on PATH; `autoreconf` is not
+# needed. The clone must be recursive: TBLIS's CMake refuses to configure
+# without its `marray`, `tci` and `stl_ext` submodules.
+#
+# The BLIS configuration family is explicit and never `auto`, and nothing is
+# compiled with `-march=native`: the prefix then depends on the pinned sources
+# and the chosen family rather than on the host that built it, so a release of
+# the same class can be rebuilt with the same kernels. The cost is that a newer
+# family's kernels go unused. `config=` in the written PROVENANCE is the BLIS
+# configuration actually resolved inside that family.
+#
+# The build tree is kept: it is where the resolved BLIS configuration is read
+# from, and a failed build is only diagnosable in place. Set `TBLIS_BUILD_DIR`
+# to choose it.
+set -euo pipefail
+
+TAG=v2.0-beta2
+FAMILY="${TBLIS_BLIS_CONFIG_FAMILY:-zen3}"
+URL=https://github.com/MatthewsResearchGroup/tblis.git
+
+prefix_in="${1:?usage: build_tblis.sh <prefix>}"
+mkdir -p "$prefix_in"
+prefix="$(cd "$prefix_in" && pwd -P)"
+work="${TBLIS_BUILD_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/tblis-build.XXXXXX")}"
+jobs="${JOBS:-$(command -v nproc >/dev/null 2>&1 && nproc || echo 4)}"
+
+echo "tblis: $TAG, BLIS config family $FAMILY"
+echo "prefix: $prefix"
+echo "build tree: $work"
+
+git clone --recursive "$URL" "$work/tblis"
+cd "$work/tblis"
+git checkout "$TAG"
+git submodule update --init --recursive
+
+commit="$(git rev-parse HEAD)"
+tag="$(git describe --tags --exact-match)"
+version="$(cat tblis-version)"
+blis_commit="$(cat blis-git-tag)"
+echo "checked out tag $tag -> commit $commit"
+echo "tblis version $version, pinned BLIS commit $blis_commit"
+
+./configure --prefix="$prefix" --with-blis-config-family="$FAMILY"
+make -j"$jobs"
+make install
+
+# TBLIS's CMake looks for a BLIS already installed on the host (`find_package`,
+# then pkgconfig) *before* it fetches the pinned one, and its `--with-blis-*`
+# options only add search paths. On a host with a system BLIS the pin would be
+# ignored and the PROVENANCE below would name a revision the prefix does not
+# contain, which is worse than not building at all.
+config_mk="$(find "$work/tblis" -maxdepth 4 -name config.mk -path '*blis-build*' -print -quit || true)"
+if [[ -z "$config_mk" ]]; then
+    echo "ERROR: no vendored BLIS build under $work/tblis: the build found a BLIS" >&2
+    echo "already installed on this host and used that instead of the pinned" >&2
+    echo "$blis_commit. Hide it from pkg-config/CMake (or build elsewhere) so" >&2
+    echo "that the recorded BLIS revision is the one the prefix was built with." >&2
+    exit 1
+fi
+
+# What BLIS resolved inside the requested family; a family may have
+# sub-configurations and `zen3` need not be what its `CONFIG_NAME` ends up as.
+config="$(sed -n 's/^CONFIG_NAME[[:space:]][[:space:]]*\([^[:space:]]*\).*/\1/p' "$config_mk" | head -1)"
+if [[ -z "$config" ]]; then
+    echo "ERROR: $config_mk has no CONFIG_NAME line; cannot record the BLIS configuration" >&2
+    exit 1
+fi
+
+so="$prefix/lib/libtblis.so"
+if [[ ! -f "$so" ]]; then
+    echo "ERROR: no $so after install; build.rs links the shared library" >&2
+    exit 1
+fi
+header="$prefix/include/tblis.h"
+if [[ ! -f "$header" ]]; then
+    echo "ERROR: no $header after install; TBLIS_ROOT must be an install prefix" >&2
+    exit 1
+fi
+sha="$(sha256sum "$so" | awk '{print $1}')"
+cc_version="$(cc --version 2>&1 | head -1 || true)"
+
+{
+    printf 'version=%s\n' "$version"
+    printf 'tag=%s\n' "$tag"
+    printf 'commit=%s\n' "$commit"
+    printf 'blis_commit=%s\n' "$blis_commit"
+    printf 'config=%s\n' "$config"
+    printf 'config_family=%s\n' "$FAMILY"
+    printf 'build=%s\n' "./configure --prefix=$prefix --with-blis-config-family=$FAMILY (cmake, Unix Makefiles, Release)"
+    printf 'compiler=%s\n' "$cc_version"
+    printf 'libtblis_sha256=%s\n' "$sha"
+} > "$prefix/PROVENANCE"
+
+echo "installed $so (sha256 $sha)"
+cat "$prefix/PROVENANCE"
