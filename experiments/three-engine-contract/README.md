@@ -77,9 +77,20 @@ repository (`../../../cpueinsum-rs`); their results are in `results/cpueinsum/`.
 
 Unresolved in #61, recorded here rather than implied to be done:
 
-- **One thread only.** The issue asked for 1T and 4T; this run is 1T. 4T
-  belongs with the crossover sweep of #63 / #69, which measures these shapes at
-  both widths and is being run separately.
+- **One thread only, and the 4T arm is not run.** The issue asked for 1T and
+  4T. This harness is 1T *by construction*, not by a flag: every tprims arm is
+  `Exec::serial()`, tenferro is `CpuBackend::with_threads(1)` with
+  `assert_eq!(num_threads(), 1)`, tensorcontract asserts `pl.threads() == 1`, and
+  there is no `--threads` option. A 4T arm is therefore new code in all three
+  engines, and the recorded session is on an Apple M5 Max, which is not available
+  for a follow-up — a run on another machine would be a different host's
+  campaign, and this record's own rule is that ratios are only comparable within
+  one host. What the arm would add that is nowhere else is the *tenferro*
+  comparison at 4T on the recorded host; that needs that host. The width half of
+  the question is measured on the zen5 host instead, at these same corpus shapes,
+  by [`../faer-limit-sweep/`](../faer-limit-sweep/README.md), which compares
+  tprims' own two routes at 1T and 4T and records the 4T width as undetermined
+  inside its session noise.
 - **The corpus is our reconstruction.** `corpus()` in `src/main.rs` carries
   working assumptions where the figure is ambiguous, not definitions confirmed
   against the unpublished script.
