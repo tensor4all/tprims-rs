@@ -2,6 +2,12 @@
 
 Dated 2026-09-29, extended through 2026-10-05. Sections below the source-integration entries are history: where a row names `tprims-blas`, `tprims-linalg`, `tprims-core`, `tprims-bundle`, engines, `private-gemm-x86`, the `tensorprimitives/` tree or an environment variable, read the source-integration section above for the current rule. A source link supports the observation; the proposed response remains a hypothesis until an experiment records evidence. Structural decisions (naming, packaging, ABI shape) are marked **Decided** when the maintainer has chosen them; they can still be revisited before the first release.
 
+## 2026-10-09 the neutral interface's per-call cost ([#31](https://github.com/tensor4all/tprims-rs/issues/31))
+
+| Question | Ruling | Evidence or next check |
+| --- | --- | --- |
+| Does a consumer that keeps a prepared plan pay anything per call for the object-safe backend seam? | **Decided (measured): no.** `BoxedPlan<T>::execute_into` against `Plan::execute_into` on the same problem is 0.99-1.00 in every row, at 1T and 4T, in both dtypes and both shapes. Preparation through the trait costs one `Box` and the `Requirements`/budget plumbing: a constant +139 to +270 ns per prepared plan, which reads as 1.03x on a 5.5 us preparation and 1.48x on a 0.33 us one. | [neutral-dispatch](../experiments/neutral-dispatch/results/manifest.txt): zen5 APU, `gemm_n64` and the #61 `ab,asc->bsc` step at chi = 32, f64 and c64, four arms (prepare and execute, concrete and trait), 500 ms priming, best of 5, median of 3 idle-gated sessions. This closes the item #31 deferred; its allocation parity was already pinned by `tests/plan_alloc.rs` and `tests/neutral_alloc.rs`. |
+
 ## 2026-10-09 faer against the packed driver, per dtype and width ([#69](https://github.com/tensor4all/tprims-rs/issues/69), [#63](https://github.com/tensor4all/tprims-rs/issues/63))
 
 | Question | Ruling | Evidence or next check |

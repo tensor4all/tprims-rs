@@ -1,0 +1,27 @@
+pinned.sh: cpus=4,5,6,7 idle_window=3s max_busy=0.05 retries=3
+cpu4 busy=0.000
+cpu5 busy=0.000
+cpu6 busy=0.007
+cpu7 busy=0.000
+cpu16 busy=0.000 (sibling)
+cpu17 busy=0.000 (sibling)
+cpu18 busy=0.000 (sibling)
+cpu19 busy=0.000 (sibling)
+case gemm_n64 f64 1T
+case gemm_n64 c64 1T
+case gemm_n64 f64 4T
+case gemm_n64 c64 4T
+case mps_env_chi32 f64 1T
+case mps_env_chi32 c64 1T
+case mps_env_chi32 f64 4T
+case mps_env_chi32 c64 4T
+wrote /home/shinaoka/projects/tensor4all/tprims-rs/experiments/neutral-dispatch/results/session1.csv
+cpu4 busy=0.003
+cpu5 busy=0.000
+cpu6 busy=0.000
+cpu7 busy=0.000
+cpu16 busy=0.000 (sibling)
+cpu17 busy=0.000 (sibling)
+cpu18 busy=0.000 (sibling)
+cpu19 busy=0.000 (sibling)
+pinned.sh: cpus 4,5,6,7 idle before and after (attempt 1)
