@@ -2,9 +2,9 @@ unary-add: per-call cost of the labels-based unary update at one thread
 
 Measured library revision
   tprims-rs ac3047d, branch feat/unary-add, crates/tprims-contract with
-  crates/tprims-contract/src/unary.rs (tprims-rs#82). The probe files under
-  experiments/unary-add/ are added by a later commit that changes nothing in
-  the library, so this revision is the one that ran.
+  crates/tprims-contract/src/unary.rs (tprims-rs#82). Commits after it touch
+  experiments/unary-add/ and one rustdoc link in unary.rs; no code or layout
+  changed, so ac3047d is the revision that ran.
 Probe
   experiments/unary-add, own workspace, excluded from the root workspace.
   strided-view pinned to 12ff2de9 (=0.4.6), the revision tprims-rs main pins.

@@ -9,7 +9,7 @@
 //! D = alpha * op_A(A[labels_a]) + beta * D_old
 //! ```
 //!
-//! It lowers to the same validated [`Problem`](crate::api::Problem) and
+//! It lowers to the same validated [`Problem`] and
 //! [`Plan`] as every other contraction, with `B` a rank-zero scalar: the
 //! planner, the strategies and the accumulation rules are the ones this crate
 //! already has, and a caller that keeps a plan can run the same update on
