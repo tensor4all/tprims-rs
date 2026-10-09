@@ -5,7 +5,6 @@ set -euo pipefail
 out=$(realpath -m "$1"); bin=$(realpath "$2")
 root=$(cd "$(dirname "$0")/../../.." && pwd); cd "$root"
 mkdir -p "$out"
-export LD_LIBRARY_PATH="${TBLIS_ROOT:?}/lib:${TBLIS_ROOT}/lib64:${LD_LIBRARY_PATH:-}"
 { date -Iseconds; sha256sum "$bin"; git rev-parse HEAD; rustc -Vv; lscpu -e=CPU,CORE,SOCKET,CACHE; } > "$out/manifest.txt"
 git diff > "$out/source.patch"
 for stage in verify A A2; do

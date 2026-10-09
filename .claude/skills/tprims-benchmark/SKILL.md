@@ -78,14 +78,14 @@ Protocol`, `CPU Threading Contract`); read those sections first.
    `idle_cpus.py` exits 3 and `pinned.sh` runs the command unpinned with a
    note; state in the result that pinning was unavailable.
 
-## Three-provider contraction comparison
+## Contraction comparison across providers
 
 Reuse `tcbench`'s full TCCG corpus (49 rows including GEMM), not a new
 hand-picked suite. Pin upstream tensorprimitives-rs to a full git SHA and
 build it into the same harness behind an optional feature, so all engines
-receive identical buffers. Compare tprims `plan` (default API strategy),
-upstream tensorprimitives and actual C++ `tblis`; retain `packed` as a
-separate diagnostic, never call it the external TBLIS baseline.
+receive identical buffers. Compare tprims `plan` (default API strategy)
+with upstream tensorprimitives; retain `packed` as a separate diagnostic,
+never call it upstream tensorprimitives.
 
 Before the first timed run, record this protocol in a work log:
 - all 49 cases; `f64,c64`; nominal tensor sizes **1 and 16 MiB**;
@@ -120,14 +120,6 @@ Before the first timed run, record this protocol in a work log:
   inconclusive. Do not choose new cases, repetitions or exclusions after
   inspecting the results. A failed validity gate makes the paired comparison
   inconclusive; retain failed observations and rerun the entire pair.
-
-Use the existing optional TBLIS FFI adapter and its startup ABI check.
-TBLIS can be installed using the [RESTGroup tblis-src build-from-source
-procedure](https://github.com/RESTGroup/tblis-rs#installation); pin its TBLIS
-source revision and record the Release/native configuration. System BLIS
-being installed does **not** mean TBLIS is installed, or that TBLIS is using
-that BLIS. Record which BLIS it actually builds/links; do not add a second
-wrapper just to replace an existing working adapter.
 
 ## Where a campaign result is published
 

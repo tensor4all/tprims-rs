@@ -5,7 +5,7 @@
 //! `crates/tprims-contract` and runs against a brute-force oracle. This
 //! subcommand does the complementary job: run the *whole TCCG corpus* at
 //! benchmark sizes and confirm that the planner's choice, the packed driver,
-//! TTGT and TBLIS all agree. That is what catches blocking and packing bugs that only appear once
+//! TTGT and upstream all agree. That is what catches blocking and packing bugs that only appear once
 //! a problem is bigger than one cache block.
 
 use std::process::ExitCode;
@@ -17,7 +17,7 @@ use tprims_contract::{Plan, PlanConfig};
 use tprims_exec::Exec;
 use tprims_kernel::Element;
 
-#[cfg(any(feature = "blas", feature = "tblis"))]
+#[cfg(feature = "blas")]
 use super::rel_error;
 use super::BenchElem;
 use crate::corpus::{self, Sized};
@@ -54,7 +54,6 @@ pub fn run(opts: &Options, exec: &Exec<'_>) -> ExitCode {
         "plan",
         "packed",
         "vs ttgt",
-        "vs tblis",
         "vs upstream",
         "status",
     ]);
@@ -138,7 +137,6 @@ where
                 "-".into(),
                 "-".into(),
                 "-".into(),
-                "-".into(),
                 format!("PLAN ERROR: {e}"),
             ]);
             return 1;
@@ -190,49 +188,6 @@ where
         }
     };
 
-    let tblis_err: Option<f64> = {
-        #[cfg(feature = "tblis")]
-        {
-            use crate::tblis as tb;
-            let mut oa = tb::Operand::new(s.la.extents(), s.la.strides(), s.case.a);
-            let mut ob = tb::Operand::new(s.lb.extents(), s.lb.strides(), s.case.b);
-            let mut oc = tb::Operand::new(s.lc.extents(), s.lc.strides(), s.case.c);
-            let mut dt: Vec<T> = vec![<T as Element>::zero(); s.elems_c()];
-            let ta = oa.tensor(
-                T::TBLIS_TYPE,
-                T::tblis_scalar(1.0),
-                a.as_ptr() as *mut std::ffi::c_void,
-            );
-            let tbv = ob.tensor(
-                T::TBLIS_TYPE,
-                T::tblis_scalar(1.0),
-                b.as_ptr() as *mut std::ffi::c_void,
-            );
-            let mut tc = oc.tensor(
-                T::TBLIS_TYPE,
-                T::tblis_scalar(0.0),
-                dt.as_mut_ptr() as *mut std::ffi::c_void,
-            );
-            unsafe {
-                tb::tblis_tensor_mult(
-                    std::ptr::null(),
-                    std::ptr::null(),
-                    &ta,
-                    oa.labels(),
-                    &tbv,
-                    ob.labels(),
-                    &mut tc,
-                    oc.labels(),
-                )
-            };
-            Some(rel_error(&dt, &d))
-        }
-        #[cfg(not(feature = "tblis"))]
-        {
-            None
-        }
-    };
-
     let upstream_err: Option<f64> = {
         #[cfg(feature = "upstream")]
         {
@@ -248,7 +203,7 @@ where
 
     let fmt = |e: Option<f64>| e.map(|v| format!("{v:.1e}")).unwrap_or_else(|| "-".into());
     let limit = tol::<T>();
-    let bad = [Some(packed_err), ttgt_err, tblis_err, upstream_err]
+    let bad = [Some(packed_err), ttgt_err, upstream_err]
         .iter()
         .flatten()
         .any(|&e| !e.is_finite() || e > limit);
@@ -265,7 +220,6 @@ where
         plan.report().algorithm.name().into(),
         fmt(Some(packed_err)),
         fmt(ttgt_err),
-        fmt(tblis_err),
         fmt(upstream_err),
         if bad { "FAIL".into() } else { "ok".into() },
     ]);

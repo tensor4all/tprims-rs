@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fixed native three-provider protocol; see .agents/skills/tprims-benchmark.
+# Fixed native contraction protocol; see .agents/skills/tprims-benchmark.
 # Run sequentially, never beside another benchmark/build.
 # Usage: run.sh OUT CPU1 CPU4 CPU8 CPU12
 set -euo pipefail
@@ -9,13 +9,11 @@ root=$(cd "$(dirname "$script")/../../.." && pwd)
 out=$(realpath -m "$1"); shift
 mkdir -p "$out"
 cd "$root"
-: "${TBLIS_ROOT:?set TBLIS_ROOT to the native Release TBLIS install}"
 export RUSTFLAGS='-C target-cpu=native'
-export LD_LIBRARY_PATH="$TBLIS_ROOT/lib:$TBLIS_ROOT/lib64:${LD_LIBRARY_PATH:-}"
 export CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS:-8}
 # A saved baseline binary avoids rebuilding it from candidate sources.
 if [[ -z ${TCBENCH_BIN:-} ]]; then
-    cargo build --release --locked -p tprims-bench --bin tcbench --features upstream,tblis
+    cargo build --release --locked -p tprims-bench --bin tcbench --features upstream
 fi
 bin="${TCBENCH_BIN:-${CARGO_TARGET_DIR:-$root/target}/release/tcbench}"
 {
@@ -23,7 +21,7 @@ bin="${TCBENCH_BIN:-${CARGO_TARGET_DIR:-$root/target}/release/tcbench}"
     git rev-parse HEAD
     git status --short
     rustc -Vv
-    printf 'RUSTFLAGS=%s\nprofile=release\nthreads=1,4,8,12\ncpus=%s;%s;%s;%s\nTBLIS_ROOT=%s\n' "$RUSTFLAGS" "$1" "$2" "$3" "$4" "$TBLIS_ROOT"
+    printf 'RUSTFLAGS=%s\nprofile=release\nthreads=1,4,8,12\ncpus=%s;%s;%s;%s\n' "$RUSTFLAGS" "$1" "$2" "$3" "$4"
     sha256sum "$bin" Cargo.lock "$script"
     lscpu
     lscpu -e=CPU,CORE,SOCKET,CACHE
@@ -47,7 +45,7 @@ for sample in A A2; do
         for threads in 1 4 8 12; do
             cpus=${!i}; i=$((i+1))
             stem="$out/${sample}-${size}m-${threads}t"
-            bash "$pinned" "$cpus" -- "$bin" run --size "$size" --dtype f64,c64 --threads "$threads" --reps 5 --engines plan,packed,upstream,tblis --csv "$stem.pending.csv" > "$stem.txt" 2> "$stem.guard"
+            bash "$pinned" "$cpus" -- "$bin" run --size "$size" --dtype f64,c64 --threads "$threads" --reps 5 --engines plan,packed,upstream --csv "$stem.pending.csv" > "$stem.txt" 2> "$stem.guard"
             mv "$stem.pending.csv" "$stem.csv"
         done
     done

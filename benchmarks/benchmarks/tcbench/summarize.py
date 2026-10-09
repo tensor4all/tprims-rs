@@ -16,7 +16,7 @@ for sample in ("A", "A2"):
             stem = out / f"{sample}-{size}m-{threads}t"
             assert "idle before and after" in stem.with_suffix(".guard").read_text(), stem
             rows = list(csv.DictReader(stem.with_suffix(".csv").open()))
-            assert len(rows) == 49 * 2 * 4, (stem, len(rows))
+            assert len(rows) == 49 * 2 * 3, (stem, len(rows))
             keys = set()
             for r in rows:
                 key = (r["case"], r["dtype"], r["engine"])
@@ -33,11 +33,11 @@ for size in (1, 16):
 
 cases = sorted({key[3] for key in data})
 assert len(cases) == 49
-engines = ("plan", "packed", "upstream", "tblis")
+engines = ("plan", "packed", "upstream")
 fields = ["size_mib", "threads", "dtype", "case"]
 for engine in engines:
     fields += [f"{engine}_A_s", f"{engine}_A2_s", f"{engine}_AA_spread"]
-fields += ["upstream_over_plan", "tblis_over_plan", "plan_scaling"]
+fields += ["upstream_over_plan", "plan_scaling"]
 comparison = []
 summary = []
 for size in (1, 16):
@@ -53,18 +53,17 @@ for size in (1, 16):
                     r[f"{engine}_AA_spread"] = abs(b / a - 1)
                     times[engine] = math.sqrt(a * b)
                 r["upstream_over_plan"] = times["upstream"] / times["plan"]
-                r["tblis_over_plan"] = times["tblis"] / times["plan"]
                 serial = math.sqrt(math.prod(data[s, size, 1, case, dtype, "plan"] for s in ("A", "A2")))
                 r["plan_scaling"] = serial / times["plan"]
                 comparison.append(r)
                 group.append(r)
             gm = lambda field: statistics.geometric_mean(r[field] for r in group)
             noises = [r[f"{e}_AA_spread"] for r in group for e in engines]
-            summary.append(f"| {size} | {dtype} | {threads} | {gm('upstream_over_plan'):.2f} | {gm('tblis_over_plan'):.2f} | {gm('plan_scaling'):.2f} | {100*statistics.median(noises):.1f}% | {100*max(noises):.1f}% |")
+            summary.append(f"| {size} | {dtype} | {threads} | {gm('upstream_over_plan'):.2f} | {gm('plan_scaling'):.2f} | {100*statistics.median(noises):.1f}% | {100*max(noises):.1f}% |")
 with (out / "comparison.csv").open("w") as f:
     writer = csv.DictWriter(f, fieldnames=fields)
     writer.writeheader()
     writer.writerows(comparison)
-print("| MiB target | dtype | T | upstream / tprims time | TBLIS / tprims time | tprims 1T speedup | A/A median | A/A max |")
-print("| --- | --- | --- | --- | --- | --- | --- | --- |")
+print("| MiB target | dtype | T | upstream / tprims time | tprims 1T speedup | A/A median | A/A max |")
+print("| --- | --- | --- | --- | --- | --- | --- |")
 print("\n".join(summary))

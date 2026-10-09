@@ -97,8 +97,8 @@ if(TAPP_USE_CORROSION)
     FetchContent_MakeAvailable(Corrosion)
 
     # `cargo metadata` on the workspace manifest, then import just the crate
-    # that exports the C ABI. CRATES= keeps the unpublished bench harness --
-    # whose build script wants TBLIS_ROOT -- out of the build entirely.
+    # that exports the C ABI. CRATES= keeps the unpublished bench harness out
+    # of the build entirely.
     corrosion_import_crate(
         MANIFEST_PATH "${TAPP_REPO_ROOT}/Cargo.toml"
         CRATES tprims-capi

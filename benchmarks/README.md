@@ -9,7 +9,7 @@ package now holds only the tprims benchmarks.
 | Binary | Page |
 | --- | --- |
 | `exec_entry` | [exec_entry](benchmarks/tprims/exec_entry/README.md) |
-| `tcbench` | [49-case TCCG comparison](benchmarks/tcbench/README.md): `run`, `verify`, `info`, `--threads`, `--stress`; optional `upstream`, `tblis`, `blas` baselines |
+| `tcbench` | [49-case TCCG comparison](benchmarks/tcbench/README.md): `run`, `verify`, `info`, `--threads`, `--stress`; optional `upstream`, `blas` baselines |
 | `contract` | [contract](benchmarks/tprims/contract/README.md) |
 | `capi_rust` | [C ABI comparison](c/README.md) |
 
