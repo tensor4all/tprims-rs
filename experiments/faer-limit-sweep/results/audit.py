@@ -222,6 +222,47 @@ def main() -> int:
                 f"{top[keys.index('mnk')]}, ratio {ratios[top]:.2f}"
             )
 
+    # 9. the fixed faer arm, when the recording has one: it exists to measure the
+    # faer route above the c64 bound, where the planner's own choice is packed.
+    if any("faer_forced" in arms for arms in groups.values()):
+        forced = {
+            g: arms
+            for g, arms in groups.items()
+            if "faer_forced" in arms and "packed" in arms
+        }
+        wrong = [g for g in forced if forced[g]["faer_forced"][0]["algorithm"] != "faer"]
+        print(
+            f"9. faer_forced arm: {len(forced)} groups, routed to faer in "
+            f"{len(forced) - len(wrong)}"
+        )
+        failures += [f"faer_forced did not route to faer: {gname(g, keys)}" for g in wrong[:5]]
+        one_t_forced = [g for g in forced if g[keys.index("threads")] == "1"]
+        print(f"   packed/faer_forced at 1T ({len(one_t_forced)} groups), per dtype:")
+        for dt in DTYPES:
+            sub = [g for g in one_t_forced if g[keys.index("dtype")] == dt]
+            if not sub:
+                continue
+            r = {g: med(g, "packed") / med(g, "faer_forced") for g in sub}
+            lo, hi = min(r, key=r.get), max(r, key=r.get)
+            top = max(sub, key=lambda g: int(g[keys.index("mnk")]))
+            print(
+                f"      {dt}: {len(sub)} groups, {r[lo]:.2f} (min, {gname(lo, keys)}) to "
+                f"{r[hi]:.2f} (max, {gname(hi, keys)}); largest volume "
+                f"{gname(top, keys)} at mnk {top[keys.index('mnk')]}, ratio {r[top]:.2f}"
+            )
+        # the number the bound's value turns on: above the c64 bound, is packed
+        # still ahead of the faer route the arm forces?
+        above = [
+            g
+            for g in one_t_forced
+            if g[keys.index("dtype")] == "c64" and int(g[keys.index("mnk")]) > (1 << 17)
+        ]
+        for g in sorted(above, key=lambda g: int(g[keys.index("mnk")])):
+            print(
+                f"      c64 above the bound: {gname(g, keys)} mnk {g[keys.index('mnk')]} "
+                f"packed/faer_forced {med(g, 'packed') / med(g, 'faer_forced'):.2f}"
+            )
+
     # 7. the guards and the CHECK lines
     bad_sessions = []
     for csv_path in paths:
