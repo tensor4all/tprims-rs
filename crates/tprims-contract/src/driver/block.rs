@@ -68,6 +68,13 @@ pub(crate) fn blocked_eligibility(
     if k > kc || n > nc {
         return None;
     }
+    // Profitability, measured rather than assumed: the block pays for a contiguous pack
+    // with the grid permutation and the block metadata, so it needs more operand elements
+    // than output ones. `n <= 64 and k > n` is the class that wins without losing over the
+    // corpus; anything else keeps today's traversal, which is not a regression.
+    if n > 64 || k <= n {
+        return None;
+    }
     let axes = role(stats, swapped);
     let mut shape = eligible(&axes, per_line)?;
     // A block must fit the `MC` budget: the packed `A` panel is sized from `MC`, and a

@@ -591,48 +591,45 @@ where
     // the role's fastest axes to disagree *and* the contraction to fit one K slab and
     // one NC panel - which is what keeps a block's accumulator complete without
     // cross-slab work, ownership or barrier changes.
-    // **Off by default.** The mechanism is measured (see the design doc and the phase
-    // instrument) but the eligibility is not yet a profitability test: with the switch
-    // on, most of the `abcijk-*` shapes run about 2x *slower* than today's traversal,
-    // which the non-regression run against the campaign cell caught. Until the
-    // eligibility selects the class where the block pays for itself, the blocked path
-    // is a switch, never a default.
-    let blocked = if std::env::var_os("TPRIMS_BLOCKED").is_some() {
-        block::blocked_eligibility(
-            &plan.stats,
-            swap,
-            k,
-            n,
-            kc,
-            nc,
-            (64 / core::mem::size_of::<T>()).max(1),
-            BLOCK_MC_BUDGET,
-        )
-        // Only whole-row-strip workers: the blocked path enumerates every block of the
-        // role, which is only the worker's own work when its strip is the whole `m`
-        // range. Partitioning the block itself is a separate change; until then a
-        // split `m` keeps today's traversal.
-        .filter(|_| pm == 1)
-    } else {
-        None
-    };
+    // The block buys a contiguous pack and pays for it with a per-block permutation and
+    // metadata (measured at about 9 ms a call on the campaign's shapes). How much the pack
+    // is worth is the operand's element count against the output's - `m*k` against `m*n`,
+    // i.e. roughly `k` against `n`. Over the 98 tcbench rows at 1T, with the path on and
+    // off measured alternately in one session, `n <= 64 and k > n` is the only class that
+    // wins without losing: 4 wins, 0 losses, 2 neutral, median x1.14, the individual cases
+    // up to x1.74 (`abjc-cbka-kj` f64 42.0 -> 24.1 ms). A thin output against a deeper
+    // contraction is also exactly the domain TBLIS's own advantage lives in
+    // (`docs/design/blocked-outer-traversal.md`, section 9).
+    let blocked = block::blocked_eligibility(
+        &plan.stats,
+        swap,
+        k,
+        n,
+        kc,
+        nc,
+        (64 / core::mem::size_of::<T>()).max(1),
+        BLOCK_MC_BUDGET,
+    )
+    // Only whole-row-strip workers: the blocked path enumerates every block of the role,
+    // which is only the worker's own work when its strip is the whole `m` range.
+    // Partitioning the block itself is a separate change; until then a split `m` keeps
+    // today's traversal.
+    .filter(|_| pm == 1);
     // Two whole grids when it applies: the block's own row order and the output's.
-    let grid_elems = match blocked {
+    // The block is the span axis whole times a line's worth along the operand's fastest
+    // axis; every other axis contributes one value, exactly as `block::rows` builds it. It
+    // sizes both the packed panel and the tile grid.
+    let block_rows = match blocked {
         None => 0,
         Some(shape) => {
             let axes = block::role(&plan.stats, swap);
-            let block_rows: usize = axes
-                .iter()
-                .enumerate()
-                .map(|(i, a)| {
-                    if i == shape.line {
-                        shape.line_len
-                    } else {
-                        a.extent
-                    }
-                })
-                .product();
-            // One slot per (row tile, column tile) of a block.
+            axes[shape.span].extent * shape.line_len
+        }
+    };
+    let grid_elems = match blocked {
+        None => 0,
+        // One slot per (row tile, column tile) of a block.
+        Some(_) => {
             tprims_kernel::tile_planes(fam.tile_fmt)
                 * mr
                 * nr
@@ -640,23 +637,8 @@ where
                 * n.div_ceil(nr)
         }
     };
-    // A block's rows are what the packed panel and the tile grid have to hold, so the
-    // blocked path sizes `MC` by the block rather than the other way round - the
+    // The blocked path sizes `MC` by the block rather than the other way round - the
     // eligibility already made the block fit `BLOCK_MC_BUDGET`.
-    let block_rows = match blocked {
-        None => 0,
-        Some(shape) => block::role(&plan.stats, swap)
-            .iter()
-            .enumerate()
-            .map(|(i, a)| {
-                if i == shape.line {
-                    shape.line_len
-                } else {
-                    a.extent
-                }
-            })
-            .product(),
-    };
     let mc = match blocked {
         None => mc,
         Some(_) => block_rows.next_multiple_of(mr),
