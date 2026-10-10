@@ -10,14 +10,20 @@ without Transposition*, [arXiv:1607.00291](https://arxiv.org/abs/1607.00291).
 | --- | --- |
 | `plan` | tprims's default planner: packed or copy-free faer |
 | `packed` | tprims packed driver forced (diagnostic) |
+| `tblis` | Actual C++ TBLIS through the direct FFI adapter, the independent reference |
+
+Do not label `packed` as external TBLIS.
 
 ## Fixed procedure
 
 The source of truth is
 [the tprims-benchmark skill](../../../.agents/skills/tprims-benchmark/SKILL.md).
-Use `RUSTFLAGS="-C target-cpu=native"` and release for all Rust code.
+Use `RUSTFLAGS="-C target-cpu=native"` and release for all Rust code; TBLIS must
+be a Release/native build of a tagged release, which
+`benchmarks/scripts/build_tblis.sh` produces and whose provenance the record keeps.
 
 ```sh
+export TBLIS_ROOT=/path/to/native-release-tblis
 export CARGO_BUILD_JOBS=8  # choose for the host
 # Ryzen AI 9 HX 470: 1/4/8 physical cores in L3 #1; 12 physical cores in two L3s.
 bash benchmarks/benchmarks/tcbench/run.sh \
@@ -26,6 +32,12 @@ bash benchmarks/benchmarks/tcbench/run.sh \
 
 The runner builds once, checks known-value GEMM and all corpus outputs at
 1/16 MiB and 1T/4T/8T/12T, then measures the complete suite twice sequentially.
+The baselines are cargo features, not always-on arms: `--features tblis` adds
+`tblis` and `--features blas` adds `ttgt`, and `--engines` selects among the arms a
+binary was built with. The runner above measures the two in-repo arms; the campaign
+in `tprims-benchmark` builds with `tblis` and publishes the ratio against it, which
+is the comparison an outside reader is owed.
+
 Every process goes through `pinned.sh`; do not run another benchmark or build
 alongside it. A failed idle/correctness gate stops the suite; keep failed
 observations and classify the pair inconclusive. Core lists are explicit
