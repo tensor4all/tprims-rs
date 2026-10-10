@@ -1,0 +1,10 @@
+2026-10-10T18:39:34+09:00
+56679a65bb9019d4dd630ec21f6e1748f7539c94
+rustc 1.99.0 (b940084d7 2026-09-28)
+binary: rustc
+commit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4
+command: pinned.sh 4 -- traversal --threads 1 --reps 5 (prime 1500 ms per variant)
+binary sha256: 3faf14550a829744f96701c0180971711e1da5d41c483f9f7489a95d0bdc6751
+
+note: the 'corpus' strides are abjc-cbka-kj f64 16 MiB's plan-recorded axis strides;
+      the residual column is NOT a cross-variant check (different layouts permute the buffer), see README.
