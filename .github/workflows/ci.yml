@@ -9,6 +9,21 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
 
+# Each Rust job restores `Swatinem/rust-cache` and only a push to main writes it, so
+# a pull request restores a cache built from default-branch content and never
+# publishes one from PR-controlled content. The key includes the job id, the OS, the
+# rustc version and a hash of the lockfile and the workflow env (which is where
+# `RUSTFLAGS` enters it), so jobs do not share an entry by accident. Nothing here was
+# cached before: the `test` job compiled all 135 lockfile packages from scratch in
+# three profiles and was 13.1 minutes on ubuntu and 17.1 on macOS, against 2.3 minutes
+# for every other job, i.e. it set the whole wall clock of CI (17.8 and 18.8 minutes
+# for the two main runs before this change).
+#
+# The release profile (thin LTO, one codegen unit, see `Cargo.toml`) recompiles the
+# whole dependency tree again, so it lives in its own job: its cache entry is then
+# independent of the `ci` profile the `test` job uses, and neither job pays for the
+# other's profile.
+
 jobs:
   fmt:
     runs-on: ubuntu-latest
@@ -39,6 +54,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name == 'push' }}
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
   test:
@@ -50,14 +68,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      # The C ABI test links a C program to libtprims.so, which `cargo test`
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name == 'push' }}
+      # The C ABI test (in `capi`) links a C program to libtprims.so, which `cargo test`
       # does not build (it only builds the rlib the harness needs).
       - run: cargo build --profile ci -p tprims-capi
       - run: cargo test --profile ci --workspace --no-fail-fast
       # tprims-exec alone, without the `strided` adapter the workspace unifies on.
       - run: cargo test --profile ci -p tprims-exec --no-fail-fast
-      # The packed driver's micro-kernels are written for the release profile
-      # (thin LTO, one codegen unit); upstream CI tests both.
+
+  # The packed driver's micro-kernels are written for the release profile (thin LTO,
+  # one codegen unit), so they are tested there as well; upstream CI tests both. This
+  # is the expensive half of what used to be the `test` job.
+  test-release:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name == 'push' }}
       - run: cargo test -p tprims-contract --release
       - run: cargo run --release -p tprims-bench --bin tcbench -- info
       # The README's Rust example.
@@ -72,6 +107,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name == 'push' }}
       # The C test (tests/c_abi.rs) compiles and runs C and C++ programs
       # against the built libtprims.so, one of them against the pinned upstream
       # TAPP headers alone.
@@ -95,6 +133,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name == 'push' }}
       - run: cargo build --release -p tprims-capi
       # A prebuilt library, then an installed prefix (the layout install.sh
       # produces), each consumed by the CMake example.
@@ -115,6 +156,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.89.0"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name == 'push' }}
       - run: cargo build --workspace --all-targets
 
   doc:
@@ -122,6 +166,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.event_name == 'push' }}
       - run: cargo doc --workspace --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
