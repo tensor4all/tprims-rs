@@ -463,7 +463,9 @@ pub(super) unsafe fn run_block<T>(
     };
     let c_m_bs = &c_bs_buf[..n];
     pack_a_rows::<T>(cx, ep, a_m, a_m_bs, live, bufs.ap);
-    compute_block::<T>(cx, ep, bufs, cm_rows, dm_rows, c_m_bs, d_m_bs, live, jr_lo, jr_hi);
+    compute_block::<T>(
+        cx, ep, bufs, cm_rows, dm_rows, c_m_bs, d_m_bs, live, jr_lo, jr_hi,
+    );
 
     // Whole rows into the output's order, then emit from the permuted grid. The
     // permutation covers `mtiles * mr` rows because the grid is a whole number of
