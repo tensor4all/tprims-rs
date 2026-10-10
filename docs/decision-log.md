@@ -2,6 +2,24 @@
 
 Dated 2026-09-29, extended through 2026-10-05. Sections below the source-integration entries are history: where a row names `tprims-blas`, `tprims-linalg`, `tprims-core`, `tprims-bundle`, engines, `private-gemm-x86`, the `tensorprimitives/` tree or an environment variable, read the source-integration section above for the current rule. A source link supports the observation; the proposed response remains a hypothesis until an experiment records evidence. Structural decisions (naming, packaging, ABI shape) are marked **Decided** when the maintainer has chosen them; they can still be revisited before the first release.
 
+## 2026-10-10 the TCCG class where the packed driver is behind BLIS, through TBLIS
+
+Giving the campaign's `tcbench` cell an independent reference (tprims-benchmark #10,
+over tprims-rs #94) made a class of rows visible for the first time. Over 196 rows
+(16 MiB, 1T and 4T, 49 cases, two dtypes) the planner is ahead of TBLIS on 180, and
+behind on 16 - on 14 of those by more than the row's own scatter - by up to 1.52x.
+They are the cases whose contracted axes are interleaved with output axes inside an
+operand: `abjc-cbka-kj`, `ajbc-ckba-jk`, `adbjc-cbdka-kj`, `ajbdc-ckbad-jk` and
+`ijk-il-jlk`.
+
+| Question | Ruling | Evidence or next check |
+| --- | --- | --- |
+| Is the planner choosing the wrong route, or is the f64 `FaerLimit` mis-set? | **No, and no bound can fix it.** Every one of the 16 runs the packed driver, with `plan` and `packed` agreeing to 1.00, because the copy-free faer route is *unavailable*: `strategy/faer.rs::plan` returns `None` unless each GEMM axis is a contiguous group of its operands, and in `abjc-cbka-kj` the contracted `(a,b,c)` sits at axes 0, 1 and 3 of `A`. The planner records `Reason::NotFusable`. | Read of `crates/tprims-contract/src/strategy/faer.rs` (`plan`, `separate_c_pays`) against the case's label set, plus the recorded `plan == packed` on all 16 rows. A faer bound is irrelevant where faer cannot run. |
+| Is it the block-scatter path the corpus exists for? | **No.** The rows report `regular_a`/`regular_b` = 1.00 (0.67/1.00 for two c64 rows), i.e. packing from plain strided panels, and the measured rows already ran the non-gathering writeback - `TCBENCH_WRITEBACK=fast` is the default and `gather` is what has to be asked for. | The cell's own `regular_a`/`regular_b` columns, recorded per row. |
+| Is it the blocking model, or its constants? | **No.** `TCBENCH_BLOCKMODEL=analytical` against the shipping legacy constants gives packed/tblis 1.554 against 1.541, 1.612 against 1.611, 1.519 against 1.494 and 1.684 against 1.675 on four probes; `TCBENCH_{MC,NC,KC}` at half and at one and a half times the derived values move `packed` by at most 2.5% and leave the ratio between 1.51 and 1.64. | Same-process A/B with TBLIS in the same run, `pinned.sh`, 1500 ms priming, best of 5, on the measured binary. This is also the answer to whether the *pending* `BlockModel` decision would help here: it would not. |
+| Is it per-call overhead? | **No.** The calls are 25-45 ms long, so no constant per-call cost can produce a 1.5x multiplicative gap, and the same call path wins its rows elsewhere - 42/42 on the per-shape corpus, median ratio 0.042. | The row times themselves, and the two corpora side by side on the same pages. |
+| So what is left? | **The packed micro-kernels**, against BLIS as driven through TBLIS's TTGT formulation, on exactly the shapes that cannot be fused. No code change is made here: none of the three candidates this campaign listed - the f64 `FaerLimit`, the c64 planar family and blocking, the call path - is the cause, and a kernel is not a configuration change. | Next check, if this class is to be pursued: a single-shape FLOP/s A/B against BLIS `dgemm`, which separates micro-kernel efficiency from the packing, writeback and partition around it. That is a new investigation with its own budget, not a follow-up to this one. |
+
 ## 2026-10-09 the harness primed too little, and threw away the scatter ([#91](https://github.com/tensor4all/tprims-rs/pull/91))
 
 `tcbench` and `lukbench` compare engines measured in one process, per case, in a
