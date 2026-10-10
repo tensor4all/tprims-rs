@@ -277,6 +277,34 @@ Audit hints:
   Keep the scatter across repetitions, not only the best: a slow first repetition
   is how an unsettled arm shows up. The check to apply by hand is that two arms
   whose rows carry the same driver, blocking and partition policy must agree.
+- Attribute a case's cost to a phase before touching anything. The packed driver has an
+  opt-in instrument for it: build with `--features phase-timing` (a no-op otherwise, every
+  call site is `#[cfg]`-gated) and set `TPRIMS_PHASE=1`; each execution then prints one line
+  at the entry of the next one, with `pack_a`, `pack_b`, `kernel`, `writeback` and the
+  remainder as `setup`. On the campaign's worst losing TCCG case (`abjc-cbka-kj` f64 16 MiB,
+  1T, one process per configuration, best of 5):
+
+  | configuration | total | pack_a | pack_b | kernel | writeback |
+  |---|---|---|---|---|---|
+  | TCCG sizing | 43.3 ms | **27.6 (63.6%)** | 0.003 | 14.5 (33.5%) | 1.8 (4.3%) |
+  | `--stress padded` | 25.2 | **9.7 (38.7%)** | 0.003 | 14.2 (56.3%) | 1.6 (6.5%) |
+  | `--stress ragged` | 21.8 | **10.9 (50.1%)** | 0.003 | 10.0 (46.0%) | 1.1 (5.2%) |
+
+  `pack_a` is two thirds of the call and the only phase that moves when the layout moves: the
+  1.8x between the TCCG sizing and a padded leading dimension is entirely `pack_a` (27.6
+  against 9.7 ms), while the kernel and the write-back stay within their own noise. `pack_b`
+  is 3 us because that operand is 48x40 and contiguous. `setup` saturates to zero when the
+  phases account for the whole call, which they do once the instrument's own `Instant` calls
+  are included - read it as "nothing large is left over", not as a measurement.
+
+  Three limits, all in `phase.rs`: measure at **one thread** (the counters sum worker time, so
+  at 4T the same case reports `pack_a=42.8 ms (296%)` against a 14.5 ms call, and the
+  percentages stop being wall-clock shares); **one execution at a time** (the counters are
+  process-global and snapshotted at the next entry, so overlapping calls mix or drop each
+  other); and `writeback` covers `emit_tile` only, so a Direct family - which stores `D` inside
+  the tile call - shows that store in `kernel`. With the feature on, absolute times are ~13%
+  worse than a plain build; read the shares, not the totals.
+
 - Read the shape of a slowdown before claiming a cause. A constant absolute
   delta across sizes is a per-call or per-entry cost; a uniform multiplicative
   factor across cases the change cannot affect is host contention. A

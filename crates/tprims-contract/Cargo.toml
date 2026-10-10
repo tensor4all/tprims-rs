@@ -17,6 +17,11 @@ thiserror = { workspace = true }
 tprims-exec = { workspace = true, features = ["strided"] }
 tprims-kernel = { workspace = true, features = ["std"] }
 
+[features]
+# Optional per-phase timing of the packed driver, for measurement. Off by default
+# and free when off: every call site is `#[cfg]`-gated.
+phase-timing = []
+
 [dev-dependencies]
 rand = { workspace = true }
 rand_chacha = "0.3"

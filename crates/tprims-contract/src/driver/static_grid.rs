@@ -193,6 +193,8 @@ pub(super) unsafe fn run_strip<T>(
                         bar.wait();
                     }
                     if w1 > w0 {
+                        #[cfg(feature = "phase-timing")]
+                        let _phase = crate::phase::scope(1);
                         // SAFETY: slivers `w0..w1` are this thread's alone.
                         unsafe { pack_b_slivers::<T>(cx, &ep, w0, w1) };
                     }
