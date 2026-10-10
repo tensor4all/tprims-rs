@@ -84,35 +84,44 @@ with the corpus's label sets, not a matrix.
 
 ## Traversal attribution
 
-`src/bin/traversal.rs` runs **one** contraction - the campaign's worst losing TCCG case,
-`abjc-cbka-kj` f64 16 MiB, effective GEMM m=92160 n=40 k=48 - under four operand layouts:
-the case's own plan-recorded "corpus" strides versus compact column-major matrices, for
-`A` and for the output independently. Same family, same blocking, same thread budget; only
-the layout changes, so the four rows attribute the cost to reading `A`, writing the
-output, both, or neither.
-
-`results/2026-10-10-traversal/` (1T, best of 5, 1500 ms per variant):
+`src/bin/traversal.rs` runs **one** contraction - `abjc-cbka-kj` f64 16 MiB, effective GEMM
+m=92160 n=40 k=48 - under four operand layouts: the case's own `la`/`lb`/`lc` (read from the
+harness, not reconstructed) against compact column-major matrices, for `A` and for the
+output independently. Same family, same blocking, same thread budget; only the layout
+changes. `results/2026-10-10-traversal/` (1T, best of 5, 1500 ms per variant):
 
 | variant | ms | GFLOP/s |
 |---|---|---|
-| `corpus-a-corpus-d` | 11.62 | 30.5 |
-| `corpus-a-compact-d` | 11.41 | 31.0 |
-| `compact-a-corpus-d` | 34.29 | 10.3 |
-| `compact-a-compact-d` | 33.92 | 10.4 |
+| `corpus-a-corpus-d` | 52.12 | 6.79 |
+| `corpus-a-compact-d` | 51.77 | 6.84 |
+| `compact-a-corpus-d` | 50.38 | 7.02 |
+| `compact-a-compact-d` | 50.25 | 7.04 |
 
-The lesson is not the one the file was written to test. The same dimensions **and the same
-operand layouts** as the campaign case ran here in 11.6 ms, while the campaign's own plan
-takes 38.1 ms (9.3 GFLOP/s) on that case with the identical family (`avx512.f64.real.24x8`)
-and blocking (264/1536/256). The difference is the *plan*: this binary's plan folds the
-`m` group into two axes (`PlanStats.m_axes`), the campaign's keeps three. So a plan-level
-traversal decision is worth 3.3x on this problem, and the pack-read ordering - which is
-what a reader would expect to matter here - is not what separates these rows: swapping `A`
-between the corpus and compact layouts moves nothing (11.62 vs 11.41).
+**This file's first version was wrong and its headline is retracted.** It had reconstructed
+the layouts from the campaign row's *axis record* and, by swapping an `a`/`c` pair of equal
+extent, measured a different contraction: that plan folded the `m` group into two axes and
+ran in 11.6 ms, which was published here as "a plan-level decision is worth 3.3x". It is
+not: built from the harness's own layouts, the plan is **identical to the campaign's** on
+every recorded field - family `avx512.f64.real.24x8`, mr/nr 24/8, blocking 264/1536/256,
+`StaticGrid{pm:0,pn:0}`, `align_c_lines: false`, and the same three `m` axes at `A`-strides
+(92160, 48, 1) with the contracted axis at 1920.
 
-Read the `residual` column with care: the variants place the same result in differently
-permuted buffers, so the column compares unequal positions and its value is meaningless as
-a correctness check. The `A`/`D` layouts and the dimensions are faithful to the plan's
-record; the *plan* built from them is not the campaign's.
+Two things survive, and one problem does not:
+
+- **No layout swap moves this case.** All four variants land in 50-52 ms. Reading `A` as a
+  compact `[m, k]` matrix, or writing the output as a compact `[m, n]` matrix, changes 4%
+  at most. So whatever costs the 1.37x against the campaign below, it is not the operand
+  layout, and the "interleaved panel" story this file was written to test does not hold for
+  it.
+- **This binary is 1.37x slower than the campaign on the same case** - 52.1 against 38.1 ms,
+  with the same plan, dimensions and layouts. The `residual` column also compares permuted
+  buffers and is meaningless as a correctness check. The remaining difference is therefore in
+  the *execution path or the buffers*, not in the plan: this binary calls `execute_slices`,
+  which builds views per call, while the harness calls `execute_raw` with raw pointers.
+
+Which is the honest state: **this file cannot yet attribute the campaign case's cost, and
+the phase-share measurement it was written for still has to be made on the harness's own
+path.**
 
 ## Build & run
 
