@@ -130,6 +130,7 @@ use tprims_exec::{Exec, ExecError, WorkspaceProvider, WorkspaceReq};
 
 use crate::buffer::Panel;
 mod batch;
+mod block;
 mod route;
 pub(crate) use route::execution_geometry;
 mod dynamic;
@@ -145,6 +146,7 @@ use tile::{compute_block, pack_a_rows, pack_b_slivers, Bufs, Epoch};
 use tprims_kernel::pack::panel_len;
 use tprims_kernel::scatter::append_block_scatter;
 use tprims_kernel::writeback::scale_only;
+use tprims_kernel::UkrFn;
 use tprims_kernel::{Axis, BAccess, Blocking, DriverFamily, Element};
 
 /// Operand-dependent decisions the driver makes once per execute, kept
@@ -268,6 +270,25 @@ unsafe impl<T: Send> Sync for Shared<T> {}
 /// Everything one thread of the loop nest needs that does not vary with its
 /// row strip. Exists so that the nest can be written once and run either
 /// serially or on `p` threads, rather than duplicated.
+/// Where a block's tile grid starts inside a worker's tile region: after the tile and
+/// the induced scratch, and the second grid after the first. Null when the blocked path
+/// does not apply, which is what `Bufs::grid` being null means downstream.
+fn grid_base<R>(tile: *mut R, grid_off: usize, grid_elems: usize, second: bool) -> *mut R {
+    if grid_elems == 0 {
+        core::ptr::null_mut()
+    } else {
+        // SAFETY: the workspace was sized for both grids when it is not null.
+        unsafe { tile.add(grid_off + if second { grid_elems } else { 0 }) }
+    }
+}
+
+/// Rows a blocked outer traversal will hold in one panel. Two thirds of the legacy
+/// `MC` for f64 (256) is not enough for a whole line of the operand's fastest axis
+/// times the output's fastest axis, so the blocked path buys its own budget and the
+/// eligibility shrinks the block to fit it. See
+/// `docs/design/blocked-outer-traversal.md`.
+const BLOCK_MC_BUDGET: usize = 480;
+
 struct Ctx<'a, T: Element> {
     plan: &'a PackedPlan,
     fam: DriverFamily<T::Real>,
@@ -302,6 +323,13 @@ struct Ctx<'a, T: Element> {
     /// Every block-scatter vector this call needs, laid out by `runs`.
     scatter: &'a [i64],
     runs: ScatterRuns,
+    /// Whether the blocked outer traversal applies to this call, and with which block
+    /// shape. `None` keeps today's consecutive-slice traversal; see
+    /// `docs/design/blocked-outer-traversal.md`.
+    blocked: Option<block::BlockShape>,
+    /// Reals from the tile base to the collect grid, and one grid's length.
+    grid_off: usize,
+    grid_elems: usize,
     conj_a: bool,
     conj_b: bool,
     alpha: T,
@@ -559,6 +587,109 @@ where
     let Blocking { mc, kc, nc } = blocking;
     let mc = mc.min(m.next_multiple_of(mr));
     let nc = nc.min(n.next_multiple_of(nr));
+    // Whether the blocked outer traversal applies, computed here because this is
+    // where the plan's oriented role axes and the resolved blocking meet. It needs
+    // the role's fastest axes to disagree *and* the contraction to fit one K slab and
+    // one NC panel - which is what keeps a block's accumulator complete without
+    // cross-slab work, ownership or barrier changes.
+    // The block buys a contiguous pack and pays for it with a per-block permutation and
+    // metadata (measured at about 9 ms a call on the campaign's shapes). How much the pack
+    // is worth is the operand's element count against the output's - `m*k` against `m*n`,
+    // i.e. roughly `k` against `n`. Over the 98 tcbench rows at 1T, with the path on and
+    // off measured alternately in one session, `n <= 64 and k > n` is the only class that
+    // wins without losing: 4 wins, 0 losses, 2 neutral, median x1.14, the individual cases
+    // up to x1.74 (`abjc-cbka-kj` f64 42.0 -> 24.1 ms). A thin output against a deeper
+    // contraction is also exactly the domain TBLIS's own advantage lives in
+    // (`docs/design/blocked-outer-traversal.md`, section 9).
+    let blocked = block::blocked_eligibility(
+        &plan.stats,
+        swap,
+        k,
+        n,
+        kc,
+        nc,
+        (64 / core::mem::size_of::<T>()).max(1),
+        BLOCK_MC_BUDGET,
+        mr,
+    )
+    // **Serial only**, and not with a family that writes `D` itself:
+    //
+    // * The blocked path enumerates every block of the role, which is only a worker's own
+    //   work when its strip is the whole `m` range - so `pm == 1`. It also fills only its
+    //   own column tiles, while the grid permutation reads every column tile of the grid,
+    //   so `pn == 1` as well; with a column-group worker the permutation would read grid
+    //   slots nobody initialized. Partitioning the block itself is a separate change.
+    // * A Direct family writes `D` inside the tile call instead of the tile, so a
+    //   collected tile would never be written and the emission below would read scratch
+    //   that no kernel touched. `direct_tile` also tests `collect` now, which is the
+    //   invariant itself; this filter keeps such a call off the path entirely.
+    .filter(|_| pm == 1 && pn == 1)
+    .filter(|_| !matches!(fam.kernel, UkrFn::Direct(_)));
+    // Two whole grids when it applies: the block's own row order and the output's.
+    // The block is the span axis whole times a line's worth along the operand's fastest
+    // axis; every other axis contributes one value, exactly as `block::rows` builds it. It
+    // sizes both the packed panel and the tile grid.
+    let block_rows = match blocked {
+        None => 0,
+        Some(shape) => {
+            let mut axes_buf = [block::Role::EMPTY; block::MAX_AXES];
+            let axes = block::role_into(&plan.stats, swap, &mut axes_buf);
+            axes[shape.span].extent * shape.line_len
+        }
+    };
+    let grid_elems = match blocked {
+        None => 0,
+        // One slot per (row tile, column tile) of a block.
+        Some(_) => {
+            tprims_kernel::tile_planes(fam.tile_fmt)
+                * mr
+                * nr
+                * block_rows.div_ceil(mr)
+                * n.div_ceil(nr)
+        }
+    };
+    // The blocked path sizes `MC` by the block rather than the other way round - the
+    // eligibility already made the block fit `BLOCK_MC_BUDGET`.
+    let mc = match blocked {
+        None => mc,
+        Some(_) => block_rows.next_multiple_of(mr),
+    };
+    // The blocked path hands the packer a *raw* panel pointer and asks it to write
+    // `block_rows` rows, and hands the emitter a raw tile pointer into a grid it also
+    // sized. `pack_a_rows`'s contract - "the caller supplies a sufficiently sized
+    // output" - is discharged here or nowhere, and a mistake in this geometry would
+    // corrupt the heap rather than fail. Check it once per call, where all four
+    // numbers are in hand; the hot loops keep their `debug_assert`s.
+    if blocked.is_some() {
+        assert!(
+            block_rows <= mc,
+            "blocked path: {block_rows} block rows exceed the {mc}-row A panel"
+        );
+        assert!(
+            k <= kc && n <= nc,
+            "blocked path: one K slab and one NC panel are the condition for a single \
+             emission; k={k} kc={kc} n={n} nc={nc}"
+        );
+        let slots = block_rows.div_ceil(mr).max(1) * n.div_ceil(nr).max(1);
+        assert!(
+            grid_elems >= slots * tprims_kernel::tile_planes(fam.tile_fmt) * mr * nr,
+            "blocked path: {grid_elems} grid reals cannot hold {slots} tiles"
+        );
+    }
+    // The grids live after the tile and the induced scratch in the worker's region.
+    let grid_off = fam.tile + fam.induced_scratch(kc);
+    #[cfg(feature = "phase-timing")]
+    if std::env::var_os("TPRIMS_PHASE").is_some() {
+        eprintln!("BLOCKED {blocked:?} grid_elems={grid_elems}");
+        if blocked.is_some() {
+            // Which strides the role actually has, not just how long its axes are: two
+            // shapes with the same `BlockShape` and different strides behave very
+            // differently under this traversal, and that is what this prints.
+            let mut axes_buf = [block::Role::EMPTY; block::MAX_AXES];
+            let axes = block::role_into(&plan.stats, swap, &mut axes_buf);
+            eprintln!("BLOCKED-AXES {axes:?}");
+        }
+    }
     // C-line aligned strips, when asked for: one line of `C` is 64 bytes, so
     // the boundary is a multiple of both the panel and the line.
     let align = match rg.opts.align_c_lines {
@@ -602,7 +733,7 @@ where
     let element = core::mem::size_of::<T::Real>();
     let req = WorkspaceReq {
         a_bytes: ap_len * element,
-        tile_bytes: (fam.tile + fam.induced_scratch(kc)) * element,
+        tile_bytes: (fam.tile + fam.induced_scratch(kc)) * element + 2 * grid_elems * element,
         worker_scatter: 0,
         // A direct-B call never touches the panel, so it asks for none.
         b_bytes: if direct_b {
@@ -702,6 +833,9 @@ where
         hc,
         scatter: scatter_buf,
         runs,
+        blocked,
+        grid_off,
+        grid_elems,
         conj_a,
         conj_b,
         alpha,
@@ -724,7 +858,10 @@ where
         }
         None => {
             let mut ap = Panel::<T::Real>::new(ap_len);
-            let mut tile = Panel::<T::Real>::new(fam.tile + fam.induced_scratch(kc));
+            // The same region the workspace request asks for: tile, induced scratch and
+            // the blocked path's two tile grids.
+            let mut tile =
+                Panel::<T::Real>::new(fam.tile + fam.induced_scratch(kc) + 2 * grid_elems);
             f(ap.as_mut_ptr(), tile.as_mut_ptr());
         }
     };
@@ -804,6 +941,9 @@ where
                     ap,
                     tile,
                     scratch: tile.add(scratch_off),
+                    grid: grid_base(tile, grid_off, grid_elems, false),
+                    grid2: grid_base(tile, grid_off, grid_elems, true),
+                    ntiles: (n.div_ceil(nr)).max(1),
                 };
                 // SAFETY: `execute`'s contract covers the accesses; the claim
                 // counter hands each job to one worker, and jobs partition the

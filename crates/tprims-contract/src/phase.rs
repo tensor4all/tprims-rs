@@ -29,6 +29,12 @@
 //!   is why the instrument's first documented example reads 0 for a Direct case.
 //! * **`pack_b`** is timed at both call sites (static and dynamic) but not on the
 //!   direct-B path, where nothing is packed.
+//! * **The phases are not disjoint on the blocked outer traversal.** Its own work (the
+//!   per-block gathers, scatters and row order, the grid permutation, and the stores its
+//!   emit loop makes) is charged to `writeback` for the stores and to `setup` for the
+//!   rest; `setup` is a remainder, not an exclusive measurement. Per-block scopes were
+//!   tried for this and removed: clock reads per block on this host cost more than the
+//!   intervals they measure.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;

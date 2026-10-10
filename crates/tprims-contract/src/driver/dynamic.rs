@@ -372,9 +372,44 @@ pub(super) unsafe fn run_dynamic<T>(
                         // SAFETY: this worker owns the claimed job's output
                         // tiles and its private `A`/tile buffers; the shared
                         // `B` panel was published by the barrier above.
+                        // Today's rows are one interval of the epoch's scatters; the
+                        // blocked path passes the same thing, gathered over its block.
+                        let (a_m_bs, c_m_bs, d_m_bs) = (
+                            cx.runs.slice(cx.scatter, cx.runs.a),
+                            cx.runs.slice(cx.scatter, cx.runs.cm),
+                            cx.runs.slice(cx.scatter, cx.runs.dm),
+                        );
+                        let (b0, b1) = (ic / cx.mr, (ic + ic_len).div_ceil(cx.mr));
+                        let (a_m_bs, d_m_bs) = (&a_m_bs[b0..b1], &d_m_bs[b0..b1]);
+                        // `C`'s block scatter is deliberately empty when `beta == 0`
+                        // (`driver/mod.rs`), and the write-back reads it with `.get()`,
+                        // so empty is the signal rather than a range to cut.
+                        let c_m_bs = if c_m_bs.is_empty() {
+                            c_m_bs
+                        } else {
+                            &c_m_bs[b0..b1]
+                        };
                         unsafe {
-                            pack_a_rows::<T>(cx, &ep, ic, ic_len, bufs.ap);
-                            compute_block::<T>(cx, &ep, bufs, ic, ic_len, jr_lo, jr_hi);
+                            pack_a_rows::<T>(
+                                cx,
+                                &ep,
+                                &cx.am[ic..ic + ic_len],
+                                a_m_bs,
+                                ic_len,
+                                bufs.ap,
+                            );
+                            compute_block::<T>(
+                                cx,
+                                &ep,
+                                bufs,
+                                &cx.cm[ic..ic + ic_len],
+                                &cx.dm[ic..ic + ic_len],
+                                c_m_bs,
+                                d_m_bs,
+                                ic_len,
+                                jr_lo,
+                                jr_hi,
+                            );
                         }
                         if let Some(st) = stats {
                             st.a_elems.fetch_add(ic_len * pc_len, Relaxed);

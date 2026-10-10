@@ -171,6 +171,20 @@ mod empty_cardinality_tests {
 /// // At blk = 3 every block straddles a run boundary: all gathers.
 /// assert_eq!(build_block_scatter(&scat, 3), vec![IRREGULAR, IRREGULAR]);
 /// ```
+/// [`build_block_scatter`] into a caller's buffer, returning its length, so a
+/// steady-state caller allocates nothing.
+pub fn build_block_scatter_into(scat: &[i64], blk: usize, out: &mut [i64]) -> usize {
+    assert!(blk > 0, "block size");
+    let nblk = scat.len().div_ceil(blk);
+    assert!(out.len() >= nblk, "block-scatter buffer too small");
+    for b in 0..nblk {
+        let lo = b * blk;
+        let hi = (lo + blk).min(scat.len());
+        out[b] = run_stride(&scat[lo..hi]);
+    }
+    nblk
+}
+
 pub fn build_block_scatter(scat: &[i64], blk: usize) -> Vec<i64> {
     let mut out = Vec::new();
     append_block_scatter(&mut out, scat, blk);

@@ -2,6 +2,7 @@
 
 #[allow(clippy::module_inception)]
 pub mod pack;
+pub mod permute;
 pub mod scatter;
 pub mod writeback;
 
