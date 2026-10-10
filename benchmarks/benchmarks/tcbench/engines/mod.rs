@@ -162,6 +162,27 @@ pub fn timed(reps: usize, prime_ms: u64, mut f: impl FnMut()) -> (f64, f64) {
     (best, scatter)
 }
 
+/// Time what an arm prepares *before* the timed call — a plan, or the reference's
+/// operand descriptors — as `(value, best seconds)`, best of `reps`.
+///
+/// The timing policy excludes this work, which is why the harness builds a `Plan`
+/// once and times `execute`; recording it keeps the exclusion visible, because the
+/// reference has nothing equivalent to hoist (its analysis is inside the call it
+/// exposes) and that asymmetry is what the per-shape ratios on microsecond cases
+/// actually report. Plan construction is microseconds, so the clock's own ~25 ns
+/// resolution is a few percent at worst, and it costs `reps` constructions per arm.
+pub fn timed_prepare<T>(reps: usize, mut prepare: impl FnMut() -> T) -> (T, f64) {
+    let mut keep = None;
+    let mut best = f64::INFINITY;
+    for _ in 0..reps.max(1) {
+        let t = Instant::now();
+        let v = prepare();
+        best = best.min(t.elapsed().as_secs_f64());
+        keep = Some(v);
+    }
+    (keep.expect("at least one preparation"), best)
+}
+
 /// GFLOP/s given a multiply-accumulate count and a time.
 pub fn gflops<T: Element>(macs: u64, secs: f64) -> f64 {
     (macs as f64) * (<T as Element>::FLOPS_PER_MAC as f64) / secs / 1e9
