@@ -126,35 +126,61 @@ pub(crate) fn eligible(axes: &[Role], per_line: usize) -> Option<BlockShape> {
 /// plan's scatters use, so they can index every operand's scatter - the element
 /// offsets differ per operand, the logical row does not.
 #[allow(dead_code)] // the enumerator that consumes it lands with the design's next step
-pub(crate) fn rows(
-    axes: &[Role],
-    shape: BlockShape,
-    span_start: usize,
-    line_start: usize,
-) -> Vec<i64> {
+pub(crate) fn rows(axes: &[Role], shape: BlockShape, origin: &[usize]) -> Vec<i64> {
     let mut strides = vec![0i64; axes.len()];
     let mut acc = 1i64;
     for (i, a) in axes.iter().enumerate() {
         strides[i] = acc;
         acc *= a.extent as i64;
     }
-    let n = shape.line_len * axes[shape.span].extent;
+    let span_len = axes[shape.span].extent;
+    let n = shape.line_len * span_len;
     let mut out = Vec::with_capacity(n);
-    for s in 0..axes[shape.span].extent {
+    for s in 0..span_len {
         for l in 0..shape.line_len {
             let mut row = 0i64;
             for (i, &st) in strides.iter().enumerate() {
                 let v = if i == shape.line {
-                    line_start + l
+                    origin[i] + l
                 } else if i == shape.span {
-                    span_start + s
+                    origin[i] + s
                 } else {
-                    0
+                    origin[i]
                 };
                 row += v as i64 * st;
             }
             out.push(row);
         }
+    }
+    out
+}
+
+/// Every block origin a role needs, one entry per axis: the span axis has a single
+/// origin (a block takes it whole), the line axis steps by a line, and every other
+/// axis steps by one. A block is `rows(axes, shape, &origin)`.
+///
+/// The origins tile the role exactly once, which is what the coverage gate checks:
+/// the block rows of an eligible role, concatenated, are a permutation of
+/// `0..extent_product`.
+#[allow(dead_code)] // the enumerator that consumes it lands with the design's next step
+pub(crate) fn block_origins(axes: &[Role], shape: BlockShape) -> Vec<Vec<usize>> {
+    let mut out = vec![vec![0usize; axes.len()]];
+    for i in 0..axes.len() {
+        if i == shape.span {
+            continue;
+        }
+        let step = if i == shape.line { shape.line_len } else { 1 };
+        let mut next = Vec::new();
+        for o in &out {
+            let mut x = 0;
+            while x < axes[i].extent {
+                let mut v = o.clone();
+                v[i] = x;
+                next.push(v);
+                x += step;
+            }
+        }
+        out = next;
     }
     out
 }
@@ -263,7 +289,7 @@ mod tests {
         assert_eq!(shape.span, 2, "the output's fastest axis is c");
         assert_eq!(shape.line, 0, "the operand's fastest axis is a");
         assert_eq!(shape.line_len, 8, "one 64 B line of f64");
-        let rows = rows(&axes, shape, 0, 0);
+        let rows = rows(&axes, shape, &[0, 0, 0]);
         assert_eq!(rows.len(), 8 * 48);
         // Consecutive rows are consecutive a: the source run the pack reads.
         assert_eq!(rows[1] - rows[0], 1);
@@ -324,6 +350,28 @@ mod tests {
         assert!(blocked_eligibility(&s, true, 48, 40, 256, 1536, 8).is_none());
     }
 
+    /// The origins tile the role exactly once: every row of every operand appears
+    /// in exactly one block, which is the coverage the driver's gates need.
+    #[test]
+    fn the_blocks_tile_the_role_once() {
+        let axes = measured();
+        let shape = eligible(&axes, 8).expect("eligible");
+        let mut seen: Vec<i64> = Vec::new();
+        for o in block_origins(&axes, shape) {
+            seen.extend(rows(&axes, shape, &o));
+        }
+        let total: usize = axes.iter().map(|a| a.extent).product();
+        assert_eq!(seen.len(), total, "one entry per row of the role");
+        seen.sort_unstable();
+        assert_eq!(
+            seen,
+            (0..total as i64).collect::<Vec<i64>>(),
+            "no gaps, no repeats"
+        );
+        // 40 `b` values x (48 `a` / 8 per block) = 240 blocks for this case.
+        assert_eq!(block_origins(&axes, shape).len(), 240);
+    }
+
     #[test]
     fn gather_is_the_identity_for_todays_intervals() {
         let scatter: Vec<i64> = (0..24).map(|i| i * 7).collect();
@@ -335,7 +383,7 @@ mod tests {
     fn the_output_order_is_consecutive_for_the_measured_case() {
         let axes = measured();
         let shape = eligible(&axes, 8).expect("eligible");
-        let rows = rows(&axes, shape, 0, 0);
+        let rows = rows(&axes, shape, &[0, 0, 0]);
         let offs = out_offsets(&rows);
         // The emitter is handed the block's rows in this order, so its stores run
         // consecutively in runs of 48 - one per `a`, whose `c` values are the
