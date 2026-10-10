@@ -492,7 +492,8 @@ pub(super) unsafe fn run_block<T>(
         for t in 0..mtiles {
             let mrem = mr.min(live.saturating_sub(t * mr));
             let r0 = rank_buf[t * mr] as usize;
-            if r0 % mr != 0 || (0..mrem).any(|k| rank_buf[t * mr + k] as usize != r0 + k) {
+            if !r0.is_multiple_of(mr) || (0..mrem).any(|k| rank_buf[t * mr + k] as usize != r0 + k)
+            {
                 ok = false;
                 break;
             }
