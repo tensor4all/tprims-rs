@@ -277,3 +277,41 @@ PR: it does not improve any published number yet. What it does deliver is the
 mechanism, measured and bounded (`pack_a` 27.6 -> 5.5 ms), a cost-neutral
 implementation, two fixed memory bugs with their gate, and the reference's own
 applicability range (§9) to aim at.
+
+## 11. Where the loss is: the per-block fixed cost, still in `setup`
+
+The role axes explain the two indistinguishable cases after all, but not through the
+four `BlockShape` numbers: they differ in *strides*.
+
+| case | role axes `(extent, src, dst)` | ratio |
+| --- | --- | --- |
+| `adbjc-cbdka-kj` f64 | (24, 230400, 1) (20, 480, 24) (20, 24, 480) (24, 1, 192000) | ×1.22 |
+| `abjcd-dkbac-jk` f64 | (24, 9600, 1) (20, 480, 24) (20, 230400, 11520) (24, 1, 230400) | ×0.74 |
+
+The phase instrument then says where the difference lands. With the switch on, the
+unmeasured remainder (`setup` = wall minus the four phases) is the whole story:
+
+| case | switch | total | pack_a | kernel | writeback | setup |
+| --- | --- | --- | --- | --- | --- | --- |
+| `adbjc-cbdka-kj` | off | 51.7 | 35.3 (68%) | 14.4 | 2.5 | 0.0 |
+| `adbjc-cbdka-kj` | on | 39.5 | 11.2 (28%) | 7.7 | 0.8 | **19.8 (50%)** |
+| `abjcd-dkbac-jk` | off | 23.2 | 11.2 (48%) | 10.5 | 1.9 | 0.0 |
+| `abjcd-dkbac-jk` | on | 33.0 | 4.7 (14%) | 6.8 | 0.8 | **20.6 (62%)** |
+| `abjc-cbka-kj` | off | 38.1 | 26.1 (68%) | 11.2 | 1.4 | 0.0 |
+| `abjc-cbka-kj` | on | 33.9 | 15.8 (47%) | 8.5 | 0.6 | **9.1 (27%)** |
+| `abjc-kbac-jk` | off | 16.0 | 4.5 (28%) | 10.6 | 1.3 | 0.0 |
+| `abjc-kbac-jk` | on | 23.6 | 5.6 (24%) | 8.4 | 0.5 | **9.1 (38%)** |
+
+`pack_a` falls exactly as the mechanism predicts (35.3 -> 11.2, 26.1 -> 15.8), and the
+loss is not there. It is in `setup`: the block's own fixed work - the three gathers,
+the scatters and above all the grid -> grid2 permutation, which is a second pass over
+the block's output - is 9 ms on the shapes that win and 20 ms on the four-axis shapes
+that lose. So profitability is a question about **work per block** (block rows times
+`n`, against a fixed per-block cost), not about the line geometry, and the descriptor
+to record next is the block count and the block's output size - the two the design's
+`BlockShape` still does not carry.
+
+This is the blocker, stated plainly: the mechanism works and the implementation is
+nearly free, but the per-block fixed cost has to be paid down (a permutation that
+does not copy the whole block, or fewer, larger blocks) before any eligibility rule
+can be a profitability rule. The switch stays off and this stays out of a PR.

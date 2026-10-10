@@ -688,6 +688,12 @@ where
     #[cfg(feature = "phase-timing")]
     if std::env::var_os("TPRIMS_PHASE").is_some() {
         eprintln!("BLOCKED {blocked:?} grid_elems={grid_elems}");
+        if blocked.is_some() {
+            // Which strides the role actually has, not just how long its axes are: two
+            // shapes with the same `BlockShape` and different strides behave very
+            // differently under this traversal, and that is what this prints.
+            eprintln!("BLOCKED-AXES {:?}", block::role(&plan.stats, swap));
+        }
     }
     // C-line aligned strips, when asked for: one line of `C` is 64 bytes, so
     // the boundary is a multiple of both the panel and the line.
