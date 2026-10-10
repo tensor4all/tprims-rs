@@ -352,3 +352,39 @@ reason: an outer-blocked traversal with a block-level output ordering buys conti
 operand reads with strided output stores, so it cannot be a general win, and the
 remaining idea that could change that (a write-back path that absorbs the scatter
 instead of paying it) is a design-level change, not a tuning step.
+
+## 13. The instrument now adds up, and the cost has two names
+
+The earlier attribution was wrong because the instrument was: `phase::scope(3)` sits
+inside the *unblocked* write-back only, so the blocked path's emit loop was in no phase
+at all, and per-block `Instant::now()` calls - the obvious fix - are expensive enough
+on this host to swamp what they measure. The instrument now has `block_meta` and
+`permute` phases of its own, taken once per call, and the parts add up to the call
+(38.6 measured against a total of 38.1 ms):
+
+| part | blocked (on) | today (off) |
+| --- | --- | --- |
+| `pack_a` | **6.3** | 28.8 |
+| `kernel` (own) | 0.8 | 11.7 |
+| `writeback` (stores) | 11.0 | 10.6 |
+| **`block_meta`** | **15.0** | - |
+| **`permute`** | **5.5** | - |
+| total | 38.1 | 52.5 |
+
+`pack_a` falls by 22.5 ms and the kernel by 10.9, against 20.5 ms of added block work:
+15.0 for the per-block gathers, scatters and row order, and 5.5 for the permutation.
+The machine was ~35% slower when this was taken than when the earlier tables were
+(only same-minute ratios are valid), and both cases still win: 38.1 against 52.5.
+
+So the remaining work is not a mystery any more, and it is bounded:
+
+* **`block_meta`, 15 ms.** 240 blocks x ~62 us to gather 384 rows, scatter six times
+  and sort the block's rows - which is ~100x what that work costs when the tables are
+  hot. The gathers read the *global* scatter tables (736 KB each) at the block's own
+  row indices, one cache miss per row; the block's offsets are also computable
+  arithmetically from the axis strides the role already carries.
+* **`permute`, 5.5 ms.** A 30 MB copy at ~0.8 GB/s because it is a strided gather. It
+  is inherent to the design (a panel tile spans several operand line-runs, so it is
+  never a whole destination tile - which is why the direct-emit variant never
+  triggers), so removing it means letting the emit write a per-row offset list instead
+  of one stride per tile: a design-level change, not a tuning step.

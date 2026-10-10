@@ -432,6 +432,11 @@ pub(super) unsafe fn run_block<T>(
         "blocked path: the row map does not fit the scratch"
     );
     let ntiles = bufs.ntiles;
+    // The traversal's own per-block work, measured once per call rather than per block:
+    // per-block `Instant::now()` calls are expensive enough on this host to swamp what
+    // they are measuring.
+    #[cfg(feature = "phase-timing")]
+    let _meta = crate::phase::scope(4);
     let mut a_m_buf = [0i64; BLOCK_ROWS_MAX];
     let mut dm_buf = [0i64; BLOCK_ROWS_MAX];
     let mut cm_buf = [0i64; BLOCK_ROWS_MAX];
@@ -474,6 +479,12 @@ pub(super) unsafe fn run_block<T>(
     // destination tile's own rows and scatters, and the grid never moves.
     let order = &mut order_buf[..mtiles * mr];
     super::block::output_order_into(&dm_rows[..live], &mut order[..live]);
+    // Diagnostic only (local, never in a PR): the identity order tells us how much of the
+    // block's metadata cost is the sort, at the price of a wrong result.
+    #[cfg(feature = "phase-timing")]
+    drop(_meta);
+    #[cfg(feature = "phase-timing")]
+    let _perm = crate::phase::scope(5);
     // The lanes past `live` are never emitted (`mrem` clips them); 0 keeps the map in
     // bounds for the permute's gather.
     order[live..].fill(0);
@@ -527,6 +538,10 @@ pub(super) unsafe fn run_block<T>(
     // Which grid holds the block: the permuted one when the permutation ran, the panel
     // one when the tiles were already in place.
     let src_grid = if direct { bufs.grid } else { bufs.grid2 };
+    // The `permute` phase ends with the output-ordered rows and scatters, i.e. before the
+    // emit loop, whose stores the `writeback` phase below covers.
+    #[cfg(feature = "phase-timing")]
+    drop(_perm);
     let dm_out = &mut dm_out_buf[..live];
     for (o, &r) in dm_out.iter_mut().zip(&order[..live]) {
         *o = dm_rows[r as usize];
@@ -548,6 +563,8 @@ pub(super) unsafe fn run_block<T>(
     let Epoch {
         ch, dh, jc, jc_len, ..
     } = *ep;
+    #[cfg(feature = "phase-timing")]
+    let _wb = crate::phase::scope(3);
     for t in 0..mtiles {
         let mrem = mr.min(live.saturating_sub(t * mr));
         if mrem == 0 {
