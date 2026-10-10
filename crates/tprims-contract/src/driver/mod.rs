@@ -560,6 +560,27 @@ where
     let Blocking { mc, kc, nc } = blocking;
     let mc = mc.min(m.next_multiple_of(mr));
     let nc = nc.min(n.next_multiple_of(nr));
+    // Whether the blocked path applies, computed here because this is where the
+    // plan's oriented axes and the resolved blocking meet. See
+    // `docs/design/blocked-outer-traversal.md`: it needs the role's fastest axes to
+    // disagree *and* the contraction to fit one K slab and one NC panel, which is
+    // what keeps a block's accumulator complete without cross-slab work. Reported
+    // under the phase instrument until the enumerator consumes it.
+    #[cfg(feature = "phase-timing")]
+    if std::env::var_os("TPRIMS_PHASE").is_some() {
+        eprintln!(
+            "BLOCKED {:?}",
+            block::blocked_eligibility(
+                &plan.stats,
+                swap,
+                k,
+                n,
+                kc,
+                nc,
+                (64 / core::mem::size_of::<T>()).max(1),
+            )
+        );
+    }
     // C-line aligned strips, when asked for: one line of `C` is 64 bytes, so
     // the boundary is a multiple of both the panel and the line.
     let align = match rg.opts.align_c_lines {
