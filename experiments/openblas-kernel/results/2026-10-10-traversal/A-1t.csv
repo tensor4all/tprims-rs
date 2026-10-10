@@ -1,0 +1,6 @@
+# threads: requested=1 pool=1 budget=1
+variant,threads,best_s,gflops,residual
+corpus-a-corpus-d,1,0.011618462,30.4597,0.00e0
+corpus-a-compact-d,1,0.011412117,31.0104,1.41e0
+compact-a-corpus-d,1,0.034287297,10.3214,1.41e0
+compact-a-compact-d,1,0.033918540,10.4337,1.41e0

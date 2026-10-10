@@ -1,0 +1,4 @@
+pinned.sh: cpus=4 idle_window=3s max_busy=0.05 retries=3
+cpu4 busy=0.000
+cpu16 busy=0.000 (sibling)
+taskset: failed to execute /release/traversal: No such file or directory
