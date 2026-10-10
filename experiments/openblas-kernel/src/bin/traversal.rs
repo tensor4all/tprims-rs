@@ -1,24 +1,22 @@
-//! Attribute the cost of an interleaved operand layout.
+//! Attribute the cost of the campaign's worst losing case, `abjc-cbka-kj` f64 16
+//! MiB (effective GEMM m=92160, n=40, k=48), by layout.
 //!
-//! One contraction, one kernel, one blocking, one thread budget: the only thing
-//! that changes between the four rows is where the operands live in memory. The
-//! dimensions match the campaign's worst losing TCCG case, `abjc-cbka-kj` f64 at
-//! 16 MiB - effective GEMM m=92160, n=40, k=48 - and the "corpus" layouts are
-//! that case's own plan record:
+//! Four rows, one contraction, one kernel, one blocking, one thread budget: the
+//! only thing that changes between them is where the operands live in memory. The
+//! "corpus" layouts are the harness's own `la`/`lb`/`lc` for that case, not a
+//! reconstruction - an earlier version of this file rebuilt them from the plan's
+//! axis record, swapped two axes of equal extent, and measured a different
+//! contraction (see the README, "Traversal attribution", for that retraction).
 //!
-//! * `A` 4 axes, extents 48x40x48x48, `m` axes at strides (92160, 48, 1) and the
-//!   contracted axis at 1920 — so the fastest-varying `m` axis, the one the pack
-//!   walk steps first, is 92160 elements away in `A`;
-//! * `D` 4 axes, extents 48x40x48x40, `m` axes at (1, 48, 76800) and `n` at 1920.
+//! What it shows today, and what it does not: the four rows land within 4% of one
+//! another, so this case's cost is not a property of the operand layouts; and all
+//! four are 1.37x slower than the campaign's own run of the same case with the same
+//! plan (52 against 38 ms), so it cannot attribute that cost either. The
+//! difference is in the execution path - this binary calls `execute_slices`, which
+//! builds views per call, the harness calls `execute_raw` on raw pointers.
 //!
-//! The "compact" variants put the same dimension on a plain column-major matrix
-//! (`A` = [m, k] at (1, 92160), `D` = [m, n] at (1, m)), which is what the
-//! kernel A/B in `bench.rs` measures. Comparing the four rows says whether the
-//! packed route's cost lives in reading `A`, in writing `D`, in both, or in
-//! neither.
-//!
-//! Run it under the `tprims-benchmark` skill protocol (pinned idle cores, one
-//! L3 domain, an A/A noise floor); it does no pinning itself.
+//! Run it under the `tprims-benchmark` skill protocol (pinned idle cores, one L3
+//! domain, an A/A noise floor); it does no pinning itself.
 //!
 //! Usage: `traversal [--threads N] [--reps N] [--prime-ms N]`
 
@@ -28,16 +26,25 @@ use std::time::Instant;
 use tprims_bench::threads::BenchThreads;
 use tprims_contract::api::{CSpec, DType, Labels, LayoutSpec, OperandSpec, Problem};
 use tprims_contract::{Plan, PlanConfig};
-const LABELS: ([i64; 4], [i64; 2], [i64; 4]) = ([0, 1, 2, 3], [4, 3], [2, 1, 0, 4]);
 const A_DIMS: [usize; 4] = [48, 40, 48, 48];
-const D_DIMS: [usize; 4] = [48, 40, 48, 40];
+const D_DIMS: [usize; 4] = [48, 40, 40, 48];
 
-/// `A`'s strides: corpus order (m axes strided) or a compact [m, k] matrix.
-const A_CORPUS: [isize; 4] = [92160, 48, 1, 1920];
-const A_COMPACT: [isize; 4] = [1, 48, 1920, 92160];
-/// `D`'s strides: corpus order or a compact [m, n] matrix.
-const D_CORPUS: [isize; 4] = [1, 48, 76800, 1920];
+/// The case's own layouts, read from the harness (`la`, `lb`, `lc` of the sized
+/// case, not reconstructed): `A = (a,b,j,c)` at `[1, 48, 1920, 92160]`, so the
+/// `m` axes are contiguous but the contracted axis `j` sits *inside* the `b`/`c`
+/// plane at stride 1920; `D = (c,b,n,a)` at `[1, 48, 1920, 76800]`. The labels are
+/// the harness's own ids.
+const A_CORPUS: [isize; 4] = [1, 48, 1920, 92160];
+const B_CORPUS: [isize; 2] = [1, 48];
+const D_CORPUS: [isize; 4] = [1, 48, 1920, 76800];
+/// The same contraction with `A`'s axes ordered so that the `(m, k)` matrix is
+/// contiguous (`m` axes `a, b, c` then the contracted `j`), and `D`'s so that
+/// `(m, n)` is.
+const A_COMPACT: [isize; 4] = [1, 48, 1920, 76800];
 const D_COMPACT: [isize; 4] = [1, 48, 1920, 92160];
+const A_LABELS: [i64; 4] = [99, 98, 107, 97];
+const B_LABELS: [i64; 2] = [107, 106];
+const D_LABELS: [i64; 4] = [97, 98, 106, 99];
 
 fn spec(dims: &[usize], strides: &[isize]) -> OperandSpec {
     OperandSpec::new(LayoutSpec::new(dims, strides, 0).unwrap())
@@ -50,14 +57,13 @@ fn span(dims: &[usize], strides: &[isize]) -> usize {
 }
 
 fn problem(a: &[isize; 4], d: &[isize; 4]) -> Problem {
-    let (ia, ib, id) = LABELS;
     Problem::from_labels(
         DType::F64,
         spec(&A_DIMS, a),
-        spec(&[40, 48], &[48, 1]),
+        spec(&[48, 40], &B_CORPUS),
         CSpec::Absent,
         spec(&D_DIMS, d),
-        &Labels::new(&ia, &ib, &id),
+        &Labels::new(&A_LABELS, &B_LABELS, &D_LABELS),
     )
     .unwrap()
 }
@@ -79,7 +85,7 @@ fn main() {
     let a_len = span(&A_DIMS, &A_CORPUS).max(span(&A_DIMS, &A_COMPACT));
     let d_len = span(&D_DIMS, &D_CORPUS).max(span(&D_DIMS, &D_COMPACT));
     let mut a = vec![0.0f64; a_len];
-    let mut b = vec![0.0f64; 40 * 48];
+    let mut b = vec![0.0f64; 48 * 40];
     let mut rng = 0x2545_f491_4f6c_dd1du64;
     let mut next = || {
         rng ^= rng << 13;
