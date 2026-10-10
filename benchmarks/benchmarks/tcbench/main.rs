@@ -142,6 +142,19 @@ impl Options {
             }
             i += 1;
         }
+        // Fail closed. A requested arm this binary was not built with produces no
+        // rows at all, and a run that measures nothing else still exits successfully,
+        // which would let a caller publish a cell with an arm silently missing.
+        let supported = crate::engines::run::ENGINE_ORDER;
+        if let Some(missing) = o.engines.iter().find(|e| !supported.contains(&e.as_str())) {
+            eprintln!(
+                "unknown or unavailable engine {missing:?}; this binary has {} \
+                 (baselines are cargo features: `--features tblis` adds tblis, \
+                 `--features blas` adds ttgt)",
+                supported.join(",")
+            );
+            std::process::exit(2);
+        }
         o
     }
 

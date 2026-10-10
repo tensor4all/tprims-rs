@@ -24,6 +24,7 @@ use crate::Options;
 pub const ENGINE_ORDER: &[&str] = &[
     "plan",
     "packed",
+    #[cfg(feature = "blas")]
     "ttgt",
     // Restored: this arm was retired while the baseline could not name its own
     // revision. It can now - a release tag, its commit, the bundled BLIS revision and
@@ -124,13 +125,18 @@ where
     let mut d: Vec<T> = vec![<T as Element>::zero(); s.elems_c()];
 
     let mut reference: Option<Vec<T>> = None;
-    let check = |name: &str, d: &Vec<T>, reference: &mut Option<Vec<T>>| -> String {
+    // The first arm measured for a case becomes the reference the rest are compared
+    // against, so a case measured by one arm alone has nothing checking its output;
+    // this counts the comparisons that actually happened.
+    let mut comparisons = 0usize;
+    let mut check = |name: &str, d: &Vec<T>, reference: &mut Option<Vec<T>>| -> String {
         match reference {
             None => {
                 *reference = Some(d.clone());
                 String::new()
             }
             Some(r) => {
+                comparisons += 1;
                 let err = rel_error(d, r);
                 let tol = if core::mem::size_of::<T::Real>() == 4 {
                     1e-3
@@ -306,6 +312,14 @@ where
         });
         let notes = check("tblis", &dt, &mut reference);
         push("tblis", secs, spread, reg_a, reg_b, notes, results);
+    }
+
+    if comparisons == 0 {
+        eprintln!(
+            "warning: {} {}: one arm was measured, so nothing cross-checked its output              (the first arm measured is the reference for the others)",
+            s.case.name,
+            T::NAME
+        );
     }
 }
 
