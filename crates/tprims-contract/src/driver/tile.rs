@@ -115,6 +115,8 @@ pub(super) unsafe fn pack_a_rows<T>(
     let a_m_bs = cx.runs.slice(cx.scatter, cx.runs.a);
     let (pc, pc_len) = (ep.pc, ep.pc_len);
     let (pack_a, _) = cx.packers;
+    #[cfg(feature = "phase-timing")]
+    let _phase = crate::phase::scope(0);
     // SAFETY: the validated scatters and capacity of this epoch.
     unsafe {
         pack_a(
@@ -232,6 +234,8 @@ pub(super) unsafe fn compute_block<T>(
                 && d_rs != IRREGULAR
                 && *d_n_bs.get_unchecked(j0 / nr) != IRREGULAR;
 
+            #[cfg(feature = "phase-timing")]
+            let _phase = crate::phase::scope(2);
             match fam.kernel {
                 UkrFn::Tile(_) => {
                     // SAFETY: full packed panels and tile per

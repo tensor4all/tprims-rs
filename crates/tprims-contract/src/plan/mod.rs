@@ -612,6 +612,8 @@ impl<T: Scalar> Plan<T> {
         c: *const T,
         d: *mut T,
     ) -> Result<()> {
+        #[cfg(feature = "phase-timing")]
+        crate::phase::report_previous();
         self.check_raw(a, b, c, d)?;
         let zero = <T as Element>::zero();
         let c_read = match self.problem.c_spec() {
@@ -626,9 +628,14 @@ impl<T: Scalar> Plan<T> {
             || matches!(c_read, CRead::Separate(cp) if !core::ptr::eq(cp, d));
         let fresh = write_only
             && (!matches!(self.strategy, Strategy::Faer(_)) || self.fresh_packed.is_some());
+        #[cfg(feature = "phase-timing")]
+        let whole = std::time::Instant::now();
         // SAFETY: preflight passed; raw's write-only contract selects a
         // preprepared fresh route unless execution needs the previous D.
-        unsafe { self.run_storage(exec, alpha, a, b, beta, c_read, d, fresh) }
+        let out = unsafe { self.run_storage(exec, alpha, a, b, beta, c_read, d, fresh) };
+        #[cfg(feature = "phase-timing")]
+        crate::phase::add_total(whole.elapsed().as_nanos() as u64);
+        out
     }
 
     /// The width the work estimate asks for at the executor's budget.

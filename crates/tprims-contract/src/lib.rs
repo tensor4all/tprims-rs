@@ -60,6 +60,8 @@ mod backend;
 mod batch;
 mod buffer;
 mod driver;
+#[cfg(feature = "phase-timing")]
+pub mod phase;
 mod plan;
 mod resolve;
 mod select;

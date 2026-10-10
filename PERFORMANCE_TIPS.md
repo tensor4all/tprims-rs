@@ -277,6 +277,16 @@ Audit hints:
   Keep the scatter across repetitions, not only the best: a slow first repetition
   is how an unsettled arm shows up. The check to apply by hand is that two arms
   whose rows carry the same driver, blocking and partition policy must agree.
+- Attribute a case's cost to a phase before touching anything. The packed driver has an
+  opt-in instrument for it: build with `--features phase-timing` (a no-op otherwise, every
+  call site is `#[cfg]`-gated) and set `TPRIMS_PHASE=1`; each `execute_raw` then prints one
+  line for the call before it, `pack_a`, `pack_b`, `kernel`, `writeback` and the remainder
+  as `setup`. On the campaign's worst losing TCCG case (`abjc-cbka-kj` f64 16 MiB 1T) it
+  says `pack_a` is 67% of a 41 ms call and the kernel 27%, and that the whole 1.8x between
+  the TCCG sizing and a one-element-padded leading dimension is `pack_a` (27.7 against
+  10.0 ms) while the kernel does not move (11.1 against 10.9). `writeback` reads 0 for a
+  Direct family because that family writes `D` inside the tile call, so that cost sits in
+  `kernel`.
 - Read the shape of a slowdown before claiming a cause. A constant absolute
   delta across sizes is a per-call or per-entry cost; a uniform multiplicative
   factor across cases the change cannot affect is host contention. A
