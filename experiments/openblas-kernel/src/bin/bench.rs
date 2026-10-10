@@ -56,6 +56,27 @@ fn cases() -> Vec<Case> {
             a_s: [1024, 1],
             b_s: [1, 1024],
         },
+        // The two extremes the tensor corpus separates: very tall with a tiny K is
+        // where the reference beats this library (`abjc-cbka-kj` f64 16 MiB is
+        // m=92160, n=40, k=48), and square with a tiny K is where this library beats it
+        // by 2.5x (`abcijk-eiac-jkeb` f64 16 MiB is m=n=3456, k=24). Both are here
+        // because a kernel that wins on one can lose on the other.
+        Case {
+            name: "gemm-92160x40x48-col",
+            m: 92160,
+            n: 40,
+            k: 48,
+            a_s: [1, 92160],
+            b_s: [1, 48],
+        },
+        Case {
+            name: "gemm-3456x3456x24-col",
+            m: 3456,
+            n: 3456,
+            k: 24,
+            a_s: [1, 3456],
+            b_s: [1, 24],
+        },
     ]
 }
 
@@ -127,11 +148,19 @@ fn measure(
     d: &mut [f64],
     exec: &Exec<'_>,
     reps: usize,
+    prime_ms: u64,
 ) -> (f64, f64) {
-    // One untimed warm-up per arm; planning and pool construction are outside.
+    // Time-based priming per arm, in turn, not a call count: this host needs 1-2 s of
+    // sustained AVX-512 work before it reads settled, and one warm-up call leaves the
+    // arm measured first reading up to 40% low - which is what this experiment did
+    // before, so its earlier numbers understated the default kernel. Planning and pool
+    // construction stay outside, as the campaign's policy requires.
     for plan in [dflt, openblas] {
-        plan.execute_slices(exec, 1.0, (a, 0), (b, 0), (d, 0))
-            .unwrap();
+        let until = Instant::now() + std::time::Duration::from_millis(prime_ms);
+        while Instant::now() < until {
+            plan.execute_slices(exec, 1.0, (a, 0), (b, 0), (d, 0))
+                .unwrap();
+        }
         black_box(&*d);
     }
     let mut best_dflt = f64::INFINITY;
@@ -162,6 +191,10 @@ fn main() {
         .position(|a| a == "--reps")
         .map_or(5, |i| args[i + 1].parse::<usize>().unwrap());
     assert!(reps > 0);
+    let prime_ms = args
+        .iter()
+        .position(|a| a == "--prime-ms")
+        .map_or(1500, |i| args[i + 1].parse::<u64>().unwrap());
     let verify_only = args.iter().any(|a| a == "--verify");
 
     let family_id = if args.iter().any(|a| a == "--wide") {
@@ -202,7 +235,7 @@ fn main() {
                 case.name, threads.requested
             );
             if !verify_only {
-                let (old, new) = measure(&dflt, &openblas, &a, &b, &mut d, exec, reps);
+                let (old, new) = measure(&dflt, &openblas, &a, &b, &mut d, exec, reps, prime_ms);
                 for (name, seconds) in [("tprims", old), ("openblas", new)] {
                     println!(
                         "{},{},{},{:.9},{:.3}",
