@@ -24,6 +24,11 @@ pub struct Row {
     /// repetition — an arm measured before the machine settles — shows up here,
     /// where `secs` alone would hide it. 0 for a single repetition.
     pub spread: f64,
+    /// Seconds spent constructing what this arm needs *before* the timed call: the
+    /// plan for this library's arms, the operand descriptors for the reference. The
+    /// timing policy excludes this work, and the reference has no equivalent to
+    /// hoist, so the number makes that asymmetry legible instead of implied.
+    pub prepare_s: f64,
     pub gflops: f64,
     /// Fraction of A's row blocks and B's column blocks that are regular. Not
     /// aggregated across a program's steps here, so every row carries 0.
@@ -50,12 +55,12 @@ impl Results {
 
     pub fn write_csv(&self, path: &str) -> std::io::Result<()> {
         let mut s = String::from(
-            "case,group,dtype,engine,threads,m,n,k,macs,seconds,spread,gflops,regular_a,regular_b,notes\n",
+            "case,group,dtype,engine,threads,m,n,k,macs,seconds,spread,prepare_s,gflops,regular_a,regular_b,notes\n",
         );
         for r in &self.rows {
             let _ = writeln!(
                 s,
-                "{},{},{},{},{},{},{},{},{},{:.9},{:.4},{:.4},{:.4},{:.4},{}",
+                "{},{},{},{},{},{},{},{},{},{:.9},{:.4},{:.9},{:.4},{:.4},{:.4},{}",
                 field(&r.case),
                 field(&r.group),
                 field(&r.dtype),
@@ -67,6 +72,7 @@ impl Results {
                 r.macs,
                 r.secs,
                 r.spread,
+                r.prepare_s,
                 r.gflops,
                 r.reg_a,
                 r.reg_b,
@@ -281,6 +287,7 @@ mod tests {
             macs: 5,
             secs: 0.25,
             spread: 0.075,
+            prepare_s: 0.00000042,
             gflops: 1.5,
             reg_a: 0.0,
             reg_b: 0.0,
@@ -300,11 +307,11 @@ mod tests {
         let mut lines = body.lines();
         assert_eq!(
             lines.next().unwrap(),
-            "case,group,dtype,engine,threads,m,n,k,macs,seconds,spread,gflops,regular_a,regular_b,notes"
+            "case,group,dtype,engine,threads,m,n,k,macs,seconds,spread,prepare_s,gflops,regular_a,regular_b,notes"
         );
         assert_eq!(
             lines.next().unwrap(),
-            "c,g,f64,plan,1,2,3,4,5,0.250000000,0.0750,1.5000,0.0000,0.0000,rel_err=1.00e-16"
+            "c,g,f64,plan,1,2,3,4,5,0.250000000,0.0750,0.000000420,1.5000,0.0000,0.0000,rel_err=1.00e-16"
         );
     }
 

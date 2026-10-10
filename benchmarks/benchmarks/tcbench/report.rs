@@ -20,6 +20,11 @@ pub struct Row {
     /// repetition — an arm measured before the machine settles — shows up here,
     /// where `secs` alone would hide it. 0 for a single repetition.
     pub spread: f64,
+    /// Seconds spent constructing what this arm needs *before* the timed call: the
+    /// plan for this library's arms, the operand descriptors for the reference. The
+    /// timing policy excludes this work, and the reference has no equivalent to
+    /// hoist, so the number makes that asymmetry legible instead of implied.
+    pub prepare_s: f64,
     pub gflops: f64,
     /// Fraction of A's row blocks and B's column blocks that are regular.
     pub reg_a: f64,
@@ -45,12 +50,12 @@ impl Results {
 
     pub fn write_csv(&self, path: &str) -> std::io::Result<()> {
         let mut s = String::from(
-            "case,group,dtype,engine,threads,m,n,k,macs,seconds,spread,gflops,regular_a,regular_b,notes\n",
+            "case,group,dtype,engine,threads,m,n,k,macs,seconds,spread,prepare_s,gflops,regular_a,regular_b,notes\n",
         );
         for r in &self.rows {
             let _ = writeln!(
                 s,
-                "{},{},{},{},{},{},{},{},{},{:.9},{:.4},{:.4},{:.4},{:.4},{}",
+                "{},{},{},{},{},{},{},{},{},{:.9},{:.4},{:.9},{:.4},{:.4},{:.4},{}",
                 r.case,
                 r.group,
                 r.dtype,
@@ -62,6 +67,7 @@ impl Results {
                 r.macs,
                 r.secs,
                 r.spread,
+                r.prepare_s,
                 r.gflops,
                 r.reg_a,
                 r.reg_b,

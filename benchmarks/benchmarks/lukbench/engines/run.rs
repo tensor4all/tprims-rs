@@ -13,7 +13,10 @@ use tprims_contract::{Plan, PlanConfig};
 use tprims_exec::Exec;
 use tprims_kernel::Element;
 
-use super::{gflops, max_rel_err, problem_of, sample_inputs, steps_with, timed, tol, BenchElem};
+use super::{
+    gflops, max_rel_err, problem_of, sample_inputs, steps_with, timed, timed_prepare, tol,
+    BenchElem,
+};
 use crate::corpus::{self, col_major_strides, Program};
 use crate::report::{Results, Row, Table};
 use crate::Options;
@@ -94,7 +97,12 @@ fn run_case<T: BenchElem>(p: &Program, opts: &Options, exec: &Exec<'_>, results:
         format!("{flag}rel_err={err:.2e}")
     };
 
-    let push = |engine: &str, secs: f64, spread: f64, notes: String, results: &mut Results| {
+    let push = |engine: &str,
+                secs: f64,
+                spread: f64,
+                prepare: f64,
+                notes: String,
+                results: &mut Results| {
         results.push(Row {
             case: p.name.clone(),
             group: p.group.to_string(),
@@ -107,6 +115,7 @@ fn run_case<T: BenchElem>(p: &Program, opts: &Options, exec: &Exec<'_>, results:
             macs,
             secs,
             spread,
+            prepare_s: prepare,
             gflops: gflops::<T>(macs, secs),
             reg_a: 0.0,
             reg_b: 0.0,
@@ -132,9 +141,9 @@ fn run_case<T: BenchElem>(p: &Program, opts: &Options, exec: &Exec<'_>, results:
             opts.reps,
             opts.prime_ms,
         ) {
-            Ok((secs, scatter, strategy)) => {
+            Ok((secs, scatter, prepare, strategy)) => {
                 let notes = format!("{strategy} {}", check(name, slots.last().unwrap()));
-                push(name, secs, scatter, notes, results);
+                push(name, secs, scatter, prepare, notes, results);
             }
             Err(e) => eprintln!("{} [{}]: planning failed: {e}", p.name, T::NAME),
         }
@@ -144,9 +153,9 @@ fn run_case<T: BenchElem>(p: &Program, opts: &Options, exec: &Exec<'_>, results:
     #[cfg(feature = "tblis")]
     if opts.engine("tblis") {
         let mut slots = p.new_slots::<T>();
-        let (secs, scatter) = run_tblis(p, &inputs, &mut slots, opts.reps, opts.prime_ms);
+        let (secs, scatter, prepare) = run_tblis(p, &inputs, &mut slots, opts.reps, opts.prime_ms);
         let notes = check("tblis", slots.last().unwrap());
-        push("tblis", secs, scatter, notes, results);
+        push("tblis", secs, scatter, prepare, notes, results);
     }
 }
 
@@ -164,10 +173,13 @@ pub fn run_plans<T: BenchElem>(
     exec: &Exec<'_>,
     reps: usize,
     prime_ms: u64,
-) -> Result<(f64, f64, String), tprims_contract::Error> {
-    let plans: Vec<Plan<T>> = (0..p.steps.len())
-        .map(|k| Plan::<T>::new(&problem_of::<T>(p, k)?, config))
-        .collect::<Result<_, _>>()?;
+) -> Result<(f64, f64, f64, String), tprims_contract::Error> {
+    let (plans, prepare) = timed_prepare(3, || -> Result<Vec<Plan<T>>, tprims_contract::Error> {
+        (0..p.steps.len())
+            .map(|k| Plan::<T>::new(&problem_of::<T>(p, k)?, config))
+            .collect::<Result<_, _>>()
+    });
+    let plans = plans?;
     let strategy = strategies(&plans);
     let strides: Vec<Vec<isize>> = p.shapes.iter().map(|d| col_major_strides(d)).collect();
     let n_in = p.n_in();
@@ -183,7 +195,7 @@ pub fn run_plans<T: BenchElem>(
                 .expect("a validated plan runs");
         });
     });
-    Ok((secs, scatter, strategy))
+    Ok((secs, scatter, prepare, strategy))
 }
 
 /// The distinct per-step strategy descriptions of a program's plans.
@@ -227,22 +239,25 @@ pub fn run_tblis<T: BenchElem>(
     slots: &mut [Vec<T>],
     reps: usize,
     prime_ms: u64,
-) -> (f64, f64) {
+) -> (f64, f64, f64) {
     use crate::tblis as tb;
     let n_in = p.n_in();
-    let mut ops: Vec<(tb::Operand, tb::Operand, tb::Operand)> = p
-        .steps
-        .iter()
-        .enumerate()
-        .map(|(k, st)| {
-            let mk = |slot: usize, labels: &[char]| {
-                let (extents, strides) = corpus::dims_strides_i64(&p.shapes[slot]);
-                tb::Operand::new(&extents, &strides, &labels.iter().collect::<String>())
-            };
-            (mk(st.lhs, &st.a), mk(st.rhs, &st.b), mk(n_in + k, &st.d))
-        })
-        .collect();
-    timed(reps, prime_ms, || {
+    let (mut ops, prepare) = timed_prepare(3, || {
+        let ops: Vec<(tb::Operand, tb::Operand, tb::Operand)> = p
+            .steps
+            .iter()
+            .enumerate()
+            .map(|(k, st)| {
+                let mk = |slot: usize, labels: &[char]| {
+                    let (extents, strides) = corpus::dims_strides_i64(&p.shapes[slot]);
+                    tb::Operand::new(&extents, &strides, &labels.iter().collect::<String>())
+                };
+                (mk(st.lhs, &st.a), mk(st.rhs, &st.b), mk(n_in + k, &st.d))
+            })
+            .collect();
+        ops
+    });
+    let (secs, scatter) = timed(reps, prime_ms, || {
         steps_with(p, inputs, slots, |k, _st, a, b, d| {
             let (oa, ob, oc) = &mut ops[k];
             let ta = oa.tensor(
@@ -276,7 +291,8 @@ pub fn run_tblis<T: BenchElem>(
                 )
             }
         });
-    })
+    });
+    (secs, scatter, prepare)
 }
 
 fn print_tables(results: &Results, opts: &Options) {

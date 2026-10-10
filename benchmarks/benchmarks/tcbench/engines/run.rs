@@ -12,7 +12,7 @@ use tprims_contract::{Plan, PlanConfig};
 use tprims_exec::Exec;
 use tprims_kernel::Element;
 
-use super::{gflops, problem_of, rel_error, timed, BenchElem};
+use super::{gflops, problem_of, rel_error, timed, timed_prepare, BenchElem};
 use crate::corpus::{self, Sized};
 use crate::report::{Results, Row, Table};
 #[cfg(feature = "blas")]
@@ -155,6 +155,7 @@ where
     let push = |engine: &str,
                 secs: f64,
                 spread: f64,
+                prepare: f64,
                 reg_a: f64,
                 reg_b: f64,
                 notes: String,
@@ -171,6 +172,7 @@ where
             macs,
             secs,
             spread,
+            prepare_s: prepare,
             gflops: gflops::<T>(macs, secs),
             reg_a,
             reg_b,
@@ -189,7 +191,11 @@ where
         if !opts.engine(name) {
             continue;
         }
-        let Some(p) = plan_for(&config) else {
+        // The plan is the work this arm does before the timed call, and the policy
+        // that excludes it is why the harness builds one at all; recording it keeps
+        // the exclusion legible, since the reference has no equivalent to hoist.
+        let (p, prepare) = timed_prepare(3, || plan_for(&config));
+        let Some(p) = p else {
             continue;
         };
         let report = p.report();
@@ -240,7 +246,7 @@ where
         }
         .trim()
         .to_string();
-        push(name, secs, spread, reg_a, reg_b, notes, results);
+        push(name, secs, spread, prepare, reg_a, reg_b, notes, results);
     }
 
     // Regularity for the baselines' rows: the packed engine's, so the column
@@ -254,8 +260,11 @@ where
     // ---- TTGT ------------------------------------------------------------
     #[cfg(feature = "blas")]
     if opts.engine("ttgt") {
-        let tp = TtgtPlan::new(&problem);
-        let mut scratch = TtgtScratch::<T>::new(&tp);
+        let ((tp, mut scratch), prepare) = timed_prepare(3, || {
+            let tp = TtgtPlan::new(&problem);
+            let scratch = TtgtScratch::<T>::new(&tp);
+            (tp, scratch)
+        });
         let mut dt: Vec<T> = vec![<T as Element>::zero(); s.elems_c()];
         let (secs, spread) = timed(opts.reps, opts.prime_ms, || {
             ttgt(
@@ -270,16 +279,20 @@ where
             )
         });
         let notes = check("ttgt", &dt, &mut reference);
-        push("ttgt", secs, spread, reg_a, reg_b, notes, results);
+        push("ttgt", secs, spread, prepare, reg_a, reg_b, notes, results);
     }
 
     // ---- TBLIS -----------------------------------------------------------
     #[cfg(feature = "tblis")]
     if opts.engine("tblis") {
         use crate::tblis as tb;
-        let mut oa = tb::Operand::new(s.la.extents(), s.la.strides(), s.case.a);
-        let mut ob = tb::Operand::new(s.lb.extents(), s.lb.strides(), s.case.b);
-        let mut oc = tb::Operand::new(s.lc.extents(), s.lc.strides(), s.case.c);
+        let ((mut oa, mut ob, mut oc), prepare) = timed_prepare(3, || {
+            (
+                tb::Operand::new(s.la.extents(), s.la.strides(), s.case.a),
+                tb::Operand::new(s.lb.extents(), s.lb.strides(), s.case.b),
+                tb::Operand::new(s.lc.extents(), s.lc.strides(), s.case.c),
+            )
+        });
         let mut dt: Vec<T> = vec![<T as Element>::zero(); s.elems_c()];
         let ta = oa.tensor(
             T::TBLIS_TYPE,
@@ -311,7 +324,7 @@ where
             }
         });
         let notes = check("tblis", &dt, &mut reference);
-        push("tblis", secs, spread, reg_a, reg_b, notes, results);
+        push("tblis", secs, spread, prepare, reg_a, reg_b, notes, results);
     }
 
     if comparisons == 0 {
