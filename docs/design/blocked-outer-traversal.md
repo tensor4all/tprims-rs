@@ -160,3 +160,45 @@ initialization), from the plan's oriented role axes plus `mc`/`kc`/`nc`:
 with `role` mapping the oriented axes to their operand and output strides. Both are
 implemented and tested (including the swapped-role case, which has a single-axis row
 role here and is therefore never eligible).
+
+## 8. Wiring plan, with signatures
+
+The mechanism is complete and tested: `driver/block.rs` (membership, eligibility, output
+order, gather) and `tprims_kernel::pack::permute` (format-exact row permutation across a
+tile grid). What remains is the driver, in four mechanical steps, each gated on its own.
+
+1. **Row views instead of global intervals.** `pack_a_rows` and `compute_block` currently
+   index the epoch's global scatter vectors by `ic..ic + ic_len` and `i0 / mr`. Give them
+   the rows as slices with a live count:
+
+   - `pack_a_rows(cx, ep, a_m: &[i64], a_m_bs: &[i64], live: usize, ap)`
+   - `compute_block(cx, ep, bufs, cm: &[i64], dm: &[i64], m_bs: &[i64], live: usize, jr_lo, jr_hi)`
+
+   and index them from zero (`ir`, `ir / mr`). `static_grid.rs` slices the global vectors
+   exactly as today, so this step changes no behaviour, and the driver's own suite -
+   `partition_bitwise` above all, which pins serial/static/dynamic/width equality - is the
+   gate. This is the "identity view" step the reviews approved.
+2. **Collect instead of emit.** `compute_block`'s non-direct branch writes each finished
+   tile into a tile-grid slot instead of calling `emit_tile`, under a flag only the blocked
+   path sets. A tile copy is a straight copy of `reals * mr * nr` values - same format,
+   same geometry, no recombination - so collecting needs no format knowledge and cannot
+   change a value.
+3. **The blocked branch.** In `static_grid.rs`, when the plan is eligible
+   (`block::blocked_eligibility`, computed in `driver/mod.rs` where the axes and the
+   resolved blocking meet) and the K slab and NC panel are single, the `ic` loop becomes a
+   loop over blocks: gather the block's row scatters (`block::rows`, `block::gather`),
+   rebuild its block-scatter vector from the gathered operand scatter, pack and collect all
+   its tiles, then permute the grid (`block::output_order` + `permute::permute_grid_rows`)
+   and emit each output-ordered `mr`-row tile with the permuted row scatters, reusing
+   `emit_tile`. Direct-C and direct-B are disabled on this path, which is why eligibility
+   is decided for the whole call before any allocation.
+4. **Workspace.** One tile-grid region of `(MC / mr) * (NC / nr) * reals * mr * nr` values -
+   120 KiB for the measured case, 128 KiB after the arena's power-of-two rounding -
+   requested with the other panels, with a checked product and an admission that still
+   leaves `D` untouched if it is refused.
+
+Gates, in order: the mechanism tests already landed; byte-identical or
+oracle-established output against today's path for a fixed family, orientation, blocking
+and K order; then the 49-case TCCG suite at 1T and 4T, both dtypes, `plan` and forced
+`packed`, none/padded/ragged, plus the per-shape corpus; then the phase attribution with
+disjoint scopes and an uninstrumented headline; then both campaign cells re-recorded.
