@@ -71,21 +71,13 @@ pub(crate) fn blocked_eligibility(
     let axes = role(stats, swapped);
     let mut shape = eligible(&axes, per_line)?;
     // A block must fit the `MC` budget: the packed `A` panel is sized from `MC`, and a
-    // block that overruns it would write past the panel. Shrink the line axis until it
-    // does, and give up when even one line's worth cannot fit.
-    let span = axes[shape.span].extent;
-    let others: usize = axes
-        .iter()
-        .enumerate()
-        .map(|(i, a)| {
-            if i == shape.line || i == shape.span {
-                1
-            } else {
-                a.extent
-            }
-        })
-        .product();
-    let per_block = (mc_budget / (span * others).max(1)).max(1);
+    // block that overruns it would write past the panel. The block's row count is the
+    // span axis whole times a line's worth along the operand's fastest axis - every
+    // other axis contributes one value - so only `span` divides into the budget;
+    // dividing by the other axes too made the block ten times smaller than the design's
+    // geometry, and ten times as many per-block fixed costs were the whole loss.
+    let span = axes[shape.span].extent.max(1);
+    let per_block = (mc_budget / span).max(1);
     shape.line_len = shape.line_len.min(per_block);
     Some(shape)
 }

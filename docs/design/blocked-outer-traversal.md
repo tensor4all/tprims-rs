@@ -315,3 +315,40 @@ This is the blocker, stated plainly: the mechanism works and the implementation 
 nearly free, but the per-block fixed cost has to be paid down (a permutation that
 does not copy the whole block, or fewer, larger blocks) before any eligibility rule
 can be a profitability rule. The switch stays off and this stays out of a PR.
+
+## 12. Why it is a trade, and why that ends the promotion
+
+The `setup` remainder is not an artifact (it is 15 ms at `--prime-ms 0` and at
+`--reps 20` alike), it is not the permutation (removing the grid -> grid2 copy
+entirely, by emitting each panel tile with its destination tile's own rows and
+scatters, changed `setup` by nothing: 14.7 -> 15.0 ms), and it is not the per-block
+metadata (the block geometry that had ten times too many blocks - a `per_block` that
+divided by the other axes as well as the span axis, giving `line_len = 1` instead of
+the design's 8 - was fixed, and `setup` *grew*, because the blocks only got bigger).
+
+What is left is the work the instrument does not cover, and there is exactly one
+candidate that scales the way `setup` scales. The blocked path moves the line problem
+from the pack to the write-back: the block's rows are gathered in the operand's order,
+so the *loads* become contiguous (`pack_a` 35.3 -> 5.3 ms, a five-fold fall) and the
+*stores* become the strided side instead. The two are the same problem with the roles
+exchanged, so the path is a trade of strided loads against strided stores, and it only
+pays when there are more operand elements than output ones - `m*k` against `m*n`, i.e.
+roughly `k` against `n`. That is also exactly the domain TBLIS's own advantage lives
+in (§9: thin output, shallow K), for the same reason.
+
+Fitting that to the corpus gives a rule that is real but not worth having:
+
+| eligibility | selected | helped | hurt | median |
+| --- | --- | --- | --- | --- |
+| all rows | 98 | 8 | 15 | ×0.998 |
+| `k > n` | 32 | 3 | 3 | ×0.998 |
+| `n <= 64` and `k > n` | 6 | 3 | 1 | **×1.024** |
+
+Two and a half percent in the best-selected class, with a case that still loses, is
+not a promotion: the switch stays off, this stays out of a PR, and the objective it
+was written for - update both repositories with a TBLIS-equivalent algorithm that
+improves the published numbers - is not met. What the work does establish is the
+reason: an outer-blocked traversal with a block-level output ordering buys contiguous
+operand reads with strided output stores, so it cannot be a general win, and the
+remaining idea that could change that (a write-back path that absorbs the scatter
+instead of paying it) is a design-level change, not a tuning step.

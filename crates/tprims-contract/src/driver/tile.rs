@@ -467,10 +467,11 @@ pub(super) unsafe fn run_block<T>(
         cx, ep, bufs, cm_rows, dm_rows, c_m_bs, d_m_bs, live, jr_lo, jr_hi,
     );
 
-    // Whole rows into the output's order, then emit from the permuted grid. The
-    // permutation covers `mtiles * mr` rows because the grid is a whole number of
-    // tiles; the lanes past `live` are never emitted (`mrem` clips them) and only
-    // need the map to be in bounds.
+    // Whole rows into the output's order. The permutation that follows is a second full
+    // pass over the block's output, and the corpus says that is the blocked path's
+    // largest cost (14-25 ms of a 28-40 ms call). It is skipped whenever a panel tile's
+    // rows are already one whole destination tile: then the emit below reads that
+    // destination tile's own rows and scatters, and the grid never moves.
     let order = &mut order_buf[..mtiles * mr];
     super::block::output_order_into(&dm_rows[..live], &mut order[..live]);
     // The lanes past `live` are never emitted (`mrem` clips them); 0 keeps the map in
@@ -478,21 +479,53 @@ pub(super) unsafe fn run_block<T>(
     order[live..].fill(0);
     let planes = tprims_kernel::tile_planes(cx.fam.tile_fmt);
     let tile_len = planes * mr * nr;
-    // SAFETY: the caller sized both grids for a whole block; `order` is a permutation
-    // of the block's rows.
-    unsafe {
-        tprims_kernel::pack::permute::permute_grid_rows(
-            bufs.grid,
-            bufs.grid2,
-            mr,
-            nr,
-            cx.fam.tile_fmt,
-            planes,
-            mtiles,
-            ntiles,
-            order,
-        )
+    // Where each panel tile is written from the destination's point of view: the inverse
+    // of `order`, which is what says whether the rows of a panel tile are consecutive in
+    // the destination.
+    let mut rank_buf = [0u32; BLOCK_ROWS_MAX];
+    for (i, &r) in order[..live].iter().enumerate() {
+        rank_buf[r as usize] = i as u32;
+    }
+    let mut dmap_buf = [0u32; BLOCK_ROWS_MAX];
+    let direct = {
+        let mut ok = true;
+        for t in 0..mtiles {
+            let mrem = mr.min(live.saturating_sub(t * mr));
+            let r0 = rank_buf[t * mr] as usize;
+            if r0 % mr != 0 || (0..mrem).any(|k| rank_buf[t * mr + k] as usize != r0 + k) {
+                ok = false;
+                break;
+            }
+            dmap_buf[t] = (r0 / mr) as u32;
+        }
+        ok
     };
+    if !direct {
+        // The rows of some panel tile are not consecutive in the destination, so the
+        // grid has to be physically permuted and every tile is its own destination.
+        for (t, d) in dmap_buf[..mtiles].iter_mut().enumerate() {
+            *d = t as u32;
+        }
+        // SAFETY: the caller sized both grids for a whole block; `order` is a
+        // permutation of the block's rows.
+        unsafe {
+            tprims_kernel::pack::permute::permute_grid_rows(
+                bufs.grid,
+                bufs.grid2,
+                mr,
+                nr,
+                cx.fam.tile_fmt,
+                planes,
+                mtiles,
+                ntiles,
+                order,
+            )
+        };
+    }
+    let dmap = &dmap_buf[..mtiles];
+    // Which grid holds the block: the permuted one when the permutation ran, the panel
+    // one when the tiles were already in place.
+    let src_grid = if direct { bufs.grid } else { bufs.grid2 };
     let dm_out = &mut dm_out_buf[..live];
     for (o, &r) in dm_out.iter_mut().zip(&order[..live]) {
         *o = dm_rows[r as usize];
@@ -519,6 +552,10 @@ pub(super) unsafe fn run_block<T>(
         if mrem == 0 {
             break;
         }
+        // Grid slot `t` holds the panel tile, whose rows are destination tile `dmap[t]`:
+        // the `*_out` scatters are ordered by destination, so they - and the rows handed
+        // to `emit_tile` - are indexed by `dmap[t]`, while the grid address stays `t`.
+        let d = dmap[t] as usize;
         for jt in 0..ntiles {
             // `jr` is the block's own column offset and `j0` the epoch's, exactly as in
             // `compute_block`; the grid slot must be the *global* column tile, or two
@@ -532,25 +569,25 @@ pub(super) unsafe fn run_block<T>(
                 break;
             }
             let j0 = jc + jr;
-            let c_rs = c_m_bs_out.get(t).copied().unwrap_or(IRREGULAR);
-            // SAFETY: the permuted grid holds this tile, the scatters are the block's
-            // own rows, and `D`'s write-back obligations are `emit_tile`'s.
+            let c_rs = c_m_bs_out.get(d).copied().unwrap_or(IRREGULAR);
+            // SAFETY: the grid holds this tile, the scatters are the block's own rows,
+            // and `D`'s write-back obligations are `emit_tile`'s.
             unsafe {
                 emit_tile::<T>(
                     cx,
-                    bufs.grid2.add((t * ntiles + jr / nr) * tile_len),
+                    src_grid.add((t * ntiles + jr / nr) * tile_len),
                     mrem,
                     nrem,
                     beta,
                     ch,
-                    &cm_out[t * mr..t * mr + mrem],
+                    &cm_out[d * mr..d * mr + mrem],
                     &cx.cn[j0..j0 + nrem],
                     c_rs,
                     cx.plan.conj_c,
                     dh,
-                    &dm_out[t * mr..t * mr + mrem],
+                    &dm_out[d * mr..d * mr + mrem],
                     &cx.dn[j0..j0 + nrem],
-                    d_m_bs_out[t],
+                    d_m_bs_out[d],
                     cx.plan.conj_d,
                 )
             };
