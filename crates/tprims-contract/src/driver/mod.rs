@@ -130,6 +130,7 @@ use tprims_exec::{Exec, ExecError, WorkspaceProvider, WorkspaceReq};
 
 use crate::buffer::Panel;
 mod batch;
+mod block;
 mod route;
 pub(crate) use route::execution_geometry;
 mod dynamic;
