@@ -63,11 +63,31 @@ pub(crate) fn blocked_eligibility(
     kc: usize,
     nc: usize,
     per_line: usize,
+    mc_budget: usize,
 ) -> Option<BlockShape> {
     if k > kc || n > nc {
         return None;
     }
-    eligible(&role(stats, swapped), per_line)
+    let axes = role(stats, swapped);
+    let mut shape = eligible(&axes, per_line)?;
+    // A block must fit the `MC` budget: the packed `A` panel is sized from `MC`, and a
+    // block that overruns it would write past the panel. Shrink the line axis until it
+    // does, and give up when even one line's worth cannot fit.
+    let span = axes[shape.span].extent;
+    let others: usize = axes
+        .iter()
+        .enumerate()
+        .map(|(i, a)| {
+            if i == shape.line || i == shape.span {
+                1
+            } else {
+                a.extent
+            }
+        })
+        .product();
+    let per_block = (mc_budget / (span * others).max(1)).max(1);
+    shape.line_len = shape.line_len.min(per_block);
+    Some(shape)
 }
 
 /// How many values a block takes along an axis: the output's fastest axis whole,
@@ -138,6 +158,12 @@ pub(crate) fn rows(axes: &[Role], shape: BlockShape, origin: &[usize]) -> Vec<i6
     let mut out = Vec::with_capacity(n);
     for s in 0..span_len {
         for l in 0..shape.line_len {
+            // A role's extent need not be a whole number of lines: the last block on
+            // the line axis is short, and `block_origins` still placed it. Stop rather
+            // than clamp, so no row is listed twice - coverage is what the gates check.
+            if origin[shape.line] + l >= axes[shape.line].extent {
+                break;
+            }
             let mut row = 0i64;
             for (i, &st) in strides.iter().enumerate() {
                 let v = if i == shape.line {
@@ -188,7 +214,18 @@ pub(crate) fn block_origins(axes: &[Role], shape: BlockShape) -> Vec<Vec<usize>>
 /// Gather one operand's element offsets for a block's rows.
 #[allow(dead_code)] // the enumerator that consumes it lands with the design's next step
 pub(crate) fn gather(scatter: &[i64], rows: &[i64]) -> Vec<i64> {
-    rows.iter().map(|&r| scatter[r as usize]).collect()
+    let mut out = vec![0i64; rows.len()];
+    gather_into(scatter, rows, &mut out);
+    out
+}
+
+/// [`gather`] into a caller's buffer, so a steady-state call allocates nothing.
+#[allow(dead_code)] // as above
+pub(crate) fn gather_into(scatter: &[i64], rows: &[i64], out: &mut [i64]) {
+    debug_assert_eq!(out.len(), rows.len(), "one offset per row");
+    for (o, &r) in out.iter_mut().zip(rows) {
+        *o = scatter[r as usize];
+    }
 }
 
 /// The order in which a block's rows must be visited for the output stores to be
@@ -202,9 +239,21 @@ pub(crate) fn gather(scatter: &[i64], rows: &[i64]) -> Vec<i64> {
 /// paid once per block instead of once per micro-tile.
 #[allow(dead_code)] // as above: the enumerator that consumes it lands next
 pub(crate) fn output_order(d_local: &[i64]) -> Vec<u32> {
-    let mut order: Vec<u32> = (0..d_local.len() as u32).collect();
-    order.sort_by_key(|&r| d_local[r as usize]);
+    let mut order: Vec<u32> = vec![0; d_local.len()];
+    output_order_into(d_local, &mut order);
     order
+}
+
+/// [`output_order`] into a caller's buffer, so a steady-state call allocates nothing.
+#[allow(dead_code)] // as above
+pub(crate) fn output_order_into(d_local: &[i64], order: &mut [u32]) {
+    debug_assert_eq!(order.len(), d_local.len(), "one entry per row");
+    for (i, o) in order.iter_mut().enumerate() {
+        *o = i as u32;
+    }
+    // A stable sort by the output offset: rows sharing an offset keep the block's
+    // own order, which the raw write-back's last-writer behaviour depends on.
+    order.sort_by_key(|&r| d_local[r as usize]);
 }
 
 /// Reorder a block's accumulated rows into `output_order`: `src` and `dst` are
@@ -337,17 +386,17 @@ mod tests {
     fn eligibility_needs_one_k_slab_and_one_nc_panel() {
         let s = stats();
         // The measured case: k = 48 <= kc = 256 and n = 40 <= nc = 1536.
-        assert!(blocked_eligibility(&s, false, 48, 40, 256, 1536, 8).is_some());
+        assert!(blocked_eligibility(&s, false, 48, 40, 256, 1536, 8, 480).is_some());
         assert!(
-            blocked_eligibility(&s, false, 48, 40, 32, 1536, 8).is_none(),
+            blocked_eligibility(&s, false, 48, 40, 32, 1536, 8, 480).is_none(),
             "two K slabs"
         );
         assert!(
-            blocked_eligibility(&s, false, 48, 40, 256, 16, 8).is_none(),
+            blocked_eligibility(&s, false, 48, 40, 256, 16, 8, 480).is_none(),
             "two NC panels"
         );
         // The n role is a single axis, so a swapped plan has nothing to block.
-        assert!(blocked_eligibility(&s, true, 48, 40, 256, 1536, 8).is_none());
+        assert!(blocked_eligibility(&s, true, 48, 40, 256, 1536, 8, 480).is_none());
     }
 
     /// The origins tile the role exactly once: every row of every operand appears

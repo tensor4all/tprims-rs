@@ -269,6 +269,25 @@ unsafe impl<T: Send> Sync for Shared<T> {}
 /// Everything one thread of the loop nest needs that does not vary with its
 /// row strip. Exists so that the nest can be written once and run either
 /// serially or on `p` threads, rather than duplicated.
+/// Where a block's tile grid starts inside a worker's tile region: after the tile and
+/// the induced scratch, and the second grid after the first. Null when the blocked path
+/// does not apply, which is what `Bufs::grid` being null means downstream.
+fn grid_base<R>(tile: *mut R, grid_off: usize, grid_elems: usize, second: bool) -> *mut R {
+    if grid_elems == 0 {
+        core::ptr::null_mut()
+    } else {
+        // SAFETY: the workspace was sized for both grids when it is not null.
+        unsafe { tile.add(grid_off + if second { grid_elems } else { 0 }) }
+    }
+}
+
+/// Rows a blocked outer traversal will hold in one panel. Two thirds of the legacy
+/// `MC` for f64 (256) is not enough for a whole line of the operand's fastest axis
+/// times the output's fastest axis, so the blocked path buys its own budget and the
+/// eligibility shrinks the block to fit it. See
+/// `docs/design/blocked-outer-traversal.md`.
+const BLOCK_MC_BUDGET: usize = 480;
+
 struct Ctx<'a, T: Element> {
     plan: &'a PackedPlan,
     fam: DriverFamily<T::Real>,
@@ -303,6 +322,13 @@ struct Ctx<'a, T: Element> {
     /// Every block-scatter vector this call needs, laid out by `runs`.
     scatter: &'a [i64],
     runs: ScatterRuns,
+    /// Whether the blocked outer traversal applies to this call, and with which block
+    /// shape. `None` keeps today's consecutive-slice traversal; see
+    /// `docs/design/blocked-outer-traversal.md`.
+    blocked: Option<block::BlockShape>,
+    /// Reals from the tile base to the collect grid, and one grid's length.
+    grid_off: usize,
+    grid_elems: usize,
     conj_a: bool,
     conj_b: bool,
     alpha: T,
@@ -560,26 +586,108 @@ where
     let Blocking { mc, kc, nc } = blocking;
     let mc = mc.min(m.next_multiple_of(mr));
     let nc = nc.min(n.next_multiple_of(nr));
-    // Whether the blocked path applies, computed here because this is where the
-    // plan's oriented axes and the resolved blocking meet. See
-    // `docs/design/blocked-outer-traversal.md`: it needs the role's fastest axes to
-    // disagree *and* the contraction to fit one K slab and one NC panel, which is
-    // what keeps a block's accumulator complete without cross-slab work. Reported
-    // under the phase instrument until the enumerator consumes it.
+    // Whether the blocked outer traversal applies, computed here because this is
+    // where the plan's oriented role axes and the resolved blocking meet. It needs
+    // the role's fastest axes to disagree *and* the contraction to fit one K slab and
+    // one NC panel - which is what keeps a block's accumulator complete without
+    // cross-slab work, ownership or barrier changes.
+    // **Off by default.** The mechanism is measured (see the design doc and the phase
+    // instrument) but the eligibility is not yet a profitability test: with the switch
+    // on, most of the `abcijk-*` shapes run about 2x *slower* than today's traversal,
+    // which the non-regression run against the campaign cell caught. Until the
+    // eligibility selects the class where the block pays for itself, the blocked path
+    // is a switch, never a default.
+    let blocked = if std::env::var_os("TPRIMS_BLOCKED").is_some() {
+        block::blocked_eligibility(
+            &plan.stats,
+            swap,
+            k,
+            n,
+            kc,
+            nc,
+            (64 / core::mem::size_of::<T>()).max(1),
+            BLOCK_MC_BUDGET,
+        )
+        // Only whole-row-strip workers: the blocked path enumerates every block of the
+        // role, which is only the worker's own work when its strip is the whole `m`
+        // range. Partitioning the block itself is a separate change; until then a
+        // split `m` keeps today's traversal.
+        .filter(|_| pm == 1)
+    } else {
+        None
+    };
+    // Two whole grids when it applies: the block's own row order and the output's.
+    let grid_elems = match blocked {
+        None => 0,
+        Some(shape) => {
+            let axes = block::role(&plan.stats, swap);
+            let block_rows: usize = axes
+                .iter()
+                .enumerate()
+                .map(|(i, a)| {
+                    if i == shape.line {
+                        shape.line_len
+                    } else {
+                        a.extent
+                    }
+                })
+                .product();
+            // One slot per (row tile, column tile) of a block.
+            tprims_kernel::tile_planes(fam.tile_fmt)
+                * mr
+                * nr
+                * block_rows.div_ceil(mr)
+                * n.div_ceil(nr)
+        }
+    };
+    // A block's rows are what the packed panel and the tile grid have to hold, so the
+    // blocked path sizes `MC` by the block rather than the other way round - the
+    // eligibility already made the block fit `BLOCK_MC_BUDGET`.
+    let block_rows = match blocked {
+        None => 0,
+        Some(shape) => block::role(&plan.stats, swap)
+            .iter()
+            .enumerate()
+            .map(|(i, a)| {
+                if i == shape.line {
+                    shape.line_len
+                } else {
+                    a.extent
+                }
+            })
+            .product(),
+    };
+    let mc = match blocked {
+        None => mc,
+        Some(_) => block_rows.next_multiple_of(mr),
+    };
+    // The blocked path hands the packer a *raw* panel pointer and asks it to write
+    // `block_rows` rows, and hands the emitter a raw tile pointer into a grid it also
+    // sized. `pack_a_rows`'s contract - "the caller supplies a sufficiently sized
+    // output" - is discharged here or nowhere, and a mistake in this geometry would
+    // corrupt the heap rather than fail. Check it once per call, where all four
+    // numbers are in hand; the hot loops keep their `debug_assert`s.
+    if blocked.is_some() {
+        assert!(
+            block_rows <= mc,
+            "blocked path: {block_rows} block rows exceed the {mc}-row A panel"
+        );
+        assert!(
+            k <= kc && n <= nc,
+            "blocked path: one K slab and one NC panel are the condition for a single \
+             emission; k={k} kc={kc} n={n} nc={nc}"
+        );
+        let slots = block_rows.div_ceil(mr).max(1) * n.div_ceil(nr).max(1);
+        assert!(
+            grid_elems >= slots * tprims_kernel::tile_planes(fam.tile_fmt) * mr * nr,
+            "blocked path: {grid_elems} grid reals cannot hold {slots} tiles"
+        );
+    }
+    // The grids live after the tile and the induced scratch in the worker's region.
+    let grid_off = fam.tile + fam.induced_scratch(kc);
     #[cfg(feature = "phase-timing")]
     if std::env::var_os("TPRIMS_PHASE").is_some() {
-        eprintln!(
-            "BLOCKED {:?}",
-            block::blocked_eligibility(
-                &plan.stats,
-                swap,
-                k,
-                n,
-                kc,
-                nc,
-                (64 / core::mem::size_of::<T>()).max(1),
-            )
-        );
+        eprintln!("BLOCKED {blocked:?} grid_elems={grid_elems}");
     }
     // C-line aligned strips, when asked for: one line of `C` is 64 bytes, so
     // the boundary is a multiple of both the panel and the line.
@@ -624,7 +732,7 @@ where
     let element = core::mem::size_of::<T::Real>();
     let req = WorkspaceReq {
         a_bytes: ap_len * element,
-        tile_bytes: (fam.tile + fam.induced_scratch(kc)) * element,
+        tile_bytes: (fam.tile + fam.induced_scratch(kc)) * element + 2 * grid_elems * element,
         worker_scatter: 0,
         // A direct-B call never touches the panel, so it asks for none.
         b_bytes: if direct_b {
@@ -724,6 +832,9 @@ where
         hc,
         scatter: scatter_buf,
         runs,
+        blocked,
+        grid_off,
+        grid_elems,
         conj_a,
         conj_b,
         alpha,
@@ -746,7 +857,10 @@ where
         }
         None => {
             let mut ap = Panel::<T::Real>::new(ap_len);
-            let mut tile = Panel::<T::Real>::new(fam.tile + fam.induced_scratch(kc));
+            // The same region the workspace request asks for: tile, induced scratch and
+            // the blocked path's two tile grids.
+            let mut tile =
+                Panel::<T::Real>::new(fam.tile + fam.induced_scratch(kc) + 2 * grid_elems);
             f(ap.as_mut_ptr(), tile.as_mut_ptr());
         }
     };
@@ -826,6 +940,9 @@ where
                     ap,
                     tile,
                     scratch: tile.add(scratch_off),
+                    grid: grid_base(tile, grid_off, grid_elems, false),
+                    grid2: grid_base(tile, grid_off, grid_elems, true),
+                    ntiles: (n.div_ceil(nr)).max(1),
                 };
                 // SAFETY: `execute`'s contract covers the accesses; the claim
                 // counter hands each job to one worker, and jobs partition the

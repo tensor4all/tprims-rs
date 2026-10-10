@@ -202,3 +202,37 @@ oracle-established output against today's path for a fixed family, orientation, 
 and K order; then the 49-case TCCG suite at 1T and 4T, both dtypes, `plan` and forced
 `packed`, none/padded/ragged, plus the per-shape corpus; then the phase attribution with
 disjoint scopes and an uninstrumented headline; then both campaign cells re-recorded.
+
+## 9. The reference's own domain, measured
+
+The question "where is the outer-blocked, block-scatter approach the right one" can
+be asked of the reference itself, because the campaign's tcbench cell carries TBLIS
+per case. Over its 196 rows (16 MiB, 1T and 4T, two dtypes), TBLIS beats this
+library's planner in **16**, and they are not scattered:
+
+| shape class | rows where TBLIS wins | median TBLIS/plan |
+| --- | --- | --- |
+| `n <= 64` (thin output) | 12 of 28 | 1.01 |
+| `n > 64` | 4 of 168 | 1.21 |
+| `k <= 48` **and** `n <= 64` | **12 of 24** | 0.99 |
+| `k <= 48` and `n > 64` | 0 of 84 | 1.25 |
+
+So the reference's domain is **a thin output together with a shallow K** - the
+transposed-output rank-5 and rank-6 cases (`abjc-cbka-kj`, `adbjc-cbdka-kj`,
+`ajbc-ckba-jk`, `ijk-il-jlk`), where the output's fastest axis is long while the
+operand's is short and the pack read is the whole story. That is exactly the class
+this design's mechanism targets, and the two classes agree for the same reason: it
+is the class where the packed operand's reads touch one element per cache line.
+
+It is *not* where the current implementation pays. With the switch on, over the same
+98 one-thread rows, the blocked path helps 2 and hurts 94 (median 25% slower), and the
+two it helps are the two thinnest, most strided cases (`adbjc-cbdka-kj` f64 1.13x,
+`abjc-cbka-kj` f64 1.08x). The mechanism is measured - `pack_a` 27.6 -> 5.5 ms - but
+the implementation's own costs (a per-block `Vec` churn worth ~9 ms of a 23 ms call,
+and the block-level transpose) eat it everywhere else. Both are known and bounded:
+the allocations become stack arrays bounded by `BLOCK_MC_BUDGET`, and the transpose is
+one pass over a block.
+
+Therefore the rule for promotion is the intersection of the two domains: the
+eligibility must select the thin-output, shallow-K class *and* the implementation must
+first stop allocating per block. Until both hold, the switch stays off.

@@ -7,7 +7,8 @@ use std::sync::Barrier;
 
 use tprims_kernel::Element;
 
-use super::tile::{compute_block, pack_a_rows, pack_b_slivers, Bufs, Epoch};
+use super::block;
+use super::tile::{compute_block, pack_a_rows, pack_b_slivers, run_block, Bufs, Epoch};
 use super::Ctx;
 
 /// Where one thread sits in the `pm x pn` partition, as far as loop 5 and the
@@ -184,6 +185,11 @@ pub(super) unsafe fn run_strip<T>(
                     ap: ap_ptr,
                     tile: tile_ptr,
                     scratch: scratch_ptr,
+                    // Null unless the blocked path applies; then the block's tiles live
+                    // in the first grid and the permuted copy in the second.
+                    grid: super::grid_base(tile_ptr, cx.grid_off, cx.grid_elems, false),
+                    grid2: super::grid_base(tile_ptr, cx.grid_off, cx.grid_elems, true),
+                    ntiles: (n.div_ceil(nr)).max(1),
                 };
                 // A direct-B call reads B where it lies: no panel is written,
                 // so neither barrier is taken. The decision is per call, so
@@ -212,40 +218,54 @@ pub(super) unsafe fn run_strip<T>(
                 // slivers than groups — since there is no point packing an `A`
                 // block no micro-kernel call will read. Both barriers above have
                 // already been taken, which is what keeps their counts equal.
-                let mut ic = if jr_lo < jr_hi { m_lo } else { m_hi };
-                while ic < m_hi {
-                    let ic_len = mc.min(m_hi - ic);
-                    // Today's rows are one interval of the epoch's scatters; the blocked path
-                    // passes the same thing, gathered over its block.
-                    let (a_m_bs, c_m_bs, d_m_bs) = (
-                        cx.runs.slice(cx.scatter, cx.runs.a),
-                        cx.runs.slice(cx.scatter, cx.runs.cm),
-                        cx.runs.slice(cx.scatter, cx.runs.dm),
-                    );
-                    let (b0, b1) = (ic / cx.mr, (ic + ic_len).div_ceil(cx.mr));
-                    let (a_m_bs, d_m_bs) = (&a_m_bs[b0..b1], &d_m_bs[b0..b1]);
-                    // `C`'s block scatter is deliberately empty when `beta == 0`
-                    // (`driver/mod.rs`), and the write-back reads it with `.get()`,
-                    // so empty is the signal rather than a range to cut.
-                    let c_m_bs = if c_m_bs.is_empty() {
-                        c_m_bs
-                    } else {
-                        &c_m_bs[b0..b1]
-                    };
-                    pack_a_rows::<T>(cx, &ep, &cx.am[ic..ic + ic_len], a_m_bs, ic_len, ap_ptr);
-                    compute_block::<T>(
-                        cx,
-                        &ep,
-                        bufs,
-                        &cx.cm[ic..ic + ic_len],
-                        &cx.dm[ic..ic + ic_len],
-                        c_m_bs,
-                        d_m_bs,
-                        ic_len,
-                        jr_lo,
-                        jr_hi,
-                    );
-                    ic += mc;
+                if let Some(shape) = cx.blocked {
+                    // ---- the blocked path: one pass over the role's blocks --------
+                    // Eligibility already guarantees one K slab and one NC panel, so a
+                    // block's accumulator is complete here and is emitted once, after
+                    // its rows are permuted into the output's order.
+                    if jr_lo < jr_hi {
+                        let axes = block::role(&cx.plan.stats, cx.plan.transposes_gemm(cx.mr));
+                        for origin in block::block_origins(&axes, shape) {
+                            let rows = block::rows(&axes, shape, &origin);
+                            run_block::<T>(cx, &ep, bufs, &rows, jr_lo, jr_hi);
+                        }
+                    }
+                } else {
+                    let mut ic = if jr_lo < jr_hi { m_lo } else { m_hi };
+                    while ic < m_hi {
+                        let ic_len = mc.min(m_hi - ic);
+                        // Today's rows are one interval of the epoch's scatters; the blocked path
+                        // passes the same thing, gathered over its block.
+                        let (a_m_bs, c_m_bs, d_m_bs) = (
+                            cx.runs.slice(cx.scatter, cx.runs.a),
+                            cx.runs.slice(cx.scatter, cx.runs.cm),
+                            cx.runs.slice(cx.scatter, cx.runs.dm),
+                        );
+                        let (b0, b1) = (ic / cx.mr, (ic + ic_len).div_ceil(cx.mr));
+                        let (a_m_bs, d_m_bs) = (&a_m_bs[b0..b1], &d_m_bs[b0..b1]);
+                        // `C`'s block scatter is deliberately empty when `beta == 0`
+                        // (`driver/mod.rs`), and the write-back reads it with `.get()`,
+                        // so empty is the signal rather than a range to cut.
+                        let c_m_bs = if c_m_bs.is_empty() {
+                            c_m_bs
+                        } else {
+                            &c_m_bs[b0..b1]
+                        };
+                        pack_a_rows::<T>(cx, &ep, &cx.am[ic..ic + ic_len], a_m_bs, ic_len, ap_ptr);
+                        compute_block::<T>(
+                            cx,
+                            &ep,
+                            bufs,
+                            &cx.cm[ic..ic + ic_len],
+                            &cx.dm[ic..ic + ic_len],
+                            c_m_bs,
+                            d_m_bs,
+                            ic_len,
+                            jr_lo,
+                            jr_hi,
+                        );
+                        ic += mc;
+                    }
                 }
                 pc += kc;
             }

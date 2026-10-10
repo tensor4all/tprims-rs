@@ -65,6 +65,17 @@ pub(super) struct Bufs<R> {
     pub(super) ap: *mut R,
     pub(super) tile: *mut R,
     pub(super) scratch: *mut R,
+    /// When not null, finished tiles are **collected** into this tile grid instead of
+    /// being emitted: slot `(ir / mr) * ntiles + (jr / nr)`, each
+    /// `tile_planes(fam.tile) * mr * nr` values. The blocked path emits them later,
+    /// after permuting whole rows into the output's order - which is why it needs the
+    /// tiles to survive past the micro-tile that produced them.
+    pub(super) grid: *mut R,
+    /// The permute destination, one whole grid as well; `grid` holds the block's tiles
+    /// in its own row order and `grid2` the same rows in the output's.
+    pub(super) grid2: *mut R,
+    /// Column tiles per row tile in `grid`.
+    pub(super) ntiles: usize,
 }
 
 /// Pack `B` slivers `[w0, w1)` of the epoch's NC block into the shared panel.
@@ -179,7 +190,9 @@ pub(super) unsafe fn compute_block<T>(
         q0,
         ..
     } = *ep;
-    let (ap_ptr, tile_ptr, scratch_ptr) = (bufs.ap, bufs.tile, bufs.scratch);
+    let (ap_ptr, scratch_ptr) = (bufs.ap, bufs.scratch);
+    let collect = !bufs.grid.is_null();
+    let tile_len = tprims_kernel::tile_planes(fam.tile_fmt) * mr * nr;
     let runs = cx.runs;
     let scatter = cx.scatter;
     let b_n_bs = runs.slice(scatter, runs.b);
@@ -219,6 +232,13 @@ pub(super) unsafe fn compute_block<T>(
         while ir < live {
             let mrem = mr.min(live - ir);
             let apan = ap_ptr.add((ir / mr) * a_sliver);
+            // Collecting: this micro-tile's home is its slot in the block's grid.
+            let tile_ptr = if collect {
+                bufs.grid
+                    .add(((ir / mr) * bufs.ntiles + jr / nr) * tile_len)
+            } else {
+                bufs.tile
+            };
             let d_rs = *d_m_bs.get_unchecked(ir / mr);
             // A Direct family writes D itself only where D's own
             // strides make that expressible: the guard was decided
@@ -316,6 +336,12 @@ pub(super) unsafe fn compute_block<T>(
             }
             #[cfg(feature = "phase-timing")]
             let _phase = crate::phase::scope(3);
+            // A collected tile is emitted by the blocked path, once, after its rows
+            // have been permuted into the output's order.
+            if collect {
+                ir += mr;
+                continue;
+            }
             if first_k_block {
                 let c_rs = c_m_bs.get(ir / mr).copied().unwrap_or(IRREGULAR);
                 emit_tile::<T>(
@@ -359,5 +385,134 @@ pub(super) unsafe fn compute_block<T>(
             ir += mr;
         }
         jr += nr;
+    }
+}
+
+/// One axis-aware block of the blocked outer traversal.
+///
+/// Gathers the block's rows into local scatters, packs the operand in the block's own
+/// row order (the order that keeps its reads contiguous), computes its micro-tiles
+/// into the tile grid, permutes whole rows into the output's order, and emits from
+/// there - so the stores to `D` stay consecutive even though the block's rows are not.
+///
+/// # Safety
+///
+/// As [`run_strip`], plus: `bufs.grid` and `bufs.grid2` each cover a whole block's
+/// tile grid (one slot per row tile and column tile), `rows` holds the block's global
+/// row indices of this epoch's scatters, and the contraction fits one K slab and one
+/// NC panel - which is what makes the single emission below correct.
+pub(super) unsafe fn run_block<T>(
+    cx: &Ctx<'_, T>,
+    ep: &Epoch<T>,
+    bufs: Bufs<T::Real>,
+    rows: &[i64],
+    jr_lo: usize,
+    jr_hi: usize,
+) where
+    T: Element,
+{
+    let (mr, nr, cm, dm, beta) = (cx.mr, cx.nr, cx.cm, cx.dm, cx.beta);
+    let live = rows.len();
+    let mtiles = live.div_ceil(mr).max(1);
+    let ntiles = bufs.ntiles;
+    // The block's own row order: the operand's runs together, the output's not.
+    let a_m = super::block::gather(cx.am, rows);
+    let dm_rows = super::block::gather(dm, rows);
+    let cm_rows = if cm.is_empty() {
+        Vec::new()
+    } else {
+        super::block::gather(cm, rows)
+    };
+    let a_m_bs = tprims_kernel::scatter::build_block_scatter(&a_m, mr);
+    let d_m_bs = tprims_kernel::scatter::build_block_scatter(&dm_rows, mr);
+    let c_m_bs = if cm_rows.is_empty() {
+        Vec::new()
+    } else {
+        tprims_kernel::scatter::build_block_scatter(&cm_rows, mr)
+    };
+    pack_a_rows::<T>(cx, ep, &a_m, &a_m_bs, live, bufs.ap);
+    compute_block::<T>(
+        cx, ep, bufs, &cm_rows, &dm_rows, &c_m_bs, &d_m_bs, live, jr_lo, jr_hi,
+    );
+
+    // Whole rows into the output's order, then emit from the permuted grid. The
+    // permutation covers `mtiles * mr` rows because the grid is a whole number of
+    // tiles; the lanes past `live` are never emitted (`mrem` clips them) and only
+    // need the map to be in bounds.
+    let mut order = super::block::output_order(&dm_rows);
+    order.resize(mtiles * mr, 0);
+    let planes = tprims_kernel::tile_planes(cx.fam.tile_fmt);
+    let tile_len = planes * mr * nr;
+    // SAFETY: the caller sized both grids for a whole block; `order` is a permutation
+    // of the block's rows.
+    unsafe {
+        tprims_kernel::pack::permute::permute_grid_rows(
+            bufs.grid,
+            bufs.grid2,
+            mr,
+            nr,
+            cx.fam.tile_fmt,
+            planes,
+            mtiles,
+            ntiles,
+            &order,
+        )
+    };
+    let dm_out: Vec<i64> = order[..live].iter().map(|&r| dm_rows[r as usize]).collect();
+    let d_m_bs_out = tprims_kernel::scatter::build_block_scatter(&dm_out, mr);
+    let cm_out: Vec<i64> = if cm_rows.is_empty() {
+        Vec::new()
+    } else {
+        order[..live].iter().map(|&r| cm_rows[r as usize]).collect()
+    };
+    let c_m_bs_out = if cm_out.is_empty() {
+        Vec::new()
+    } else {
+        tprims_kernel::scatter::build_block_scatter(&cm_out, mr)
+    };
+    let Epoch {
+        ch, dh, jc, jc_len, ..
+    } = *ep;
+    for t in 0..mtiles {
+        let mrem = mr.min(live.saturating_sub(t * mr));
+        if mrem == 0 {
+            break;
+        }
+        for jt in 0..ntiles {
+            // `jr` is the block's own column offset and `j0` the epoch's, exactly as in
+            // `compute_block`; the grid slot must be the *global* column tile, or two
+            // workers holding different column groups overwrite each other's tiles.
+            let jr = jr_lo + jt * nr;
+            if jr >= jr_hi {
+                break;
+            }
+            let nrem = nr.min(jc_len.saturating_sub(jr));
+            if nrem == 0 {
+                break;
+            }
+            let j0 = jc + jr;
+            let c_rs = c_m_bs_out.get(t).copied().unwrap_or(IRREGULAR);
+            // SAFETY: the permuted grid holds this tile, the scatters are the block's
+            // own rows, and `D`'s write-back obligations are `emit_tile`'s.
+            unsafe {
+                emit_tile::<T>(
+                    cx,
+                    bufs.grid2.add((t * ntiles + jr / nr) * tile_len),
+                    mrem,
+                    nrem,
+                    beta,
+                    ch,
+                    &cm_out[t * mr..t * mr + mrem],
+                    &cx.cn[j0..j0 + nrem],
+                    c_rs,
+                    cx.plan.conj_c,
+                    dh,
+                    &dm_out[t * mr..t * mr + mrem],
+                    &cx.dn[j0..j0 + nrem],
+                    d_m_bs_out[t],
+                    cx.plan.conj_d,
+                )
+            };
+        }
     }
 }
