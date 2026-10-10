@@ -9,22 +9,39 @@
 //! Yama refuses the ptrace a sampler would need.
 //!
 //! Read it a call late: the counters are printed and cleared at the *start* of the
-//! next `execute_raw`, so one line describes the call that just finished. The last
-//! four numbers are the phases; `setup` is the whole call minus those four, i.e.
-//! the loops, the epoch bookkeeping and everything between the phases.
+//! next `execute_raw`, so one line describes the execution that just finished. The
+//! last four numbers are the phases; `setup` is that execution's wall time minus
+//! those four, i.e. the loops, the epoch bookkeeping and everything between the
+//! phases.
+//!
+//! # What it does and does not mean
+//!
+//! * **Measure at one thread.** The counters sum *worker* time, and with N workers
+//!   the phases can add up to more than the call's wall time, so the percentages
+//!   stop being wall-clock shares (and `setup` saturates at zero). At one thread
+//!   they are shares of the call, which is the reading the campaign's design work
+//!   needed.
+//! * **One execution at a time.** The counters are process-global and the snapshot
+//!   is taken at the next entry, so two overlapping calls mix or drop each other's
+//!   numbers. Report from a serialized session.
+//! * **`writeback` covers `emit_tile` only.** A Direct family writes `D` inside the
+//!   tile call, so that store is charged to `kernel` and `writeback` stays 0 - which
+//!   is why the instrument's first documented example reads 0 for a Direct case.
+//! * **`pack_b`** is timed at both call sites (static and dynamic) but not on the
+//!   direct-B path, where nothing is packed.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 /// Phase names, indexed like the counters.
-pub const NAMES: [&str; 5] = ["pack_a", "pack_b", "kernel", "writeback", "setup"];
+pub(crate) const NAMES: [&str; 5] = ["pack_a", "pack_b", "kernel", "writeback", "setup"];
 
 static NANOS: [AtomicU64; 4] = [const { AtomicU64::new(0) }; 4];
 static TOTAL: AtomicU64 = AtomicU64::new(0);
 
 /// Accumulates one phase while it is alive.
 #[derive(Debug)]
-pub struct Scope(usize, Instant);
+pub(crate) struct Scope(usize, Instant);
 
 impl Drop for Scope {
     fn drop(&mut self) {
@@ -34,19 +51,19 @@ impl Drop for Scope {
 
 /// Start timing phase `i` of [`NAMES`].
 #[inline]
-pub fn scope(i: usize) -> Scope {
+pub(crate) fn scope(i: usize) -> Scope {
     assert!(i < 4, "phase index");
     Scope(i, Instant::now())
 }
 
 /// Record a whole `execute_raw` call, so the remainder can be reported as setup.
 #[inline]
-pub fn add_total(nanos: u64) {
+pub(crate) fn add_total(nanos: u64) {
     TOTAL.fetch_add(nanos, Ordering::Relaxed);
 }
 
 /// Print the previous call's phase totals and clear them, when `TPRIMS_PHASE` is set.
-pub fn report_previous() {
+pub(crate) fn report_previous() {
     if std::env::var_os("TPRIMS_PHASE").is_none() {
         return;
     }

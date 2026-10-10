@@ -662,7 +662,12 @@ impl<T: Scalar> Plan<T> {
         d: *mut T,
     ) -> Result<()> {
         // SAFETY: the initialized execution entry's validated buffers.
-        unsafe { self.run_storage(exec, alpha, a, b, beta, c, d, false) }
+        #[cfg(feature = "phase-timing")]
+        let whole = std::time::Instant::now();
+        let out = unsafe { self.run_storage(exec, alpha, a, b, beta, c, d, false) };
+        #[cfg(feature = "phase-timing")]
+        crate::phase::add_total(whole.elapsed().as_nanos() as u64);
+        out
     }
 
     /// Execute with a storage contract fixed by the entry point. Fresh product

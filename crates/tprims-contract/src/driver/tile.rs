@@ -320,6 +320,8 @@ pub(super) unsafe fn compute_block<T>(
                 ir += mr;
                 continue;
             }
+            #[cfg(feature = "phase-timing")]
+            let _phase = crate::phase::scope(3);
             if first_k_block {
                 let c_rs = c_m_bs.get(i0 / mr).copied().unwrap_or(IRREGULAR);
                 emit_tile::<T>(

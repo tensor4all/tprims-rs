@@ -327,6 +327,8 @@ pub(super) unsafe fn run_dynamic<T>(
                     let (w0, w1) = (t * nsliv / p, (t + 1) * nsliv / p);
                     if w1 > w0 {
                         // SAFETY: slivers `w0..w1` are this worker's alone.
+                        #[cfg(feature = "phase-timing")]
+                        let _phase = crate::phase::scope(1);
                         unsafe { pack_b_slivers::<T>(cx, &ep, w0, w1) };
                         if let Some(st) = stats {
                             st.b_slivers.fetch_add(w1 - w0, Relaxed);
