@@ -136,3 +136,27 @@ is the caller-side layout: the campaign's TCCG sizing rounds stride-1 extents to
 multiples of 24, which makes this case's source stride exactly 180 pages; the
 one-element-padded variant of the same corpus is 23.3 ms against the reference's
 20.0 ms, with no library change at all.
+
+## 7. Narrow eligibility, and why it removes the hardest half
+
+The fourth review's heaviest findings were about cross-K persistence, ownership and
+workspace: accumulating a block over all K slabs means either keeping every owned row
+block across K, or moving K inside a block round with restated barriers and a
+specified B-publication lifetime.
+
+The measured case needs neither. Its `K` is 48 against `kc = 256` (one slab) and its
+`n` is 40 against `nc = 1536` (one NC panel), so a block's accumulator is complete
+inside the single `pc` iteration the driver already performs, and the block's whole
+output is one contiguous write. Restricting the blocked path to `k <= kc && n <= nc`
+therefore removes the cross-slab, ownership, barrier and B-lifetime work from the
+change entirely. The price is scope: it applies only where those conditions hold.
+That is still the class the campaign measured - 16 of 196 TCCG rows lose to the
+reference - and every other shape, including every multi-slab contraction, keeps
+today's path unchanged by construction.
+
+Eligibility is therefore computed where the resolved blocking is in scope (execution
+initialization), from the plan's oriented role axes plus `mc`/`kc`/`nc`:
+`driver/block.rs::blocked_eligibility` returns `Some` only under those conditions,
+with `role` mapping the oriented axes to their operand and output strides. Both are
+implemented and tested (including the swapped-role case, which has a single-axis row
+role here and is therefore never eligible).
