@@ -10,14 +10,26 @@ without Transposition*, [arXiv:1607.00291](https://arxiv.org/abs/1607.00291).
 | --- | --- |
 | `plan` | tprims's default planner: packed or copy-free faer |
 | `packed` | tprims packed driver forced (diagnostic) |
+| `ttgt` | CBLAS TTGT baseline (`--features blas`, needs a BLAS) |
+| `tblis` | Actual C++ TBLIS through the direct FFI adapter, the independent reference |
+
+The first arm measured for a case is the reference every later arm is compared
+against, and `MISMATCH` in its notes fails the run; a run that selects a single arm
+therefore validates nothing, and says so.
+
+Do not label `packed` as external TBLIS.
 
 ## Fixed procedure
 
 The source of truth is
 [the tprims-benchmark skill](../../../.agents/skills/tprims-benchmark/SKILL.md).
-Use `RUSTFLAGS="-C target-cpu=native"` and release for all Rust code.
+Use `RUSTFLAGS="-C target-cpu=native"` and release for all Rust code. TBLIS must be
+a Release build of a tagged release with an explicitly chosen BLIS configuration
+family - `benchmarks/scripts/build_tblis.sh` picks one for the host (it does not use
+`-march=native`) and records the tag, the commits and the artifact hash.
 
 ```sh
+export TBLIS_ROOT=/path/to/native-release-tblis
 export CARGO_BUILD_JOBS=8  # choose for the host
 # Ryzen AI 9 HX 470: 1/4/8 physical cores in L3 #1; 12 physical cores in two L3s.
 bash benchmarks/benchmarks/tcbench/run.sh \
@@ -26,6 +38,12 @@ bash benchmarks/benchmarks/tcbench/run.sh \
 
 The runner builds once, checks known-value GEMM and all corpus outputs at
 1/16 MiB and 1T/4T/8T/12T, then measures the complete suite twice sequentially.
+The baselines are cargo features, not always-on arms: `--features tblis` adds
+`tblis` and `--features blas` adds `ttgt`, and `--engines` selects among the arms a
+binary was built with. Naming an arm this binary does not have is an error, not an
+empty table. The runner above measures the two in-repo arms; a ratio against the
+independent baseline is published by whichever campaign cell enables the feature.
+
 Every process goes through `pinned.sh`; do not run another benchmark or build
 alongside it. A failed idle/correctness gate stops the suite; keep failed
 observations and classify the pair inconclusive. Core lists are explicit

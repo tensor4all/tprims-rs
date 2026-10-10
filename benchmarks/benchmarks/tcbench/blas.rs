@@ -1,7 +1,7 @@
 //! CBLAS bindings for the TTGT baseline's GEMM step.
 
 #![allow(non_camel_case_types)]
-#![allow(dead_code)] // surface is used only under the `blas` feature
+#![allow(dead_code)] // surface is used only under the `tblis` / `blas` features
 
 use std::ffi::c_void;
 use std::os::raw::c_int;

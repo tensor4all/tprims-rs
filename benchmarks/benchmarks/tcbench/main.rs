@@ -4,9 +4,9 @@
 //!
 //! * `run` -- the corpus across engines and dtypes, reporting GFLOP/s and the
 //!   per-case complex efficiency ratio. Engines: `plan` (the planner's choice
-//!   under the `TCBENCH_*` knobs), `packed` (the packed driver, forced) and
-//!   `ttgt` (the external baseline).
-//! * `verify` -- the planner's choice, the packed driver and TTGT over the
+//!   under the `TCBENCH_*` knobs), `packed` (the packed driver, forced),
+//!   `ttgt` and `tblis` (external baselines).
+//! * `verify` -- the planner's choice, the packed driver, TTGT and TBLIS over the
 //!   whole corpus at benchmark sizes, in every dtype and under every
 //!   stride-stress mode.
 //! * `info` -- the machine and the baselines this binary was built with.
@@ -20,6 +20,8 @@ mod corpus;
 mod engines;
 mod knobs;
 mod report;
+#[cfg(feature = "tblis")]
+mod tblis;
 mod ttgt;
 
 use std::process::ExitCode;
@@ -57,7 +59,7 @@ fn main() -> ExitCode {
                  \x20 --case <substr>   only cases whose name contains this\n\
                  \x20 --engines <list>  comma separated, default all of:\n\
                  \x20                   plan,packed   (this library)\n\
-                 \x20                   ttgt          (optional external baseline)\n\
+                 \x20                   ttgt,tblis     (optional external baselines)\n\
                  \x20 --csv <path>      also write machine-readable results\n\
                  \x20 --stress <mode>   none|ragged|padded: perturb TCCG extents/layouts\n\
                  \x20                   so the block-scatter gather path is exercised\n"
@@ -139,6 +141,19 @@ impl Options {
                 other => eprintln!("warning: ignoring unknown option {other}"),
             }
             i += 1;
+        }
+        // Fail closed. A requested arm this binary was not built with produces no
+        // rows at all, and a run that measures nothing else still exits successfully,
+        // which would let a caller publish a cell with an arm silently missing.
+        let supported = crate::engines::run::ENGINE_ORDER;
+        if let Some(missing) = o.engines.iter().find(|e| !supported.contains(&e.as_str())) {
+            eprintln!(
+                "unknown or unavailable engine {missing:?}; this binary has {} \
+                 (baselines are cargo features: `--features tblis` adds tblis, \
+                 `--features blas` adds ttgt)",
+                supported.join(",")
+            );
+            std::process::exit(2);
         }
         o
     }
