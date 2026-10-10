@@ -215,8 +215,36 @@ pub(super) unsafe fn run_strip<T>(
                 let mut ic = if jr_lo < jr_hi { m_lo } else { m_hi };
                 while ic < m_hi {
                     let ic_len = mc.min(m_hi - ic);
-                    pack_a_rows::<T>(cx, &ep, ic, ic_len, ap_ptr);
-                    compute_block::<T>(cx, &ep, bufs, ic, ic_len, jr_lo, jr_hi);
+                    // Today's rows are one interval of the epoch's scatters; the blocked path
+                    // passes the same thing, gathered over its block.
+                    let (a_m_bs, c_m_bs, d_m_bs) = (
+                        cx.runs.slice(cx.scatter, cx.runs.a),
+                        cx.runs.slice(cx.scatter, cx.runs.cm),
+                        cx.runs.slice(cx.scatter, cx.runs.dm),
+                    );
+                    let (b0, b1) = (ic / cx.mr, (ic + ic_len).div_ceil(cx.mr));
+                    let (a_m_bs, d_m_bs) = (&a_m_bs[b0..b1], &d_m_bs[b0..b1]);
+                    // `C`'s block scatter is deliberately empty when `beta == 0`
+                    // (`driver/mod.rs`), and the write-back reads it with `.get()`,
+                    // so empty is the signal rather than a range to cut.
+                    let c_m_bs = if c_m_bs.is_empty() {
+                        c_m_bs
+                    } else {
+                        &c_m_bs[b0..b1]
+                    };
+                    pack_a_rows::<T>(cx, &ep, &cx.am[ic..ic + ic_len], a_m_bs, ic_len, ap_ptr);
+                    compute_block::<T>(
+                        cx,
+                        &ep,
+                        bufs,
+                        &cx.cm[ic..ic + ic_len],
+                        &cx.dm[ic..ic + ic_len],
+                        c_m_bs,
+                        d_m_bs,
+                        ic_len,
+                        jr_lo,
+                        jr_hi,
+                    );
                     ic += mc;
                 }
                 pc += kc;

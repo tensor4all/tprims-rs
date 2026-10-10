@@ -105,30 +105,23 @@ where
 pub(super) unsafe fn pack_a_rows<T>(
     cx: &Ctx<'_, T>,
     ep: &Epoch<T>,
-    ic: usize,
-    ic_len: usize,
+    a_m: &[i64],
+    a_m_bs: &[i64],
+    live: usize,
     ap: *mut T::Real,
 ) where
     T: Element,
 {
-    let (mr, am, ak, conj_a) = (cx.mr, cx.am, cx.ak, cx.conj_a);
-    let a_m_bs = cx.runs.slice(cx.scatter, cx.runs.a);
+    let (mr, ak, conj_a) = (cx.mr, cx.ak, cx.conj_a);
     let (pc, pc_len) = (ep.pc, ep.pc_len);
     let (pack_a, _) = cx.packers;
+    debug_assert_eq!(a_m.len(), live, "one row scatter entry per live row");
     #[cfg(feature = "phase-timing")]
     let _phase = crate::phase::scope(0);
-    // SAFETY: the validated scatters and capacity of this epoch.
-    unsafe {
-        pack_a(
-            ep.ah,
-            &am[ic..ic + ic_len],
-            &a_m_bs[ic / mr..(ic + ic_len).div_ceil(mr)],
-            &ak[pc..pc + pc_len],
-            mr,
-            conj_a,
-            ap,
-        )
-    }
+    // SAFETY: the validated scatters and capacity of this epoch. `a_m` covers the
+    // rows this call packs - the epoch's own interval today, a gathered block-local
+    // list on the blocked path - and `a_m_bs` is its block-scatter twin.
+    unsafe { pack_a(ep.ah, a_m, a_m_bs, &ak[pc..pc + pc_len], mr, conj_a, ap) }
 }
 
 /// Loops 2 and 1: every micro-tile of the packed `A` rows `[ic, ic + ic_len)`
@@ -141,25 +134,29 @@ pub(super) unsafe fn pack_a_rows<T>(
 /// the in-place operand) covers the columns, and the caller owns the output
 /// tiles of the covered block.
 #[inline(always)]
+#[allow(clippy::too_many_arguments)] // INVARIANT: the block's row views and its geometry.
 pub(super) unsafe fn compute_block<T>(
     cx: &Ctx<'_, T>,
     ep: &Epoch<T>,
     bufs: Bufs<T::Real>,
-    ic: usize,
-    ic_len: usize,
+    cm_rows: &[i64],
+    dm_rows: &[i64],
+    c_m_bs: &[i64],
+    d_m_bs: &[i64],
+    live: usize,
     jr_lo: usize,
     jr_hi: usize,
 ) where
     T: Element,
 {
+    debug_assert_eq!(cm_rows.len(), live, "one C row per live row");
+    debug_assert_eq!(dm_rows.len(), live, "one D row per live row");
     let Ctx {
         plan,
         fam,
         mr,
         nr,
-        cm,
         cn,
-        dm,
         dn,
         bn,
         bk,
@@ -186,9 +183,7 @@ pub(super) unsafe fn compute_block<T>(
     let runs = cx.runs;
     let scatter = cx.scatter;
     let b_n_bs = runs.slice(scatter, runs.b);
-    let d_m_bs = runs.slice(scatter, runs.dm);
     let d_n_bs = runs.slice(scatter, runs.dn);
-    let c_m_bs = runs.slice(scatter, runs.cm);
     let one = T::one();
     let a_sliver = fam.a_per_k * pc_len;
     let mut jr = jr_lo;
@@ -221,11 +216,10 @@ pub(super) unsafe fn compute_block<T>(
 
         // ---- loop 1: MR -----------------------------------
         let mut ir = 0;
-        while ir < ic_len {
-            let mrem = mr.min(ic_len - ir);
-            let i0 = ic + ir;
+        while ir < live {
+            let mrem = mr.min(live - ir);
             let apan = ap_ptr.add((ir / mr) * a_sliver);
-            let d_rs = *d_m_bs.get_unchecked(i0 / mr);
+            let d_rs = *d_m_bs.get_unchecked(ir / mr);
             // A Direct family writes D itself only where D's own
             // strides make that expressible: the guard was decided
             // once for the call, and both scatters must be regular.
@@ -260,7 +254,7 @@ pub(super) unsafe fn compute_block<T>(
                     // scratch path does.
                     let (d_base, rs_d, cs_d, alpha_d, beta_ab) = if direct_tile {
                         (
-                            dh.offset((dm[i0] + dn[j0]) as isize) as *mut T::Real,
+                            dh.offset((dm_rows[ir] + dn[j0]) as isize) as *mut T::Real,
                             d_rs as isize,
                             *d_n_bs.get_unchecked(j0 / nr) as isize,
                             if first_k_block {
@@ -278,7 +272,7 @@ pub(super) unsafe fn compute_block<T>(
                         (tile_ptr, 1, mr as isize, T::Real::ZERO, T::Real::ONE)
                     };
                     let aux = UkrAux {
-                        a_next: if ir + mr < ic_len {
+                        a_next: if ir + mr < live {
                             apan.add(a_sliver)
                         } else {
                             apan
@@ -323,7 +317,7 @@ pub(super) unsafe fn compute_block<T>(
             #[cfg(feature = "phase-timing")]
             let _phase = crate::phase::scope(3);
             if first_k_block {
-                let c_rs = c_m_bs.get(i0 / mr).copied().unwrap_or(IRREGULAR);
+                let c_rs = c_m_bs.get(ir / mr).copied().unwrap_or(IRREGULAR);
                 emit_tile::<T>(
                     cx,
                     tile_ptr,
@@ -331,12 +325,12 @@ pub(super) unsafe fn compute_block<T>(
                     nrem,
                     beta,
                     ch,
-                    &cm[i0..i0 + mrem],
+                    &cm_rows[ir..ir + mrem],
                     &cn[j0..j0 + nrem],
                     c_rs,
                     plan.conj_c,
                     dh,
-                    &dm[i0..i0 + mrem],
+                    &dm_rows[ir..ir + mrem],
                     &dn[j0..j0 + nrem],
                     d_rs,
                     plan.conj_d,
@@ -351,12 +345,12 @@ pub(super) unsafe fn compute_block<T>(
                     nrem,
                     one,
                     dh as *const T,
-                    &dm[i0..i0 + mrem],
+                    &dm_rows[ir..ir + mrem],
                     &dn[j0..j0 + nrem],
                     d_rs,
                     plan.conj_d,
                     dh,
-                    &dm[i0..i0 + mrem],
+                    &dm_rows[ir..ir + mrem],
                     &dn[j0..j0 + nrem],
                     d_rs,
                     plan.conj_d,
