@@ -29,30 +29,20 @@
 //!   is why the instrument's first documented example reads 0 for a Direct case.
 //! * **`pack_b`** is timed at both call sites (static and dynamic) but not on the
 //!   direct-B path, where nothing is packed.
-//! * **`block_meta` and `permute`** exist for the blocked outer traversal: its emit
-//!   loop is the write-back and is charged to `writeback`, its per-block gathers,
-//!   scatters and row order to `block_meta`, and the grid permutation with the
-//!   output-ordered rows and scatters to `permute`. Without them the whole traversal
-//!   lands in `setup`, which is where it used to hide.
+//! * **The phases are not disjoint on the blocked outer traversal.** Its own work (the
+//!   per-block gathers, scatters and row order, the grid permutation, and the stores its
+//!   emit loop makes) is charged to `writeback` for the stores and to `setup` for the
+//!   rest; `setup` is a remainder, not an exclusive measurement. Per-block scopes were
+//!   tried for this and removed: clock reads per block on this host cost more than the
+//!   intervals they measure.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 /// Phase names, indexed like the counters.
-pub(crate) const NAMES: [&str; 7] = [
-    "pack_a",
-    "pack_b",
-    "kernel",
-    "writeback",
-    "block_meta",
-    "permute",
-    "setup",
-];
+pub(crate) const NAMES: [&str; 5] = ["pack_a", "pack_b", "kernel", "writeback", "setup"];
 
-/// The measured phases; `setup` is the derived remainder and has no counter.
-pub(crate) const MEASURED: usize = 6;
-
-static NANOS: [AtomicU64; 6] = [const { AtomicU64::new(0) }; 6];
+static NANOS: [AtomicU64; 4] = [const { AtomicU64::new(0) }; 4];
 static TOTAL: AtomicU64 = AtomicU64::new(0);
 
 /// Accumulates one phase while it is alive.
@@ -68,7 +58,7 @@ impl Drop for Scope {
 /// Start timing phase `i` of [`NAMES`].
 #[inline]
 pub(crate) fn scope(i: usize) -> Scope {
-    assert!(i < MEASURED, "phase index");
+    assert!(i < 4, "phase index");
     Scope(i, Instant::now())
 }
 
@@ -84,13 +74,13 @@ pub(crate) fn report_previous() {
         return;
     }
     let total = TOTAL.swap(0, Ordering::Relaxed);
-    let mut ns = [0u64; 7];
+    let mut ns = [0u64; 5];
     let mut accounted = 0u64;
-    for i in 0..MEASURED {
+    for i in 0..4 {
         ns[i] = NANOS[i].swap(0, Ordering::Relaxed);
         accounted += ns[i];
     }
-    ns[MEASURED] = total.saturating_sub(accounted);
+    ns[4] = total.saturating_sub(accounted);
     if total == 0 {
         return;
     }

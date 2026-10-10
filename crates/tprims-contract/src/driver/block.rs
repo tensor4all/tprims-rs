@@ -17,6 +17,9 @@
 
 use crate::plan::PlanStats;
 
+/// The axes a role can have: the block's scratch is sized from it.
+pub(crate) const MAX_AXES: usize = 8;
+
 /// One axis of an oriented role as the blocked path needs it: its extent and its
 /// stride in the packed operand and in the output. `sc`/`sd` for the m role,
 /// `sb`/`sd` for the n role, and the roles swap under orientation.
@@ -28,22 +31,36 @@ pub(crate) struct Role {
     pub(crate) dst: i64,
 }
 
+impl Role {
+    /// A placeholder for fixed-size scratch before a role is written into it.
+    pub(crate) const EMPTY: Role = Role {
+        extent: 0,
+        src: 0,
+        dst: 0,
+    };
+}
+
 /// The oriented role's axes, in the plan's own order. `swapped`: the plan
 /// exchanges the row and column operands, so the row role is the user's `n`.
-#[allow(dead_code)]
-pub(crate) fn role(stats: &PlanStats, swapped: bool) -> Vec<Role> {
+pub(crate) fn role_into<'a>(
+    stats: &PlanStats,
+    swapped: bool,
+    out: &'a mut [Role; MAX_AXES],
+) -> &'a [Role] {
     let axes = if swapped {
         &stats.n_axes
     } else {
         &stats.m_axes
     };
-    axes.iter()
-        .map(|a| Role {
+    assert!(axes.len() <= MAX_AXES, "role axes fit the scratch");
+    for (o, a) in out.iter_mut().zip(axes) {
+        *o = Role {
             extent: a.extent as usize,
             src: if swapped { a.sb } else { a.sa },
             dst: a.sd,
-        })
-        .collect()
+        };
+    }
+    &out[..axes.len()]
 }
 
 /// Whether the blocked path applies at all: the oriented row role's fastest axes
@@ -64,7 +81,9 @@ pub(crate) fn blocked_eligibility(
     nc: usize,
     per_line: usize,
     mc_budget: usize,
+    mr: usize,
 ) -> Option<BlockShape> {
+    assert!(mr > 0, "the register block is non-empty");
     if k > kc || n > nc {
         return None;
     }
@@ -75,8 +94,9 @@ pub(crate) fn blocked_eligibility(
     if n > 64 || k <= n {
         return None;
     }
-    let axes = role(stats, swapped);
-    let mut shape = eligible(&axes, per_line)?;
+    let mut axes_buf = [Role::EMPTY; MAX_AXES];
+    let axes = role_into(stats, swapped, &mut axes_buf);
+    let mut shape = eligible(axes, per_line)?;
     // A block must fit the `MC` budget: the packed `A` panel is sized from `MC`, and a
     // block that overruns it would write past the panel. The block's row count is the
     // span axis whole times a line's worth along the operand's fastest axis - every
@@ -86,6 +106,14 @@ pub(crate) fn blocked_eligibility(
     let span = axes[shape.span].extent.max(1);
     let per_block = (mc_budget / span).max(1);
     shape.line_len = shape.line_len.min(per_block);
+    // What the panel, the tile grid and the block's row map are actually sized from is the
+    // block *rounded up to whole tiles*, which can be `MR - 1` rows larger than the block;
+    // and `span` alone can exceed the budget. Both are panics in `run_block`'s scratch, so
+    // they are conditions here rather than assertions there.
+    let block_rows = span.saturating_mul(shape.line_len);
+    if block_rows.next_multiple_of(mr) > mc_budget {
+        return None;
+    }
     Some(shape)
 }
 
@@ -144,17 +172,22 @@ pub(crate) fn eligible(axes: &[Role], per_line: usize) -> Option<BlockShape> {
 /// The indices are mixed-radix over the role's axes, which is the numbering the
 /// plan's scatters use, so they can index every operand's scatter - the element
 /// offsets differ per operand, the logical row does not.
-#[allow(dead_code)] // the enumerator that consumes it lands with the design's next step
-pub(crate) fn rows(axes: &[Role], shape: BlockShape, origin: &[usize]) -> Vec<i64> {
-    let mut strides = vec![0i64; axes.len()];
+/// [`rows`] into a caller's buffer, returning how many rows it wrote: the blocked path
+/// must not allocate, and the driver reuses one stack buffer for every block.
+pub(crate) fn rows_into(
+    axes: &[Role],
+    shape: BlockShape,
+    origin: &[usize],
+    out: &mut [i64],
+) -> usize {
+    let mut strides = [0i64; MAX_AXES];
     let mut acc = 1i64;
     for (i, a) in axes.iter().enumerate() {
         strides[i] = acc;
         acc *= a.extent as i64;
     }
     let span_len = axes[shape.span].extent;
-    let n = shape.line_len * span_len;
-    let mut out = Vec::with_capacity(n);
+    let mut n = 0;
     for s in 0..span_len {
         for l in 0..shape.line_len {
             // A role's extent need not be a whole number of lines: the last block on
@@ -163,8 +196,11 @@ pub(crate) fn rows(axes: &[Role], shape: BlockShape, origin: &[usize]) -> Vec<i6
             if origin[shape.line] + l >= axes[shape.line].extent {
                 break;
             }
+            if n == out.len() {
+                return n;
+            }
             let mut row = 0i64;
-            for (i, &st) in strides.iter().enumerate() {
+            for (i, &st) in strides.iter().enumerate().take(axes.len()) {
                 let v = if i == shape.line {
                     origin[i] + l
                 } else if i == shape.span {
@@ -174,9 +210,19 @@ pub(crate) fn rows(axes: &[Role], shape: BlockShape, origin: &[usize]) -> Vec<i6
                 };
                 row += v as i64 * st;
             }
-            out.push(row);
+            out[n] = row;
+            n += 1;
         }
     }
+    n
+}
+
+/// [`rows_into`] as a `Vec`, for tests.
+#[cfg(test)]
+pub(crate) fn rows(axes: &[Role], shape: BlockShape, origin: &[usize]) -> Vec<i64> {
+    let mut out = vec![0i64; shape.line_len * axes[shape.span].extent];
+    let n = rows_into(axes, shape, origin, &mut out);
+    out.truncate(n);
     out
 }
 
@@ -187,7 +233,57 @@ pub(crate) fn rows(axes: &[Role], shape: BlockShape, origin: &[usize]) -> Vec<i6
 /// The origins tile the role exactly once, which is what the coverage gate checks:
 /// the block rows of an eligible role, concatenated, are a permutation of
 /// `0..extent_product`.
-#[allow(dead_code)] // the enumerator that consumes it lands with the design's next step
+/// Every block origin a role needs, one at a time and without allocating.
+///
+/// The span axis has a single origin (a block takes it whole), the line axis steps by a
+/// line, and every other axis steps by one. `state` is the caller's scratch; call `next`
+/// until it returns `false`. The first call returns the all-zero origin. The originals
+/// used to be materialized as a `Vec<Vec<usize>>`, one inner allocation per block, which
+/// the blocked path cannot afford under the workspace's no-allocation contract.
+pub(crate) struct Origins {
+    state: [usize; MAX_AXES],
+    started: bool,
+}
+
+impl Origins {
+    pub(crate) fn new() -> Origins {
+        Origins {
+            state: [0; MAX_AXES],
+            started: false,
+        }
+    }
+
+    /// The next origin in `state`, or `None` when they are exhausted.
+    pub(crate) fn next(&mut self, axes: &[Role], shape: BlockShape) -> Option<&[usize]> {
+        if self.started {
+            // An odometer over the axes that step, in the role's own order.
+            // The highest-numbered axis that steps varies fastest, which is the order the
+            // materialized list used; the block set is the same either way, but keeping
+            // the order lets the coverage test compare them exactly.
+            let mut carried = true;
+            for i in (0..axes.len()).rev() {
+                if i == shape.span {
+                    continue;
+                }
+                let step = if i == shape.line { shape.line_len } else { 1 };
+                self.state[i] += step;
+                if self.state[i] < axes[i].extent {
+                    carried = false;
+                    break;
+                }
+                self.state[i] = 0;
+            }
+            if carried {
+                return None;
+            }
+        }
+        self.started = true;
+        Some(&self.state[..axes.len()])
+    }
+}
+
+/// [`Origins`] as a `Vec`, for tests that compare it against the coverage property.
+#[cfg(test)]
 pub(crate) fn block_origins(axes: &[Role], shape: BlockShape) -> Vec<Vec<usize>> {
     let mut out = vec![vec![0usize; axes.len()]];
     for i in 0..axes.len() {
@@ -382,20 +478,64 @@ mod tests {
     }
 
     #[test]
+    fn the_incremental_origins_match_the_materialized_ones() {
+        // The driver walks the origins without allocating; the materialized list is the
+        // reference the coverage gate checks, so they must agree exactly.
+        let s = stats();
+        let mut buf = [Role::EMPTY; MAX_AXES];
+        let axes = role_into(&s, false, &mut buf);
+        let shape = eligible(axes, 8).expect("the measured case is eligible");
+        let want = block_origins(axes, shape);
+        assert!(want.len() > 1, "more than one block");
+        let mut next = Origins::new();
+        let mut got = Vec::new();
+        while let Some(o) = next.next(axes, shape) {
+            got.push(o.to_vec());
+        }
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn eligibility_asks_for_a_profitable_shape() {
+        let s = stats();
+        // The measured class: a thin output against a deeper contraction (`k > n`), which
+        // is where the block's contiguous pack pays for its permutation and metadata.
+        assert!(blocked_eligibility(&s, false, 48, 40, 256, 1536, 8, 480, 24).is_some());
+        // A fat output: neutral at best over the corpus and losing on some cases.
+        assert!(blocked_eligibility(&s, false, 48, 128, 256, 1536, 8, 480, 24).is_none());
+        // No deeper than the output: nothing for the block to buy.
+        assert!(blocked_eligibility(&s, false, 40, 40, 256, 1536, 8, 480, 24).is_none());
+        assert!(blocked_eligibility(&s, false, 20, 40, 256, 1536, 8, 480, 24).is_none());
+    }
+
+    #[test]
+    fn eligibility_rejects_a_block_that_does_not_fit_after_tile_rounding() {
+        let mut s = stats();
+        // A span wider than the row budget: not even one line's worth fits.
+        s.m_axes[2].extent = 481;
+        assert!(blocked_eligibility(&s, false, 2, 1, 256, 1536, 8, 480, 24).is_none());
+        // 60 x 8 = 480 rows fit exactly, but the panel, the tile grid and the row map are
+        // sized from the block *rounded up to whole `MR` tiles*, so `MR = 25` does not.
+        s.m_axes[2].extent = 60;
+        assert!(blocked_eligibility(&s, false, 2, 1, 256, 1536, 8, 480, 24).is_some());
+        assert!(blocked_eligibility(&s, false, 2, 1, 256, 1536, 8, 480, 25).is_none());
+    }
+
+    #[test]
     fn eligibility_needs_one_k_slab_and_one_nc_panel() {
         let s = stats();
         // The measured case: k = 48 <= kc = 256 and n = 40 <= nc = 1536.
-        assert!(blocked_eligibility(&s, false, 48, 40, 256, 1536, 8, 480).is_some());
+        assert!(blocked_eligibility(&s, false, 48, 40, 256, 1536, 8, 480, 24).is_some());
         assert!(
-            blocked_eligibility(&s, false, 48, 40, 32, 1536, 8, 480).is_none(),
+            blocked_eligibility(&s, false, 48, 40, 32, 1536, 8, 480, 24).is_none(),
             "two K slabs"
         );
         assert!(
-            blocked_eligibility(&s, false, 48, 40, 256, 16, 8, 480).is_none(),
+            blocked_eligibility(&s, false, 48, 40, 256, 16, 8, 480, 24).is_none(),
             "two NC panels"
         );
         // The n role is a single axis, so a swapped plan has nothing to block.
-        assert!(blocked_eligibility(&s, true, 48, 40, 256, 1536, 8, 480).is_none());
+        assert!(blocked_eligibility(&s, true, 48, 40, 256, 1536, 8, 480, 24).is_none());
     }
 
     /// The origins tile the role exactly once: every row of every operand appears

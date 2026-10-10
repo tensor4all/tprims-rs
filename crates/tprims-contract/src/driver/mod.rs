@@ -146,6 +146,7 @@ use tile::{compute_block, pack_a_rows, pack_b_slivers, Bufs, Epoch};
 use tprims_kernel::pack::panel_len;
 use tprims_kernel::scatter::append_block_scatter;
 use tprims_kernel::writeback::scale_only;
+use tprims_kernel::UkrFn;
 use tprims_kernel::{Axis, BAccess, Blocking, DriverFamily, Element};
 
 /// Operand-dependent decisions the driver makes once per execute, kept
@@ -609,12 +610,21 @@ where
         nc,
         (64 / core::mem::size_of::<T>()).max(1),
         BLOCK_MC_BUDGET,
+        mr,
     )
-    // Only whole-row-strip workers: the blocked path enumerates every block of the role,
-    // which is only the worker's own work when its strip is the whole `m` range.
-    // Partitioning the block itself is a separate change; until then a split `m` keeps
-    // today's traversal.
-    .filter(|_| pm == 1);
+    // **Serial only**, and not with a family that writes `D` itself:
+    //
+    // * The blocked path enumerates every block of the role, which is only a worker's own
+    //   work when its strip is the whole `m` range - so `pm == 1`. It also fills only its
+    //   own column tiles, while the grid permutation reads every column tile of the grid,
+    //   so `pn == 1` as well; with a column-group worker the permutation would read grid
+    //   slots nobody initialized. Partitioning the block itself is a separate change.
+    // * A Direct family writes `D` inside the tile call instead of the tile, so a
+    //   collected tile would never be written and the emission below would read scratch
+    //   that no kernel touched. `direct_tile` also tests `collect` now, which is the
+    //   invariant itself; this filter keeps such a call off the path entirely.
+    .filter(|_| pm == 1 && pn == 1)
+    .filter(|_| !matches!(fam.kernel, UkrFn::Direct(_)));
     // Two whole grids when it applies: the block's own row order and the output's.
     // The block is the span axis whole times a line's worth along the operand's fastest
     // axis; every other axis contributes one value, exactly as `block::rows` builds it. It
@@ -622,7 +632,8 @@ where
     let block_rows = match blocked {
         None => 0,
         Some(shape) => {
-            let axes = block::role(&plan.stats, swap);
+            let mut axes_buf = [block::Role::EMPTY; block::MAX_AXES];
+            let axes = block::role_into(&plan.stats, swap, &mut axes_buf);
             axes[shape.span].extent * shape.line_len
         }
     };
@@ -674,7 +685,9 @@ where
             // Which strides the role actually has, not just how long its axes are: two
             // shapes with the same `BlockShape` and different strides behave very
             // differently under this traversal, and that is what this prints.
-            eprintln!("BLOCKED-AXES {:?}", block::role(&plan.stats, swap));
+            let mut axes_buf = [block::Role::EMPTY; block::MAX_AXES];
+            let axes = block::role_into(&plan.stats, swap, &mut axes_buf);
+            eprintln!("BLOCKED-AXES {axes:?}");
         }
     }
     // C-line aligned strips, when asked for: one line of `C` is 64 bytes, so

@@ -224,10 +224,21 @@ pub(super) unsafe fn run_strip<T>(
                     // block's accumulator is complete here and is emitted once, after
                     // its rows are permuted into the output's order.
                     if jr_lo < jr_hi {
-                        let axes = block::role(&cx.plan.stats, cx.plan.transposes_gemm(cx.mr));
-                        for origin in block::block_origins(&axes, shape) {
-                            let rows = block::rows(&axes, shape, &origin);
-                            run_block::<T>(cx, &ep, bufs, &rows, jr_lo, jr_hi);
+                        // The role, the block's rows and the block origins are all walked in
+                        // fixed-size scratch: a steady-state execute must not allocate, and
+                        // materializing the origins as a `Vec<Vec<usize>>` allocated once per
+                        // block.
+                        let mut axes_buf = [block::Role::EMPTY; block::MAX_AXES];
+                        let axes = block::role_into(
+                            &cx.plan.stats,
+                            cx.plan.transposes_gemm(cx.mr),
+                            &mut axes_buf,
+                        );
+                        let mut origins = block::Origins::new();
+                        let mut rows_buf = [0i64; super::BLOCK_MC_BUDGET];
+                        while let Some(origin) = origins.next(axes, shape) {
+                            let live = block::rows_into(axes, shape, origin, &mut rows_buf);
+                            run_block::<T>(cx, &ep, bufs, &rows_buf[..live], jr_lo, jr_hi);
                         }
                     }
                 } else {

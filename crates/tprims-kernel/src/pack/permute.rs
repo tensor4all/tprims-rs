@@ -25,7 +25,7 @@ use crate::TileFormat;
 /// This mirrors `tile_value`'s addressing without combining planes: `Planar`'s two
 /// planes, `FourM`'s four, `OneM`'s doubled rows, and the recombining methods'
 /// three and four planes are all copied as they are.
-pub fn slots(
+pub(crate) fn slots(
     fmt: TileFormat,
     mr: usize,
     nr: usize,
@@ -95,13 +95,12 @@ pub unsafe fn permute_grid_rows<R: Real>(
     mr: usize,
     nr: usize,
     fmt: TileFormat,
-    reals: usize,
     mtiles: usize,
     ntiles: usize,
     row_map: &[u32],
 ) {
     debug_assert_eq!(row_map.len(), mtiles * mr, "one entry per destination row");
-    let tile = reals * mr * nr;
+    let tile = crate::tile_planes(fmt) * mr * nr;
     for t in 0..mtiles {
         for i in 0..mr {
             let r = row_map[t * mr + i] as usize;
@@ -166,9 +165,7 @@ mod tests {
             let src: Vec<f64> = (0..n).map(|i| i as f64 + 0.5).collect();
             let mut dst = vec![f64::NAN; n];
             let map: Vec<u32> = (0..(2 * MR) as u32).collect();
-            unsafe {
-                permute_grid_rows(src.as_ptr(), dst.as_mut_ptr(), MR, NR, fmt, r, 2, 2, &map)
-            };
+            unsafe { permute_grid_rows(src.as_ptr(), dst.as_mut_ptr(), MR, NR, fmt, 2, 2, &map) };
             assert_eq!(dst, src, "{fmt:?}");
         }
     }
@@ -186,7 +183,7 @@ mod tests {
         // Destination tile 0 row 1 takes source tile 1 row 2.
         let mut map: Vec<u32> = (0..(mt * MR) as u32).collect();
         map[1] = (MR + 2) as u32;
-        unsafe { permute_grid_rows(src.as_ptr(), dst.as_mut_ptr(), MR, NR, fmt, r, mt, nt, &map) };
+        unsafe { permute_grid_rows(src.as_ptr(), dst.as_mut_ptr(), MR, NR, fmt, mt, nt, &map) };
         let tile = r * MR * NR;
         let mut sd = [0usize; 4];
         let mut ss = [0usize; 4];

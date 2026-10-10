@@ -344,6 +344,10 @@ Fitting that to the corpus gives a rule that is real but not worth having:
 | `k > n` | 32 | 3 | 3 | ×0.998 |
 | `n <= 64` and `k > n` | 6 | 3 | 1 | **×1.024** |
 
+That last row is a *first* fit, and it is wrong in a way `§14` records: its population was
+selected from the CSV's `m`/`n`/`k`, which are the unoriented contraction, while the
+eligibility sees the *oriented role* dimensions.
+
 Two and a half percent in the best-selected class, with a case that still loses, is
 not a promotion: the switch stays off, this stays out of a PR, and the objective it
 was written for - update both repositories with a TBLIS-equivalent algorithm that
@@ -383,8 +387,53 @@ So the remaining work is not a mystery any more, and it is bounded:
   hot. The gathers read the *global* scatter tables (736 KB each) at the block's own
   row indices, one cache miss per row; the block's offsets are also computable
   arithmetically from the axis strides the role already carries.
-* **`permute`, 5.5 ms.** A 30 MB copy at ~0.8 GB/s because it is a strided gather. It
+* **`permute`, 5.5 ms.** A 30 MB gather at about 5.5 GB/s, slow for the volume because it
   is inherent to the design (a panel tile spans several operand line-runs, so it is
   never a whole destination tile - which is why the direct-emit variant never
   triggers), so removing it means letting the emit write a per-row offset list instead
   of one stride per tile: a design-level change, not a tuning step.
+
+## 14. Corrections after the independent review
+
+An independent review (`gpt-6.1-sol`, the finished diff and the sources) found two
+blockers, and they were right. Both are fixed, and with them the path narrowed:
+
+* **A Direct family wrote `D` instead of the tile.** `direct_tile` did not test whether the
+  call was collecting, so an eligible blocked call could compute straight into `D`, leave
+  its grid slot unwritten, and then have `run_block` emit that unwritten slot. The guard now
+  tests `collect`, which is the invariant, and the eligibility additionally refuses a
+  Direct family - as this design always claimed it did.
+* **The permutation read grid slots nobody had written.** Each column-group worker fills
+  only its own column tiles, while `permute_grid_rows` walks every column of the grid. The
+  eligibility now requires `pm == 1 && pn == 1`: the blocked path is serial, which is where
+  it was measured, and partitioning the block itself stays a separate change. A Direct
+  family that fell back to scratch also wrote only its live lanes while the permutation read
+  a whole `nr`; refusing Direct families removes that too.
+* **The row budget was not enforced.** `(mc_budget / span).max(1)` admits a `span` larger
+  than the budget, and the panel, the tile grid and the block's row map are sized from the
+  block *rounded up to whole `MR` tiles*, which can be `MR - 1` rows larger than the block.
+  Both are now conditions in the eligibility rather than panics in `run_block`, with tests.
+* **The traversal allocated.** `role`, `block_origins` (a `Vec<Vec<usize>>`, one allocation
+  per block) and `rows` each allocated per execute, which the workspace's no-allocation
+  contract forbids. They are now fixed-size scratch (`role_into`, `Origins`, `rows_into`),
+  and the incremental origins are checked against the materialized list. **Not verified:**
+  `tests/packed_workspace_alloc` exercises an ordinary matrix multiplication, whose single
+  folded row axis can never select this path, so the blocked path's zero-allocation claim
+  rests on reading the code, not on that test.
+* **The phase account was not disjoint.** `block_meta` contained `pack_a` and `kernel`, the
+  scopes were taken per block rather than per call, and clock reads per block on this host
+  cost more than the intervals they measure. Those two phases were removed again; the
+  instrument is back to four phases plus `setup`, which is a remainder and not an exclusive
+  measurement. The blocked path's own work is in `setup` and in `writeback`, and the numbers
+  in §13 are inclusive, not a partition. The derived "kernel (own)" and "3.1 ms of metadata"
+  figures are withdrawn.
+* **Provenance.** The block-scatter helpers adapt Matthews' scheme, which
+  `docs/provenance.md` says a citation covers for an independently written implementation;
+  no TBLIS code was translated. Upstream correspondence was not verified by the reviewer and
+  is not claimed here.
+
+What survives the review, measured again after the fixes with the eligibility narrowed, is
+the improvement itself: over the same 98 tcbench rows at 1T, `abjc-cbka-kj` f64 goes
+42.0 -> 24.7 ms (x1.70), `adbjc-cbdka-kj` f64 46.2 -> 28.4 ms (x1.63), and the c64 rows of
+both 1.21x and 1.15x, with no eligible row slower. The four rows that read 3-7% worse are
+all ineligible, take the same code path in both versions, and are therefore drift.
