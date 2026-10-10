@@ -47,6 +47,41 @@ zero-fill per tile.
 - `build.rs` — one `cc -O3 -march=native -DCNAME=... -c` invocation (no `cc`
   crate).
 
+## Results
+
+`results/2026-10-10/` (1T, `--reps 5`, 1500 ms of priming per arm, one core of one L3
+domain, the default family versus the imported kernel through the same driver, packers,
+blocking and write-back):
+
+| case | tprims (`avx512.f64.real.24x8`) | OpenBLAS (`dgemm_kernel_16x2_skylakex`) | ratio |
+|---|---|---|---|
+| `gemm-1024-col` | 47.6 GFLOP/s | 29.1 GFLOP/s | 1.64x |
+| `gemm-512-col` | 47.1 | 29.4 | 1.60x |
+| `strided-1024-rowa` | 47.2 | 29.2 | 1.62x |
+| `gemm-92160x40x48-col` | 29.4 | 21.1 | 1.39x |
+| `gemm-3456x3456x24-col` | 39.0 | 19.9 | 1.96x |
+
+Two readings:
+
+- **The default kernel is faster than this production kernel on every shape tested,
+  including the class the tensor corpus separates on.** `gemm-92160x40x48-col` is the
+  effective GEMM of `abjc-cbka-kj` at 16 MiB (`m` = 92160, `n` = 40, `k` = 48), where the
+  reference beats this library by 1.5x on the tensor corpus; here the default kernel is
+  1.39x *ahead* of the imported one. The micro-kernel is therefore not what that loss is
+  made of, and swapping kernels would make it worse.
+- **`results/2026-10-07/` was taken with a single warm-up call per arm**, before this
+  bench primed by wall clock. That leaves the arm measured first reading up to 40% low
+  on this host (see `PERFORMANCE_TIPS.md`), and the default family is always that arm
+  here, so those numbers understated it. They stay as history; use the 2026-10-10 run.
+
+What this experiment does **not** show: every case here is a *contiguous* column-major
+GEMM, and the tensor corpus is not. In `abjc-cbka-kj` the folded `m` axis is `j`, whose
+stride in `A = abjc` is `a*b`, and the contracted group `(a,b,c)` has strides `(1, a,
+a*b*j)`, so the packing reads a strided, interleaved panel rather than a matrix. The
+same dimensions run at 29.4 GFLOP/s contiguously here and at 9.3 GFLOP/s inside that
+tensor case, which is where the loss lives; reproducing it needs a tensor `Problem`
+with the corpus's label sets, not a matrix.
+
 ## Build & run
 
 ```sh
@@ -68,5 +103,7 @@ cargo run --release --bin bench -- --threads 1,4,8,12
   false`), which real f64 never needs.
 - `bench.rs` does no affinity pinning; run it under the `tprims-benchmark`
   skill protocol for any number worth recording.
+- Every case is a contiguous column-major GEMM; the tensor corpus's strided,
+  interleaved panels are not covered here (see Results).
 
 [`KernelFamily`]: https://docs.rs/tprims-kernel/latest/tprims_kernel/struct.KernelFamily.html
