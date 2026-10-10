@@ -59,6 +59,11 @@ pub(super) struct Epoch<T: Element> {
     pub(super) q0: usize,
 }
 
+/// Rows a blocked outer traversal holds in one block: the driver's eligibility shrinks
+/// the block to `BLOCK_MC_BUDGET`, and `run_block` keeps its local metadata on the
+/// stack because a steady-state execute must not allocate.
+const BLOCK_ROWS_MAX: usize = super::BLOCK_MC_BUDGET;
+
 /// One worker's private buffers.
 #[derive(Clone, Copy)]
 pub(super) struct Bufs<R> {
@@ -413,34 +418,62 @@ pub(super) unsafe fn run_block<T>(
 {
     let (mr, nr, cm, dm, beta) = (cx.mr, cx.nr, cx.cm, cx.dm, cx.beta);
     let live = rows.len();
-    let mtiles = live.div_ceil(mr).max(1);
-    let ntiles = bufs.ntiles;
-    // The block's own row order: the operand's runs together, the output's not.
-    let a_m = super::block::gather(cx.am, rows);
-    let dm_rows = super::block::gather(dm, rows);
-    let cm_rows = if cm.is_empty() {
-        Vec::new()
-    } else {
-        super::block::gather(cm, rows)
-    };
-    let a_m_bs = tprims_kernel::scatter::build_block_scatter(&a_m, mr);
-    let d_m_bs = tprims_kernel::scatter::build_block_scatter(&dm_rows, mr);
-    let c_m_bs = if cm_rows.is_empty() {
-        Vec::new()
-    } else {
-        tprims_kernel::scatter::build_block_scatter(&cm_rows, mr)
-    };
-    pack_a_rows::<T>(cx, ep, &a_m, &a_m_bs, live, bufs.ap);
-    compute_block::<T>(
-        cx, ep, bufs, &cm_rows, &dm_rows, &c_m_bs, &d_m_bs, live, jr_lo, jr_hi,
+    // Everything below is bounded by the block's row budget, so the local metadata is
+    // on the stack: a steady-state execute must not allocate
+    // (`tests/packed_workspace_alloc`), and the per-block `Vec`s this used to build
+    // cost more than the blocked path saved (about 9 ms of a 23 ms call).
+    assert!(
+        live <= BLOCK_ROWS_MAX,
+        "blocked path: {live} rows exceed the {BLOCK_ROWS_MAX}-row scratch"
     );
+    let mtiles = live.div_ceil(mr).max(1);
+    assert!(
+        mtiles * mr <= BLOCK_ROWS_MAX,
+        "blocked path: the row map does not fit the scratch"
+    );
+    let ntiles = bufs.ntiles;
+    let mut a_m_buf = [0i64; BLOCK_ROWS_MAX];
+    let mut dm_buf = [0i64; BLOCK_ROWS_MAX];
+    let mut cm_buf = [0i64; BLOCK_ROWS_MAX];
+    let mut a_bs_buf = [0i64; BLOCK_ROWS_MAX];
+    let mut d_bs_buf = [0i64; BLOCK_ROWS_MAX];
+    let mut c_bs_buf = [0i64; BLOCK_ROWS_MAX];
+    let mut order_buf = [0u32; BLOCK_ROWS_MAX];
+    let mut dm_out_buf = [0i64; BLOCK_ROWS_MAX];
+    let mut cm_out_buf = [0i64; BLOCK_ROWS_MAX];
+    let mut d_bs_out_buf = [0i64; BLOCK_ROWS_MAX];
+    let mut c_bs_out_buf = [0i64; BLOCK_ROWS_MAX];
+    // The block's own row order: the operand's runs together, the output's not.
+    let (a_m, dm_rows) = (&mut a_m_buf[..live], &mut dm_buf[..live]);
+    super::block::gather_into(cx.am, rows, a_m);
+    super::block::gather_into(dm, rows, dm_rows);
+    let has_c = !cm.is_empty();
+    let cm_rows = &mut cm_buf[..if has_c { live } else { 0 }];
+    if has_c {
+        super::block::gather_into(cm, rows, cm_rows);
+    }
+    let n = tprims_kernel::scatter::build_block_scatter_into(a_m, mr, &mut a_bs_buf);
+    let a_m_bs = &a_bs_buf[..n];
+    let n = tprims_kernel::scatter::build_block_scatter_into(dm_rows, mr, &mut d_bs_buf);
+    let d_m_bs = &d_bs_buf[..n];
+    let n = if has_c {
+        tprims_kernel::scatter::build_block_scatter_into(cm_rows, mr, &mut c_bs_buf)
+    } else {
+        0
+    };
+    let c_m_bs = &c_bs_buf[..n];
+    pack_a_rows::<T>(cx, ep, a_m, a_m_bs, live, bufs.ap);
+    compute_block::<T>(cx, ep, bufs, cm_rows, dm_rows, c_m_bs, d_m_bs, live, jr_lo, jr_hi);
 
     // Whole rows into the output's order, then emit from the permuted grid. The
     // permutation covers `mtiles * mr` rows because the grid is a whole number of
     // tiles; the lanes past `live` are never emitted (`mrem` clips them) and only
     // need the map to be in bounds.
-    let mut order = super::block::output_order(&dm_rows);
-    order.resize(mtiles * mr, 0);
+    let order = &mut order_buf[..mtiles * mr];
+    super::block::output_order_into(&dm_rows[..live], &mut order[..live]);
+    // The lanes past `live` are never emitted (`mrem` clips them); 0 keeps the map in
+    // bounds for the permute's gather.
+    order[live..].fill(0);
     let planes = tprims_kernel::tile_planes(cx.fam.tile_fmt);
     let tile_len = planes * mr * nr;
     // SAFETY: the caller sized both grids for a whole block; `order` is a permutation
@@ -455,21 +488,27 @@ pub(super) unsafe fn run_block<T>(
             planes,
             mtiles,
             ntiles,
-            &order,
+            order,
         )
     };
-    let dm_out: Vec<i64> = order[..live].iter().map(|&r| dm_rows[r as usize]).collect();
-    let d_m_bs_out = tprims_kernel::scatter::build_block_scatter(&dm_out, mr);
-    let cm_out: Vec<i64> = if cm_rows.is_empty() {
-        Vec::new()
+    let dm_out = &mut dm_out_buf[..live];
+    for (o, &r) in dm_out.iter_mut().zip(&order[..live]) {
+        *o = dm_rows[r as usize];
+    }
+    let n = tprims_kernel::scatter::build_block_scatter_into(dm_out, mr, &mut d_bs_out_buf);
+    let d_m_bs_out = &d_bs_out_buf[..n];
+    let cm_out = &mut cm_out_buf[..if has_c { live } else { 0 }];
+    if has_c {
+        for (o, &r) in cm_out.iter_mut().zip(&order[..live]) {
+            *o = cm_rows[r as usize];
+        }
+    }
+    let n = if has_c {
+        tprims_kernel::scatter::build_block_scatter_into(cm_out, mr, &mut c_bs_out_buf)
     } else {
-        order[..live].iter().map(|&r| cm_rows[r as usize]).collect()
+        0
     };
-    let c_m_bs_out = if cm_out.is_empty() {
-        Vec::new()
-    } else {
-        tprims_kernel::scatter::build_block_scatter(&cm_out, mr)
-    };
+    let c_m_bs_out = &c_bs_out_buf[..n];
     let Epoch {
         ch, dh, jc, jc_len, ..
     } = *ep;

@@ -236,3 +236,44 @@ one pass over a block.
 Therefore the rule for promotion is the intersection of the two domains: the
 eligibility must select the thin-output, shallow-K class *and* the implementation must
 first stop allocating per block. Until both hold, the switch stays off.
+
+## 10. The allocation fix lands; promotion still does not
+
+Moving `run_block`'s local metadata from per-block `Vec`s to stack arrays bounded by
+`BLOCK_ROWS_MAX` (= `BLOCK_MC_BUDGET`, 480) changed the picture from "the mechanism is
+right but the implementation loses" to "the implementation is nearly free":
+
+| 1T, 16 MiB, `--engines packed`, same session | helped | hurt | neutral | median |
+| --- | --- | --- | --- | --- |
+| before the fix | 2 | 94 | 2 | ×0.80 |
+| after the fix | 8 | 15 | 75 | ×1.00 |
+
+and the measured case went 43.4 -> 31.3 ms (11.2 GF/s against 8.2 off). Two bugs came
+out of the same work and are now fixed: the row map must be sorted over `live` rows
+only and padded after (a `live % mr != 0` shape indexed past the end), and the grid
+slot must be the *global* column tile (`jr_lo + jt * nr`) or two column-group workers
+overwrite each other's tiles.
+
+But promotion needs a profitability test, and the geometry does not give one. Taking
+`BlockShape` per case, a win and a loss can be identical in every field this design
+records:
+
+| case | dtype | `span` | `line` | `line_len` | `grid_elems` | ratio |
+| --- | --- | --- | --- | --- | --- | --- |
+| `adbjc-cbdka-kj` | f64 | 0 | 3 | 1 | 230400 | **×1.22** |
+| `abjcd-dkbac-jk` | f64 | 0 | 3 | 1 | 230400 | **×0.74** |
+| `abjc-cbka-kj` | f64 | 0 | 2 | 1 | 76800 | ×1.15 |
+| `abjc-kbac-jk` | f64 | 0 | 1 | 1 | 92160 | ×0.73 |
+| `abj-bka-kj` | f64 | 0 | 1 | 3 | 55296 | ×0.77 |
+
+`line_len == 1` (the configuration the design is written for) holds on both sides, and
+`line >= 2` holds on both sides too. The remaining difference has to be in how the
+*operand* is laid out inside the block - the scatter regularity the pack loop walks -
+which this design does not yet record and which is therefore the next measurement, not
+a guess to be baked into an eligibility rule.
+
+So the switch stays off, and per the standing instruction this investigation is not a
+PR: it does not improve any published number yet. What it does deliver is the
+mechanism, measured and bounded (`pack_a` 27.6 -> 5.5 ms), a cost-neutral
+implementation, two fixed memory bugs with their gate, and the reference's own
+applicability range (§9) to aim at.
